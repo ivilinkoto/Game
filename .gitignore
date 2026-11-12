@@ -1,0 +1,6 @@
+build/
+*.amx
+scriptfiles/*.db
+scriptfiles/*.db-*
+logs/
+*.log

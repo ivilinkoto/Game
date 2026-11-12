@@ -1,0 +1,11 @@
+// Уникални ID-та на всички диалози
+enum {
+    DIALOG_NONE,
+    DIALOG_LOGIN,
+    DIALOG_REGISTER,
+    DIALOG_REGISTER_CONFIRM,
+    DIALOG_GENDER,
+    DIALOG_SHOP,
+    DIALOG_SHOP_CONFIRM,
+    DIALOG_INFO
+}

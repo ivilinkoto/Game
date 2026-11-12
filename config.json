@@ -1,0 +1,25 @@
+{
+    "name": "BG RolePlay | Mobile & PC",
+    "max_players": 200,
+    "language": "Bulgarian",
+    "website": "www.example.com",
+    "announce": true,
+    "network": {
+        "port": 7777
+    },
+    "rcon": {
+        "enable": false,
+        "password": "SMENI_TAZI_PAROLA"
+    },
+    "pawn": {
+        "main_scripts": [
+            "rp 1"
+        ],
+        "side_scripts": [],
+        "legacy_plugins": []
+    },
+    "game": {
+        "use_entry_exit_markers": true,
+        "use_stunt_bonuses": false
+    }
+}
