@@ -5,14 +5,13 @@
 //
 // Textdraw шрифтовете на GTA нямат кирилица, затова надписите са на латиница.
 
+// Всички започват от нулата – като клошари. По-добри дрехи ще се купуват в магазините.
 static const MaleSkins[] = {
-    7, 14, 15, 17, 19, 20, 21, 22, 23, 26, 29, 46,
-    47, 48, 60, 72, 98, 101, 170, 180, 184, 185, 188, 250
+    78, 79, 134, 135, 137, 200, 212, 213, 230, 239
 };
 
 static const FemaleSkins[] = {
-    9, 11, 12, 13, 40, 41, 55, 56, 69, 76, 91, 93,
-    141, 148, 150, 169, 190, 191, 192, 193, 211, 216, 226, 233
+    77, 130, 131, 157, 196, 198
 };
 
 enum {
@@ -22,6 +21,8 @@ enum {
     SKIN_TD_LEFT,
     SKIN_TD_SELECT,
     SKIN_TD_RIGHT,
+    SKIN_TD_LEFT_ICON,
+    SKIN_TD_RIGHT_ICON,
     SKIN_TD_COUNT
 }
 
@@ -45,6 +46,16 @@ stock Text:Skin_CreateButton(Float:x, Float:y, const text[], boxColour, Float:wi
     // При центриран textdraw: (височина на зоната за натискане, ширина)
     TextDrawTextSize(td, 18.0, width);
     TextDrawSetSelectable(td, true);
+    return td;
+}
+
+// Стрелка-картинка, центрирана върху бутон с център (x, y)
+stock Text:Skin_CreateArrow(Float:x, Float:y, const sprite[])
+{
+    new Text:td = TextDrawCreate(x - 8.0, y + 0.5, sprite);
+    TextDrawFont(td, TEXT_DRAW_FONT_SPRITE_DRAW);
+    TextDrawTextSize(td, 16.0, 16.0);
+    TextDrawColour(td, COLOR_WHITE);
     return td;
 }
 
@@ -79,9 +90,14 @@ stock Skin_CreateTextDraws()
     TextDrawTextSize(gSkinTD[SKIN_TD_PANEL], 0.0, 300.0);
 
     // Бутони
-    gSkinTD[SKIN_TD_LEFT] = Skin_CreateButton(225.0, 382.0, "~<~", 0x2A2A2AFF, 55.0);
+    gSkinTD[SKIN_TD_LEFT] = Skin_CreateButton(225.0, 382.0, "_", 0x2A2A2AFF, 55.0);
     gSkinTD[SKIN_TD_SELECT] = Skin_CreateButton(320.0, 382.0, "SELECT", COLOR_BRAND, 110.0);
-    gSkinTD[SKIN_TD_RIGHT] = Skin_CreateButton(415.0, 382.0, "~>~", 0x2A2A2AFF, 55.0);
+    gSkinTD[SKIN_TD_RIGHT] = Skin_CreateButton(415.0, 382.0, "_", 0x2A2A2AFF, 55.0);
+
+    // Стрелките са картинки от играта (символите ~<~ ~>~ не се виждат на мобилни клиенти).
+    // Не са избираеми – натискането минава към бутона под тях.
+    gSkinTD[SKIN_TD_LEFT_ICON] = Skin_CreateArrow(225.0, 382.0, "ld_beat:left");
+    gSkinTD[SKIN_TD_RIGHT_ICON] = Skin_CreateArrow(415.0, 382.0, "ld_beat:right");
 }
 
 // ------------------------------------------------------------
