@@ -42,11 +42,18 @@ enum E_PLAYER_DATA {
     bool:pBanned,
     pBanInfo[256],
     bool:pDied,
-    pLastUpdateTick,    // последен пакет от клиента (за AFK)
-    pIdleMinutes,       // поредни минути без движение
-    Float:pIdleX,
-    Float:pIdleY,
-    Float:pIdleZ,
+    // AFK (modules/afk.inc)
+    pLastUpdateTick,    // последен пакет от клиента – спира, когато играта е на пауза
+    pLastActiveTick,    // последно движение или натиснат бутон
+    Float:pActX,
+    Float:pActY,
+    Float:pActZ,
+    bool:pAFK,
+    bool:pAFKManual,    // влязъл е в AFK сам с /afk
+    pAFKSince,          // unix време на влизане в AFK
+    pAFKStartTick,
+    pAFKReason[64],
+    Text3D:pAFKLabel,
     pLastPM,
     pAdminVehicle
 }
@@ -62,4 +69,6 @@ stock ResetPlayerData(playerid)
     PlayerData[playerid][pLastPM] = INVALID_PLAYER_ID;
     PlayerData[playerid][pAdminVehicle] = INVALID_VEHICLE_ID;
     PlayerData[playerid][pLastUpdateTick] = GetTickCount();
+    PlayerData[playerid][pLastActiveTick] = GetTickCount();
+    PlayerData[playerid][pAFKLabel] = INVALID_3DTEXT_ID;
 }

@@ -19,7 +19,8 @@
 | `gamemodes/modules/admin.inc` | Админ нива, команди и банове |
 | `gamemodes/modules/chat.inc` | RP чат |
 | `gamemodes/modules/money.inc` | Пари на сървъра (`Money_Give` / `Money_Set`) |
-| `gamemodes/modules/levels.inc` | Активно време, заплата, нива |
+| `gamemodes/modules/levels.inc` | Активно време, PayDay (опит), нива |
+| `gamemodes/modules/afk.inc` | AFK система |
 | `gamemodes/modules/hospital.inc` | Смърт и болница |
 | `scripts/build.sh` | Компилиране (UTF-8 → Windows-1251 → `hotfix.amx`) |
 | `scripts/deploy.sh` | Обновяване на сървъра |

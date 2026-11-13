@@ -32,20 +32,23 @@
 #define SKIN_CAMERA_DISTANCE    3.2
 #define SKIN_CAMERA_HEIGHT      0.5
 
-// Болница All Saints – спаун след смърт
+// Болница – спаун след смърт (без такса).
+// Пред All Saints, докато нямаме карта на болничен интериор (виж modules/hospital.inc).
 #define HOSPITAL_X              1177.5
 #define HOSPITAL_Y              -1323.5
 #define HOSPITAL_Z              14.08
 #define HOSPITAL_A              270.0
-#define HOSPITAL_FEE            200
+#define HOSPITAL_INTERIOR       0
 
-// --- Нива и заплата ---
-#define PAYDAY_MINUTES          60      // активни минути до заплата
-#define PAYDAY_BASE             500     // базова заплата
-#define PAYDAY_PER_LEVEL        100     // + за всяко ниво
-#define EXP_PER_LEVEL           2       // нужен опит = ниво * това (1 заплата = 1 опит)
-#define AFK_IDLE_MINUTES        10      // след толкова минути без движение не се брои време
-#define AFK_PAUSE_MS            15000   // клиентът не праща данни -> играта е на пауза
+// --- PayDay и нива ---
+#define PAYDAY_MINUTES          60      // активни минути до PayDay
+#define PAYDAY_EXP              1       // опит за един PayDay
+#define EXP_PER_LEVEL           2       // нужен опит = ниво * това
+
+// --- AFK ---
+#define AFK_PAUSE_MS            5000    // клиентът не праща данни толкова време -> играта е на пауза
+#define AFK_IDLE_MINUTES        5       // без движение толкова минути -> AFK
+#define AFK_KICK_MINUTES        0       // кик след толкова минути AFK (0 = изключено, админите не се кикват)
 
 // --- Чат (разстояния) ---
 #define CHAT_RADIUS_NORMAL      20.0

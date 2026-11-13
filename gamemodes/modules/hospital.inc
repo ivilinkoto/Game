@@ -1,4 +1,11 @@
-// Смърт и болница.
+// Смърт и болница – без такса.
+//
+// В GTA: San Andreas няма вграден болничен интериор. Засега героят се появява
+// пред болница All Saints. Когато имаме карта на болничен интериор (mapping),
+// сменяме HOSPITAL_X/Y/Z/A и HOSPITAL_INTERIOR в core/config.inc и
+// виртуалния свят по-долу – останалото е готово.
+
+#define HOSPITAL_VIRTUAL_WORLD  0
 
 stock Hospital_OnPlayerDeath(playerid)
 {
@@ -13,14 +20,10 @@ stock bool:Hospital_OnPlayerSpawn(playerid)
     if (!PlayerData[playerid][pDied]) return false;
     PlayerData[playerid][pDied] = false;
 
-    SetPlayerInterior(playerid, 0);
-    SetPlayerVirtualWorld(playerid, 0);
+    SetPlayerInterior(playerid, HOSPITAL_INTERIOR);
+    SetPlayerVirtualWorld(playerid, HOSPITAL_VIRTUAL_WORLD);
     SetPlayerHealth(playerid, 100.0);
 
-    new fee = HOSPITAL_FEE;
-    if (fee > PlayerData[playerid][pMoney]) fee = PlayerData[playerid][pMoney];
-    if (fee > 0) Money_Give(playerid, -fee);
-
-    SendClientMessage(playerid, COLOR_WHITE, "Събуждаш се в болница {FFD54A}All Saints{FFFFFF}. Сметката е {FF4040}$%d{FFFFFF}.", fee);
+    SendClientMessage(playerid, COLOR_WHITE, "Събуждаш се в болница {FFD54A}All Saints{FFFFFF}. Лекарите те излекуваха.");
     return true;
 }

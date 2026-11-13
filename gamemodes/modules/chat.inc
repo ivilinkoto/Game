@@ -3,6 +3,7 @@
 stock Chat_OnPlayerText(playerid, const text[])
 {
     if (!PlayerData[playerid][pLogged]) return;
+    PlayerData[playerid][pLastActiveTick] = GetTickCount(); // говори = не е AFK
 
     new rpName[MAX_PLAYER_NAME + 1], msg[200];
     GetRPName(playerid, rpName);

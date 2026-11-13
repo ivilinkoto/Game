@@ -2,7 +2,7 @@
 // Всичко важно трябва да е достъпно оттук, за да не се пишат команди на телефона.
 
 enum {
-    MENU_ITEM_PROFILE,
+    MENU_ITEM_STATS,
     MENU_ITEM_HELP,
     MENU_ITEM_RP,
     MENU_ITEM_ADMINS,
@@ -21,7 +21,7 @@ stock Menu_Show(playerid)
 {
     new body[512];
     format(body, sizeof (body),
-        C_BRAND "»" C_WHITE " Моят профил\n" \
+        C_BRAND "»" C_WHITE " Статистика\n" \
         C_BRAND "»" C_WHITE " Помощ и команди\n" \
         C_BRAND "»" C_WHITE " Как се играе RolePlay\n" \
         C_BRAND "»" C_WHITE " Администратори онлайн");
@@ -38,7 +38,7 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem)
         case DIALOG_MENU: {
             if (!response) return 1;
             switch (listitem) {
-                case MENU_ITEM_PROFILE:     Menu_ShowProfile(playerid);
+                case MENU_ITEM_STATS:       Menu_ShowStats(playerid);
                 case MENU_ITEM_HELP:        Menu_ShowHelp(playerid);
                 case MENU_ITEM_RP:          Menu_ShowRPGuide(playerid);
                 case MENU_ITEM_ADMINS:      Menu_ShowAdmins(playerid);
@@ -56,12 +56,11 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem)
     return 0;
 }
 
-stock Menu_ShowProfile(playerid)
+stock Menu_ShowStats(playerid)
 {
-    new body[1500], line[160], rpName[MAX_PLAYER_NAME + 1], money[16], salary[16], rank[32];
+    new body[1500], line[160], rpName[MAX_PLAYER_NAME + 1], money[16], rank[32];
     GetRPName(playerid, rpName);
     FormatNumber(PlayerData[playerid][pMoney], money);
-    FormatNumber(Levels_GetSalary(playerid), salary);
 
     format(body, sizeof (body), C_WHITE "Име: " C_BRAND "%s\n\n", rpName);
 
@@ -70,8 +69,8 @@ stock Menu_ShowProfile(playerid)
     strcat(body, line);
     format(line, sizeof (line), C_GREY "Пари в брой: " C_GREEN "$%s\n", money);
     strcat(body, line);
-    format(line, sizeof (line), C_GREY "Заплата: " C_GREEN "$%s" C_GREY " след " C_WHITE "%d мин." C_GREY " активна игра\n",
-        salary, PAYDAY_MINUTES - PlayerData[playerid][pPaydayMinutes]);
+    format(line, sizeof (line), C_GREY "PayDay: " C_GOLD "+%d опит" C_GREY " след " C_WHITE "%d мин." C_GREY " активна игра\n",
+        PAYDAY_EXP, PAYDAY_MINUTES - PlayerData[playerid][pPaydayMinutes]);
     strcat(body, line);
     format(line, sizeof (line), C_GREY "Изиграно време: " C_WHITE "%d ч. %d мин.\n\n",
         PlayerData[playerid][pPlayedMinutes] / 60, PlayerData[playerid][pPlayedMinutes] % 60);
@@ -91,8 +90,8 @@ stock Menu_ShowProfile(playerid)
         strcat(body, line);
     }
 
-    strcat(body, "\n" C_GREY "Време се брои само когато се движиш и играта не е на пауза.");
-    ShowPlayerDialog(playerid, DIALOG_MENU_BACK, DIALOG_STYLE_MSGBOX, C_BRAND "HOTFIX ONLINE " C_WHITE "| Моят профил", "%s", "Назад", "", body);
+    strcat(body, "\n" C_GREY "Времето не се брои, докато си AFK.");
+    ShowPlayerDialog(playerid, DIALOG_MENU_BACK, DIALOG_STYLE_MSGBOX, C_BRAND "HOTFIX ONLINE " C_WHITE "| Статистика", "%s", "Назад", "", body);
 }
 
 stock Menu_ShowHelp(playerid)
@@ -100,9 +99,10 @@ stock Menu_ShowHelp(playerid)
     new body[2048];
     body[0] = EOS;
     strcat(body, C_BRAND "Основни\n");
-    strcat(body, C_GOLD "Y" C_WHITE " или " C_GOLD "/menu" C_WHITE " - отваря това меню\n");
-    strcat(body, C_GOLD "/stats" C_WHITE " - твоят профил\n");
-    strcat(body, C_GOLD "/admins" C_WHITE " - администратори онлайн\n\n");
+    strcat(body, C_GOLD "Y" C_WHITE ", " C_GOLD "/menu" C_WHITE ", " C_GOLD "/mm" C_WHITE " или " C_GOLD "/mn" C_WHITE " - отваря това меню\n");
+    strcat(body, C_GOLD "/stats" C_WHITE " - твоята статистика\n");
+    strcat(body, C_GOLD "/admins" C_WHITE " - администратори онлайн\n");
+    strcat(body, C_GOLD "/afk [причина]" C_WHITE " - отбелязваш, че отсъстваш   " C_GOLD "/afklist" C_WHITE " - кой е AFK\n\n");
 
     strcat(body, C_BRAND "Чат\n");
     strcat(body, C_WHITE "Обикновен текст - говориш на хората около теб\n");
@@ -112,9 +112,9 @@ stock Menu_ShowHelp(playerid)
     strcat(body, C_GOLD "/b" C_WHITE " - OOC наблизо   " C_GOLD "/o" C_WHITE " - OOC за всички\n");
     strcat(body, C_GOLD "/pm [ID] [текст]" C_WHITE " - лично съобщение   " C_GOLD "/r" C_WHITE " - отговор\n\n");
 
-    strcat(body, C_BRAND "Пари и нива\n");
-    strcat(body, C_WHITE "На всеки " C_GOLD "60 минути" C_WHITE " активна игра получаваш заплата и опит.\n");
-    strcat(body, C_WHITE "С опита вдигаш ниво, а с нивото - и заплатата.\n\n");
+    strcat(body, C_BRAND "Нива\n");
+    strcat(body, C_WHITE "На всеки " C_GOLD "60 минути" C_WHITE " активна игра получаваш " C_GOLD "PayDay" C_WHITE " - точка опит.\n");
+    strcat(body, C_WHITE "С опита вдигаш ниво. Времето, докато си AFK, не се брои.\n\n");
 
     strcat(body, C_GREY "Скоро: работи, къщи, бизнеси и фракции.");
     ShowPlayerDialog(playerid, DIALOG_MENU_BACK, DIALOG_STYLE_MSGBOX, C_BRAND "HOTFIX ONLINE " C_WHITE "| Помощ", "%s", "Назад", "", body);
@@ -166,10 +166,24 @@ CMD:menu(playerid, params[])
     return 1;
 }
 
+CMD:mm(playerid, params[])
+{
+    #pragma unused params
+    Menu_Show(playerid);
+    return 1;
+}
+
+CMD:mn(playerid, params[])
+{
+    #pragma unused params
+    Menu_Show(playerid);
+    return 1;
+}
+
 CMD:stats(playerid, params[])
 {
     #pragma unused params
-    Menu_ShowProfile(playerid);
+    Menu_ShowStats(playerid);
     return 1;
 }
 

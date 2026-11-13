@@ -1,50 +1,17 @@
-// Активно време, заплата и нива.
+// Активно време, PayDay и нива.
 //
-// Време се брои само когато играчът е активен:
-//  - клиентът праща данни (играта не е минимизирана/на пауза)
-//  - героят се е движил през последните AFK_IDLE_MINUTES минути
+// PayDay не дава пари (парите се печелят от работи и бизнеси), а само опит.
+// Време се брои само когато играчът НЕ е AFK (виж modules/afk.inc).
 
 stock Levels_GetExpNeeded(level)
 {
     return level * EXP_PER_LEVEL;
 }
 
-stock Levels_GetSalary(playerid)
-{
-    return PAYDAY_BASE + PlayerData[playerid][pLevel] * PAYDAY_PER_LEVEL;
-}
-
-stock bool:Levels_IsAFK(playerid)
-{
-    if (GetTickCount() - PlayerData[playerid][pLastUpdateTick] > AFK_PAUSE_MS) return true;
-    return (PlayerData[playerid][pIdleMinutes] >= AFK_IDLE_MINUTES);
-}
-
-// Извиква се от OnPlayerUpdate (много често – само записва времето).
-stock Levels_OnPlayerUpdate(playerid)
-{
-    PlayerData[playerid][pLastUpdateTick] = GetTickCount();
-}
-
 // Всяка минута
 stock Levels_OnPlayerMinute(playerid)
 {
-    // Движил ли се е през последната минута?
-    new Float:x, Float:y, Float:z;
-    GetPlayerPos(playerid, x, y, z);
-    new Float:dx = x - PlayerData[playerid][pIdleX],
-        Float:dy = y - PlayerData[playerid][pIdleY],
-        Float:dz = z - PlayerData[playerid][pIdleZ];
-    if (dx * dx + dy * dy + dz * dz < 1.0) {
-        PlayerData[playerid][pIdleMinutes]++;
-    } else {
-        PlayerData[playerid][pIdleMinutes] = 0;
-    }
-    PlayerData[playerid][pIdleX] = x;
-    PlayerData[playerid][pIdleY] = y;
-    PlayerData[playerid][pIdleZ] = z;
-
-    if (Levels_IsAFK(playerid)) return;
+    if (Afk_IsAFK(playerid)) return;
 
     PlayerData[playerid][pPlayedMinutes]++;
     PlayerData[playerid][pPaydayMinutes]++;
@@ -57,20 +24,14 @@ stock Levels_OnPlayerMinute(playerid)
 
 stock Levels_PayDay(playerid)
 {
-    new salary = Levels_GetSalary(playerid);
-    Money_Give(playerid, salary);
-    PlayerData[playerid][pExp]++;
+    PlayerData[playerid][pExp] += PAYDAY_EXP;
 
-    new s1[16], s2[16];
-    FormatNumber(salary, s1);
-    FormatNumber(PlayerData[playerid][pMoney], s2);
-
-    SendClientMessage(playerid, COLOR_BRAND, "________________ {FFFFFF}ЗАПЛАТА {FF6A00}________________");
-    SendClientMessage(playerid, COLOR_WHITE, "Заплата: {33CC66}$%s{FFFFFF}  |  В брой: {33CC66}$%s", s1, s2);
+    SendClientMessage(playerid, COLOR_BRAND, "________________ {FFFFFF}PAYDAY {FF6A00}________________");
+    SendClientMessage(playerid, COLOR_WHITE, "Получи {FFD54A}+%d опит{FFFFFF} за час активна игра.", PAYDAY_EXP);
 
     new needed = Levels_GetExpNeeded(PlayerData[playerid][pLevel]);
     if (PlayerData[playerid][pExp] >= needed) {
-        PlayerData[playerid][pExp] = 0;
+        PlayerData[playerid][pExp] -= needed;
         PlayerData[playerid][pLevel]++;
         SetPlayerScore(playerid, PlayerData[playerid][pLevel]);
         SendClientMessage(playerid, COLOR_GOLD, "Поздравления! Вече си ниво %d.", PlayerData[playerid][pLevel]);

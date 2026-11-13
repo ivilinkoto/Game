@@ -23,6 +23,7 @@
 #include "core/commands.inc"
 
 #include "modules/money.inc"
+#include "modules/afk.inc"
 #include "modules/levels.inc"
 #include "modules/hospital.inc"
 #include "modules/promo.inc"
@@ -78,6 +79,12 @@ public Server_Tick()
 
     Money_OnTick();
 
+    for (new i = 0; i < MAX_PLAYERS; i++) {
+        if (IsPlayerConnected(i) && PlayerData[i][pLogged]) {
+            Afk_OnPlayerTick(i);
+        }
+    }
+
     // Всяка минута
     if (gTickCounter % 60 == 0) {
         for (new i = 0; i < MAX_PLAYERS; i++) {
@@ -107,6 +114,7 @@ public OnPlayerDisconnect(playerid, reason)
     Auth_SaveAccount(playerid);
     Skin_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
+    Afk_OnPlayerDisconnect(playerid);
     ResetPlayerData(playerid);
     return 1;
 }
@@ -133,12 +141,13 @@ public OnPlayerDeath(playerid, killerid, WEAPON:reason)
 
 public OnPlayerUpdate(playerid)
 {
-    Levels_OnPlayerUpdate(playerid);
+    Afk_OnPlayerUpdate(playerid);
     return 1;
 }
 
 public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
+    Afk_OnKeyStateChange(playerid);
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
