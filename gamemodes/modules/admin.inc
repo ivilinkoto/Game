@@ -1,5 +1,8 @@
 // Админ система и банове.
 //
+// Всеки админ има отделна АДМИН парола. Командите работят само след /alogin.
+// При първото /alogin админът сам си създава паролата.
+//
 // Нива: 1 Хелпър, 2 Модератор, 3 Администратор, 4 Главен администратор, 5 Собственик.
 // Първия собственик го правиш с RCON:
 //     /rcon login [паролата от config.json]
@@ -23,12 +26,18 @@ stock Admin_GetRankName(level, dest[], size = sizeof (dest))
     }
 }
 
-// Проверява нивото и пише грешка, ако не стига.
+// Проверява нивото и админ входа; пише грешка, ако не стигат.
 stock bool:Admin_Check(playerid, level)
 {
-    if (PlayerData[playerid][pAdmin] >= level) return true;
-    SendError(playerid, "Нямаш права за тази команда.");
-    return false;
+    if (PlayerData[playerid][pAdmin] < level) {
+        SendError(playerid, "Нямаш права за тази команда.");
+        return false;
+    }
+    if (!PlayerData[playerid][pAdminLogged]) {
+        SendError(playerid, "Първо влез в админ системата с /alogin.");
+        return false;
+    }
+    return true;
 }
 
 // Не може срещу админ с равно или по-високо ниво (освен собственик и себе си).
@@ -45,7 +54,7 @@ stock bool:Admin_CanTarget(playerid, targetid)
 stock Admin_Broadcast(const msg[])
 {
     for (new i = 0; i < MAX_PLAYERS; i++) {
-        if (IsPlayerConnected(i) && PlayerData[i][pLogged] && PlayerData[i][pAdmin] > 0) {
+        if (IsPlayerConnected(i) && PlayerData[i][pLogged] && PlayerData[i][pAdmin] > 0 && PlayerData[i][pAdminLogged]) {
             SendClientMessage(i, COLOR_ADMIN, "%s", msg);
         }
     }
@@ -57,6 +66,143 @@ stock Admin_OnPlayerDisconnect(playerid)
         DestroyVehicle(PlayerData[playerid][pAdminVehicle]);
         PlayerData[playerid][pAdminVehicle] = INVALID_VEHICLE_ID;
     }
+}
+
+// ============================================================
+//  Админ вход (/alogin)
+// ============================================================
+
+CMD:alogin(playerid, params[])
+{
+    #pragma unused params
+    if (PlayerData[playerid][pAdmin] == 0) return 0; // за играчите командата "не съществува"
+    if (PlayerData[playerid][pAdminLogged]) {
+        SendInfo(playerid, "Вече си влязъл в админ системата.");
+        return 1;
+    }
+    Admin_ShowLogin(playerid, "");
+    return 1;
+}
+
+stock Admin_ShowLogin(playerid, const error[])
+{
+    new body[1024], rank[32];
+    Admin_GetRankName(PlayerData[playerid][pAdmin], rank);
+
+    if (PlayerData[playerid][pAdminPass][0] == EOS) {
+        format(body, sizeof (body),
+            C_WHITE "Здравей, " C_RED "%s" C_WHITE "!\n\n" \
+            "Това е първото ти влизане в админ системата.\n" \
+            "Създай " C_GOLD "отделна админ парола" C_WHITE " – различна от паролата на акаунта.\n\n" \
+            C_BRAND "»" C_WHITE " Между " C_GOLD "%d" C_WHITE " и " C_GOLD "%d" C_WHITE " символа\n" \
+            C_BRAND "»" C_WHITE " Никога не я казвай на никого\n" \
+            C_BRAND "»" C_WHITE " Ще я въвеждаш при всяко влизане с /alogin",
+            rank, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH);
+        Auth_AppendError(body, sizeof (body), error);
+        ShowPlayerDialog(playerid, DIALOG_ALOGIN_CREATE, DIALOG_STYLE_PASSWORD, C_RED "Админ " C_WHITE "| Нова парола", "%s", "Напред", "Отказ", body);
+    } else {
+        format(body, sizeof (body),
+            C_WHITE "Ранг: " C_RED "%s" C_WHITE " (ниво %d)\n\n" \
+            "Въведи своята " C_GOLD "админ парола" C_WHITE ", за да отключиш админ командите.",
+            rank, PlayerData[playerid][pAdmin]);
+        Auth_AppendError(body, sizeof (body), error);
+        ShowPlayerDialog(playerid, DIALOG_ALOGIN, DIALOG_STYLE_PASSWORD, C_RED "Админ " C_WHITE "| Вход", "%s", "Вход", "Отказ", body);
+    }
+}
+
+stock Admin_LoginSuccess(playerid)
+{
+    PlayerData[playerid][pAdminLogged] = true;
+    PlayerData[playerid][pAdminLoginAttempts] = 0;
+
+    new rank[32], msg[128];
+    Admin_GetRankName(PlayerData[playerid][pAdmin], rank);
+    SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Влезе като %s. Команди: /ahelp или админ панела в менюто (Y).", rank);
+    format(msg, sizeof (msg), "[A] %s %s влезе в админ системата.", rank, PlayerData[playerid][pName]);
+    Admin_Broadcast(msg);
+    Log_Add("alogin", PlayerData[playerid][pName], "", "");
+}
+
+// Връща 1, ако диалогът е обработен тук.
+stock Admin_OnDialogResponse(playerid, dialogid, response, const inputtext[])
+{
+    switch (dialogid) {
+        case DIALOG_ALOGIN: {
+            if (!response || PlayerData[playerid][pAdmin] == 0) return 1;
+
+            new hash[65];
+            SHA256_PassHash(inputtext, PlayerData[playerid][pAdminSalt], hash);
+            if (inputtext[0] != EOS && !strcmp(hash, PlayerData[playerid][pAdminPass], false)) {
+                Admin_LoginSuccess(playerid);
+                return 1;
+            }
+
+            PlayerData[playerid][pAdminLoginAttempts]++;
+            if (PlayerData[playerid][pAdminLoginAttempts] >= MAX_LOGIN_ATTEMPTS) {
+                new msg[128];
+                format(msg, sizeof (msg), "[A] ВНИМАНИЕ: %s сгреши админ паролата %d пъти и е изгонен.",
+                    PlayerData[playerid][pName], MAX_LOGIN_ATTEMPTS);
+                Admin_Broadcast(msg);
+                Log_Add("alogin_fail", PlayerData[playerid][pName], "", "kick");
+                SendError(playerid, "Твърде много грешни опити за админ парола.");
+                KickEx(playerid);
+            } else {
+                new err[80];
+                format(err, sizeof (err), "Грешна админ парола! Остават опити: %d",
+                    MAX_LOGIN_ATTEMPTS - PlayerData[playerid][pAdminLoginAttempts]);
+                Admin_ShowLogin(playerid, err);
+            }
+            return 1;
+        }
+
+        case DIALOG_ALOGIN_CREATE: {
+            if (!response || PlayerData[playerid][pAdmin] == 0) return 1;
+
+            new len = strlen(inputtext);
+            if (len < MIN_PASSWORD_LENGTH || len > MAX_PASSWORD_LENGTH) {
+                Admin_ShowLogin(playerid, "Паролата е твърде къса или твърде дълга.");
+                return 1;
+            }
+            // Не бива да е същата като паролата на акаунта
+            new hash[65];
+            SHA256_PassHash(inputtext, PlayerData[playerid][pSalt], hash);
+            if (!strcmp(hash, PlayerData[playerid][pPassHash], false)) {
+                Admin_ShowLogin(playerid, "Админ паролата трябва да е различна от паролата на акаунта.");
+                return 1;
+            }
+
+            GenerateSalt(PlayerData[playerid][pAdminSalt], 16, 17);
+            SHA256_PassHash(inputtext, PlayerData[playerid][pAdminSalt], PlayerData[playerid][pAdminPass], 65);
+            ShowPlayerDialog(playerid, DIALOG_ALOGIN_CONFIRM, DIALOG_STYLE_PASSWORD, C_RED "Админ " C_WHITE "| Нова парола",
+                C_WHITE "Въведи админ паролата " C_GOLD "още веднъж" C_WHITE " за потвърждение.", "Запази", "Назад");
+            return 1;
+        }
+
+        case DIALOG_ALOGIN_CONFIRM: {
+            if (PlayerData[playerid][pAdmin] == 0) return 1;
+
+            new hash[65];
+            if (response) SHA256_PassHash(inputtext, PlayerData[playerid][pAdminSalt], hash);
+            if (!response || inputtext[0] == EOS || strcmp(hash, PlayerData[playerid][pAdminPass], false) != 0) {
+                // Връщаме се към създаването (паролата още не е записана)
+                PlayerData[playerid][pAdminPass][0] = EOS;
+                PlayerData[playerid][pAdminSalt][0] = EOS;
+                if (response) Admin_ShowLogin(playerid, "Паролите не съвпадат. Опитай отново.");
+                else Admin_ShowLogin(playerid, "");
+                return 1;
+            }
+
+            new q[256];
+            format(q, sizeof (q), "UPDATE accounts SET admin_password = '%s', admin_salt = '%s' WHERE id = %d",
+                PlayerData[playerid][pAdminPass], PlayerData[playerid][pAdminSalt], PlayerData[playerid][pID]);
+            Database_Exec(q);
+
+            SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Админ паролата е създадена. Запомни я!");
+            Admin_LoginSuccess(playerid);
+            return 1;
+        }
+    }
+    return 0;
 }
 
 // ============================================================
@@ -391,9 +537,8 @@ CMD:ann(playerid, params[])
 // Собственик или RCON админ
 CMD:makeadmin(playerid, params[])
 {
-    if (PlayerData[playerid][pAdmin] < ADMIN_OWNER && !IsPlayerAdmin(playerid)) {
-        return SendError(playerid, "Нямаш права за тази команда.");
-    }
+    // RCON админът (/rcon login) може винаги – така се прави първият собственик.
+    if (!IsPlayerAdmin(playerid) && !Admin_Check(playerid, ADMIN_OWNER)) return 1;
 
     new targetid, level;
     if (!GetParamInt(params, 1, level) || level < 0 || level > ADMIN_OWNER) {
@@ -402,11 +547,18 @@ CMD:makeadmin(playerid, params[])
     if (!GetParamPlayer(playerid, params, 0, targetid)) return 1;
 
     PlayerData[targetid][pAdmin] = level;
+    if (level == 0) PlayerData[targetid][pAdminLogged] = false;
     Auth_SaveAccount(targetid);
 
     new rank[32];
     Admin_GetRankName(level, rank);
-    SendClientMessage(targetid, COLOR_ADMIN, "[Админ] %s ти даде ранг %s (ниво %d). Команди: /ahelp", PlayerData[playerid][pName], rank, level);
+    if (level == 0) {
+        SendClientMessage(targetid, COLOR_ADMIN, "[Админ] %s премахна админ правата ти.", PlayerData[playerid][pName]);
+    } else if (PlayerData[targetid][pAdminLogged]) {
+        SendClientMessage(targetid, COLOR_ADMIN, "[Админ] %s ти даде ранг %s (ниво %d).", PlayerData[playerid][pName], rank, level);
+    } else {
+        SendClientMessage(targetid, COLOR_ADMIN, "[Админ] %s ти даде ранг %s (ниво %d). Влез с /alogin.", PlayerData[playerid][pName], rank, level);
+    }
     if (targetid != playerid) {
         SendClientMessage(playerid, COLOR_ADMIN, "[Админ] %s вече е %s (ниво %d).", PlayerData[targetid][pName], rank, level);
     }

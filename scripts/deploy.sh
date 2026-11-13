@@ -11,10 +11,19 @@ main() {
     SERVER_DIR="${SERVER_DIR:-/home/omp/Server}"
     BRANCH="${BRANCH:-ccr-887af6ee-7dr19j}"
 
-    echo "==> Изтегляне на кода ($BRANCH)"
-    runuser -u omp -- git -C "$REPO_DIR" fetch --quiet origin "$BRANCH"
-    runuser -u omp -- git -C "$REPO_DIR" reset --hard --quiet "origin/$BRANCH"
-    runuser -u omp -- git -C "$REPO_DIR" log -1 --format='    %h %s'
+    if [ "${DEPLOY_REEXEC:-}" != "1" ]; then
+        echo "==> Изтегляне на кода ($BRANCH)"
+        runuser -u omp -- git -C "$REPO_DIR" fetch --quiet origin "$BRANCH"
+        runuser -u omp -- git -C "$REPO_DIR" reset --hard --quiet "origin/$BRANCH"
+        runuser -u omp -- git -C "$REPO_DIR" log -1 --format='    %h %s'
+        # Пускаме наново вече обновената версия на този скрипт.
+        DEPLOY_REEXEC=1 exec bash "$REPO_DIR/scripts/deploy.sh" "$@"
+    fi
+
+    if [ ! -f "$SERVER_DIR/plugins/streamer.so" ] || [ ! -f "$SERVER_DIR/qawno/include/streamer.inc" ]; then
+        echo "==> Инсталиране на Streamer"
+        SERVER_DIR="$SERVER_DIR" bash "$REPO_DIR/scripts/install-streamer.sh"
+    fi
 
     echo "==> Компилиране"
     SERVER_DIR="$SERVER_DIR" runuser -u omp -- bash "$REPO_DIR/scripts/build.sh"
@@ -28,7 +37,11 @@ with open(path, encoding="utf-8") as f:
 before = json.dumps(cfg, sort_keys=True)
 cfg["name"] = "HOTFIX ONLINE"
 cfg["language"] = "Bulgarian"
-cfg.setdefault("pawn", {})["main_scripts"] = ["hotfix 1"]
+pawn = cfg.setdefault("pawn", {})
+pawn["main_scripts"] = ["hotfix 1"]
+plugins = pawn.setdefault("legacy_plugins", [])
+if "streamer" not in plugins:
+    plugins.append("streamer")
 if json.dumps(cfg, sort_keys=True) != before:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=4, ensure_ascii=False)

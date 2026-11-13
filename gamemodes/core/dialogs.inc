@@ -21,6 +21,11 @@ enum {
     DIALOG_MENU,
     DIALOG_MENU_BACK,   // информационен прозорец с бутон "Назад" към менюто
 
+    // Админ вход
+    DIALOG_ALOGIN,
+    DIALOG_ALOGIN_CREATE,
+    DIALOG_ALOGIN_CONFIRM,
+
     // Информационни
     DIALOG_INFO,
     DIALOG_INFO_KICK    // след затваряне играчът се изгонва

@@ -21,7 +21,9 @@
 | `gamemodes/modules/money.inc` | Пари на сървъра (`Money_Give` / `Money_Set`) |
 | `gamemodes/modules/levels.inc` | Активно време, PayDay (опит), нива |
 | `gamemodes/modules/afk.inc` | AFK система |
-| `gamemodes/modules/hospital.inc` | Смърт и болница |
+| `gamemodes/modules/hospital.inc` | Смърт, болница, вход/изход |
+| `gamemodes/maps/` | Карти (обекти през Streamer) |
+| `scripts/install-streamer.sh` | Инсталира Streamer плъгина (deploy го пуска сам, ако липсва) |
 | `scripts/build.sh` | Компилиране (UTF-8 → Windows-1251 → `hotfix.amx`) |
 | `scripts/deploy.sh` | Обновяване на сървъра |
 
@@ -41,6 +43,7 @@
 
 1. В `/home/omp/Server/config.json` задай парола в `"rcon": { "password": "..." }` и рестартирай (`systemctl restart omp`).
 2. В играта: `/rcon login ПАРОЛАТА`, после `/makeadmin [твоето ID] 5`.
+3. `/alogin` – при първото влизане всеки админ сам създава своя админ парола. Без нея админ командите не работят.
 
 Админ нива: 1 Хелпър, 2 Модератор, 3 Администратор, 4 Главен администратор, 5 Собственик.
 
@@ -58,3 +61,8 @@ sqlite3 /home/omp/Server/scriptfiles/hotfix.db "INSERT INTO promo_codes (code, m
 
 - Награда за поканилия и поканения (полето `referrer_id` вече се записва)
 - Админ команди за промокодове
+
+## Кредити
+
+- Интериор на болница All Saints – AdamsLT ([SA-MP форум](https://sampforum.blast.hk/showthread.php?tid=500284))
+- Streamer плъгин – samp-incognito ([GitHub](https://github.com/samp-incognito/samp-streamer-plugin))

@@ -10,6 +10,7 @@
  */
 
 #include <open.mp>
+#include <streamer>
 
 #undef MAX_PLAYERS
 #define MAX_PLAYERS 200
@@ -21,6 +22,8 @@
 #include "core/utils.inc"
 #include "core/database.inc"
 #include "core/commands.inc"
+
+#include "maps/hospital.inc"
 
 #include "modules/money.inc"
 #include "modules/afk.inc"
@@ -58,6 +61,7 @@ public OnGameModeInit()
     AddPlayerClass(26, SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_A);
 
     Skin_CreateTextDraws();
+    Hospital_Init();
 
     SetTimer("Server_Tick", 1000, true);
     return 1;
@@ -167,7 +171,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 {
     if (Auth_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Admin_OnDialogResponse(playerid, dialogid, response, inputtext)) return 1;
     return 0;
+}
+
+public OnPlayerPickUpPickup(playerid, pickupid)
+{
+    Hospital_OnPickUp(playerid, pickupid);
+    return 1;
 }
 
 public OnPlayerClickTextDraw(playerid, Text:clickedid)

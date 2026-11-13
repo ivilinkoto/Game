@@ -617,6 +617,8 @@ stock Auth_LoadAccount(playerid)
     PlayerData[playerid][pInterior]     = DB_GetFieldIntByName(result, "interior");
     PlayerData[playerid][pVirtualWorld] = DB_GetFieldIntByName(result, "virtual_world");
     DB_GetFieldStringByName(result, "email", PlayerData[playerid][pEmail], 65);
+    DB_GetFieldStringByName(result, "admin_password", PlayerData[playerid][pAdminPass], 65);
+    DB_GetFieldStringByName(result, "admin_salt", PlayerData[playerid][pAdminSalt], 17);
     DB_FreeResultSet(result);
 
     if (PlayerData[playerid][pPosX] == 0.0 && PlayerData[playerid][pPosY] == 0.0) {
@@ -689,7 +691,11 @@ stock Auth_ShowLoginTip(playerid)
     if (PlayerData[playerid][pAdmin] > 0) {
         new rank[32];
         Admin_GetRankName(PlayerData[playerid][pAdmin], rank);
-        SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Влезе като %s. Командите са в менюто или /ahelp.", rank);
+        if (PlayerData[playerid][pAdminPass][0] == EOS) {
+            SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Ти си %s. Създай си админ парола с /alogin.", rank);
+        } else {
+            SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Ти си %s. Влез в админ системата с /alogin.", rank);
+        }
     }
 }
 

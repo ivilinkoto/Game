@@ -100,6 +100,8 @@ stock bool:Database_Init()
     Database_EnsureColumn("accounts", "exp", "INTEGER NOT NULL DEFAULT 0");
     Database_EnsureColumn("accounts", "played_minutes", "INTEGER NOT NULL DEFAULT 0");
     Database_EnsureColumn("accounts", "payday_minutes", "INTEGER NOT NULL DEFAULT 0");
+    Database_EnsureColumn("accounts", "admin_password", "TEXT NOT NULL DEFAULT ''");
+    Database_EnsureColumn("accounts", "admin_salt", "TEXT NOT NULL DEFAULT ''");
 
     Database_Exec("CREATE INDEX IF NOT EXISTS idx_accounts_referrer ON accounts (referrer_id)");
     Database_Exec("CREATE INDEX IF NOT EXISTS idx_bans_name ON bans (name)");

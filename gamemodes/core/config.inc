@@ -32,13 +32,22 @@
 #define SKIN_CAMERA_DISTANCE    3.2
 #define SKIN_CAMERA_HEIGHT      0.5
 
-// Болница – спаун след смърт (без такса).
-// Пред All Saints, докато нямаме карта на болничен интериор (виж modules/hospital.inc).
-#define HOSPITAL_X              1177.5
-#define HOSPITAL_Y              -1323.5
-#define HOSPITAL_Z              14.08
+// Болница All Saints – спаун след смърт (без такса), в отделението на 2-рия етаж.
+// Интериорът е карта (maps/hospital.inc), построена вътре в истинската сграда.
+#define HOSPITAL_X              1161.3
+#define HOSPITAL_Y              -1346.0
+#define HOSPITAL_Z              21.6
 #define HOSPITAL_A              270.0
 #define HOSPITAL_INTERIOR       0
+#define HOSPITAL_WORLD          0
+
+// Вход/изход на болницата (пикапи до главния вход)
+#define HOSPITAL_DOOR_OUT_X     1176.0      // отвън, на тротоара
+#define HOSPITAL_DOOR_OUT_Y     -1323.5
+#define HOSPITAL_DOOR_OUT_Z     14.1
+#define HOSPITAL_DOOR_IN_X      1169.6      // отвътре, до стъклените врати
+#define HOSPITAL_DOOR_IN_Y      -1323.5
+#define HOSPITAL_DOOR_IN_Z      15.4
 
 // --- PayDay и нива ---
 #define PAYDAY_MINUTES          60      // активни минути до PayDay

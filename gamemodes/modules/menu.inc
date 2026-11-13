@@ -43,7 +43,10 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem)
                 case MENU_ITEM_RP:          Menu_ShowRPGuide(playerid);
                 case MENU_ITEM_ADMINS:      Menu_ShowAdmins(playerid);
                 case MENU_ITEM_ADMIN_PANEL: {
-                    if (PlayerData[playerid][pAdmin] > 0) Admin_ShowHelp(playerid, true);
+                    if (PlayerData[playerid][pAdmin] > 0) {
+                        if (PlayerData[playerid][pAdminLogged]) Admin_ShowHelp(playerid, true);
+                        else Admin_ShowLogin(playerid, "");
+                    }
                 }
             }
             return 1;

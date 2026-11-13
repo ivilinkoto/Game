@@ -55,7 +55,14 @@ enum E_PLAYER_DATA {
     pAFKReason[64],
     Text3D:pAFKLabel,
     pLastPM,
-    pAdminVehicle
+    pAdminVehicle,
+    pLastTeleportTick,
+
+    // Админ вход (/alogin)
+    pAdminPass[65],
+    pAdminSalt[17],
+    bool:pAdminLogged,
+    pAdminLoginAttempts
 }
 
 new PlayerData[MAX_PLAYERS][E_PLAYER_DATA];
