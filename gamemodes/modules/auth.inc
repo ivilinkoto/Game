@@ -93,11 +93,11 @@ stock Auth_ShowBadName(playerid)
 {
     new body[1024];
     format(body, sizeof (body),
-        C_WHITE "Здравей! За съжаление името " C_RED "%s" C_WHITE " не може да се използва.\n\n"
-        "В " C_BRAND "HOTFIX ONLINE" C_WHITE " всеки играч е герой с истинско име и фамилия.\n\n"
-        C_BRAND "»" C_WHITE " Формат: " C_GOLD "Име_Фамилия\n"
-        C_BRAND "»" C_WHITE " Само латински букви, с главни начални\n"
-        C_BRAND "»" C_WHITE " Пример: " C_GOLD "Ivan_Petrov" C_WHITE ", " C_GOLD "Maria_Georgieva\n\n"
+        C_WHITE "Здравей! За съжаление името " C_RED "%s" C_WHITE " не може да се използва.\n\n" \
+        "В " C_BRAND "HOTFIX ONLINE" C_WHITE " всеки играч е герой с истинско име и фамилия.\n\n" \
+        C_BRAND "»" C_WHITE " Формат: " C_GOLD "Име_Фамилия\n" \
+        C_BRAND "»" C_WHITE " Само латински букви, с главни начални\n" \
+        C_BRAND "»" C_WHITE " Пример: " C_GOLD "Ivan_Petrov" C_WHITE ", " C_GOLD "Maria_Georgieva\n\n" \
         C_GREY "Смени името си в лаунчера и влез отново. Очакваме те!",
         PlayerData[playerid][pName]);
     ShowPlayerDialog(playerid, DIALOG_INFO_KICK, DIALOG_STYLE_MSGBOX, C_BRAND "HOTFIX ONLINE " C_WHITE "| Невалидно име", "%s", "Разбрах", "", body);
@@ -108,9 +108,9 @@ stock Auth_ShowLogin(playerid, const error[])
     new body[1024], rpName[MAX_PLAYER_NAME + 1];
     GetRPName(playerid, rpName);
     format(body, sizeof (body),
-        C_WHITE "Добре дошъл отново, " C_BRAND "%s" C_WHITE "!\n\n"
-        "Радваме се да те видим пак в " C_BRAND "HOTFIX ONLINE" C_WHITE ".\n"
-        "Въведи паролата си, за да продължиш оттам, докъдето стигна.\n\n"
+        C_WHITE "Добре дошъл отново, " C_BRAND "%s" C_WHITE "!\n\n" \
+        "Радваме се да те видим пак в " C_BRAND "HOTFIX ONLINE" C_WHITE ".\n" \
+        "Въведи паролата си, за да продължиш оттам, докъдето стигна.\n\n" \
         C_GREY "Забравена парола? Пиши на администрацията в Discord: %s",
         rpName, SERVER_DISCORD);
     Auth_AppendError(body, sizeof (body), error);
@@ -122,14 +122,14 @@ stock Auth_ShowRegWelcome(playerid)
     new body[1500], rpName[MAX_PLAYER_NAME + 1];
     GetRPName(playerid, rpName);
     format(body, sizeof (body),
-        C_WHITE "Здравей, " C_BRAND "%s" C_WHITE "!\n\n"
-        "Добре дошъл в " C_BRAND "HOTFIX ONLINE" C_WHITE " – лайт RolePlay сървър,\n"
-        "създаден специално за игра от телефон.\n\n"
-        C_BRAND "»" C_WHITE " Започваш нов живот в " C_GOLD "Los Santos\n"
-        C_BRAND "»" C_WHITE " Изкарвай пари, купувай имоти и се развивай\n"
-        C_BRAND "»" C_WHITE " Скоро: работи, бизнеси, къщи и фракции\n"
-        C_BRAND "»" C_WHITE " Приятелска общност и активна администрация\n\n"
-        C_GREY "Регистрацията отнема по-малко от минута.\n"
+        C_WHITE "Здравей, " C_BRAND "%s" C_WHITE "!\n\n" \
+        "Добре дошъл в " C_BRAND "HOTFIX ONLINE" C_WHITE " – лайт RolePlay сървър,\n" \
+        "създаден специално за игра от телефон.\n\n" \
+        C_BRAND "»" C_WHITE " Започваш нов живот в " C_GOLD "Los Santos\n" \
+        C_BRAND "»" C_WHITE " Изкарвай пари, купувай имоти и се развивай\n" \
+        C_BRAND "»" C_WHITE " Скоро: работи, бизнеси, къщи и фракции\n" \
+        C_BRAND "»" C_WHITE " Приятелска общност и активна администрация\n\n" \
+        C_GREY "Регистрацията отнема по-малко от минута.\n" \
         C_GREY "Продължавайки, приемаш правилата на сървъра.",
         rpName);
     ShowPlayerDialog(playerid, DIALOG_REG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND "HOTFIX ONLINE " C_WHITE "| Добре дошъл", "%s", "Напред", "Изход", body);
@@ -139,11 +139,11 @@ stock Auth_ShowRegPassword(playerid, const error[])
 {
     new body[1500];
     format(body, sizeof (body),
-        C_BRAND "СТЪПКА 1 от %d " C_GREY "| Парола\n\n"
-        C_WHITE "Измисли парола за акаунта " C_BRAND "%s" C_WHITE ".\n\n"
-        C_BRAND "»" C_WHITE " Между " C_GOLD "%d" C_WHITE " и " C_GOLD "%d" C_WHITE " символа\n"
-        C_BRAND "»" C_WHITE " Не използвай същата парола като в други игри\n"
-        C_BRAND "»" C_WHITE " Никога не я казвай на никого – дори на администратор\n\n"
+        C_BRAND "СТЪПКА 1 от %d " C_GREY "| Парола\n\n" \
+        C_WHITE "Измисли парола за акаунта " C_BRAND "%s" C_WHITE ".\n\n" \
+        C_BRAND "»" C_WHITE " Между " C_GOLD "%d" C_WHITE " и " C_GOLD "%d" C_WHITE " символа\n" \
+        C_BRAND "»" C_WHITE " Не използвай същата парола като в други игри\n" \
+        C_BRAND "»" C_WHITE " Никога не я казвай на никого – дори на администратор\n\n" \
         C_GREY "Паролата се пази криптирана и никой не може да я види.",
         REG_TOTAL_STEPS, PlayerData[playerid][pName], MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH);
     Auth_AppendError(body, sizeof (body), error);
@@ -154,8 +154,8 @@ stock Auth_ShowRegPasswordConfirm(playerid)
 {
     new body[512];
     format(body, sizeof (body),
-        C_BRAND "СТЪПКА 1 от %d " C_GREY "| Потвърждение\n\n"
-        C_WHITE "Въведи паролата " C_BRAND "още веднъж" C_WHITE ", за да сме сигурни,\n"
+        C_BRAND "СТЪПКА 1 от %d " C_GREY "| Потвърждение\n\n" \
+        C_WHITE "Въведи паролата " C_BRAND "още веднъж" C_WHITE ", за да сме сигурни,\n" \
         "че няма грешка при писането.",
         REG_TOTAL_STEPS);
     ShowPlayerDialog(playerid, DIALOG_REG_PASSWORD_CONFIRM, DIALOG_STYLE_PASSWORD, C_BRAND "Регистрация " C_WHITE "| Парола", "%s", "Напред", "Назад", body);
@@ -165,11 +165,11 @@ stock Auth_ShowRegEmail(playerid, const error[])
 {
     new body[1500];
     format(body, sizeof (body),
-        C_BRAND "СТЪПКА 2 от %d " C_GREY "| Имейл\n\n"
-        C_WHITE "Въведи своя имейл адрес.\n\n"
-        C_BRAND "»" C_WHITE " Ще ти трябва, ако някога забравиш паролата си\n"
-        C_BRAND "»" C_WHITE " Използваме го само за неща, свързани с акаунта ти\n"
-        C_BRAND "»" C_WHITE " Никога не го показваме на други играчи\n\n"
+        C_BRAND "СТЪПКА 2 от %d " C_GREY "| Имейл\n\n" \
+        C_WHITE "Въведи своя имейл адрес.\n\n" \
+        C_BRAND "»" C_WHITE " Ще ти трябва, ако някога забравиш паролата си\n" \
+        C_BRAND "»" C_WHITE " Използваме го само за неща, свързани с акаунта ти\n" \
+        C_BRAND "»" C_WHITE " Никога не го показваме на други играчи\n\n" \
         C_GREY "Пример: ivan.petrov@gmail.com",
         REG_TOTAL_STEPS);
     Auth_AppendError(body, sizeof (body), error);
@@ -188,9 +188,9 @@ stock Auth_ShowRegAge(playerid, const error[])
 {
     new body[1024];
     format(body, sizeof (body),
-        C_BRAND "СТЪПКА 4 от %d " C_GREY "| Възраст\n\n"
-        C_WHITE "На колко години си?\n\n"
-        C_GREY "Питаме, за да организираме събития и правила,\n"
+        C_BRAND "СТЪПКА 4 от %d " C_GREY "| Възраст\n\n" \
+        C_WHITE "На колко години си?\n\n" \
+        C_GREY "Питаме, за да организираме събития и правила,\n" \
         C_GREY "подходящи за нашата общност. Въведи само число.",
         REG_TOTAL_STEPS);
     Auth_AppendError(body, sizeof (body), error);
@@ -213,10 +213,10 @@ stock Auth_ShowRegReferral(playerid, const error[])
 {
     new body[1500];
     format(body, sizeof (body),
-        C_BRAND "СТЪПКА 6 от %d " C_GREY "| Покана от приятел\n\n"
-        C_WHITE "Покани ли те някой в " C_BRAND "HOTFIX ONLINE" C_WHITE "?\n\n"
-        "Въведи името на играча във формат " C_GOLD "Име_Фамилия" C_WHITE ".\n"
-        "Когато се развиеш в сървъра, " C_GREEN "и двамата ще получите награда" C_WHITE ".\n\n"
+        C_BRAND "СТЪПКА 6 от %d " C_GREY "| Покана от приятел\n\n" \
+        C_WHITE "Покани ли те някой в " C_BRAND "HOTFIX ONLINE" C_WHITE "?\n\n" \
+        "Въведи името на играча във формат " C_GOLD "Име_Фамилия" C_WHITE ".\n" \
+        "Когато се развиеш в сървъра, " C_GREEN "и двамата ще получите награда" C_WHITE ".\n\n" \
         C_GREY "Ако никой не те е поканил, натисни \"Пропусни\".",
         REG_TOTAL_STEPS);
     Auth_AppendError(body, sizeof (body), error);
@@ -227,10 +227,10 @@ stock Auth_ShowRegPromo(playerid, const error[])
 {
     new body[1500];
     format(body, sizeof (body),
-        C_BRAND "СТЪПКА 7 от %d " C_GREY "| Промокод\n\n"
-        C_WHITE "Имаш ли промокод?\n\n"
-        "Промокодовете дават " C_GREEN "бонус пари" C_WHITE " за добър старт.\n"
-        "Търси ги в нашия Discord, при стриймъри и по време на събития.\n\n"
+        C_BRAND "СТЪПКА 7 от %d " C_GREY "| Промокод\n\n" \
+        C_WHITE "Имаш ли промокод?\n\n" \
+        "Промокодовете дават " C_GREEN "бонус пари" C_WHITE " за добър старт.\n" \
+        "Търси ги в нашия Discord, при стриймъри и по време на събития.\n\n" \
         C_GREY "Ако нямаш код, натисни \"Пропусни\".",
         REG_TOTAL_STEPS);
     Auth_AppendError(body, sizeof (body), error);
@@ -288,11 +288,11 @@ stock Auth_ShowRegComplete(playerid)
     GetRPName(playerid, rpName);
     FormatNumber(PlayerData[playerid][pMoney], money);
     format(body, sizeof (body),
-        C_GREEN "Регистрацията е успешна!\n\n"
-        C_WHITE "Добре дошъл в " C_GOLD "Los Santos" C_WHITE ", " C_BRAND "%s" C_WHITE "!\n\n"
-        C_BRAND "»" C_WHITE " Получи " C_GREEN "$%s" C_WHITE " за начало\n"
-        C_BRAND "»" C_WHITE " Намираш се на гара " C_GOLD "Unity" C_WHITE " – оттук започва всичко\n"
-        C_BRAND "»" C_WHITE " Сървърът е в активна разработка – нови системи идват редовно\n\n"
+        C_GREEN "Регистрацията е успешна!\n\n" \
+        C_WHITE "Добре дошъл в " C_GOLD "Los Santos" C_WHITE ", " C_BRAND "%s" C_WHITE "!\n\n" \
+        C_BRAND "»" C_WHITE " Получи " C_GREEN "$%s" C_WHITE " за начало\n" \
+        C_BRAND "»" C_WHITE " Намираш се на гара " C_GOLD "Unity" C_WHITE " – оттук започва всичко\n" \
+        C_BRAND "»" C_WHITE " Сървърът е в активна разработка – нови системи идват редовно\n\n" \
         C_GREY "Приятна игра от екипа на HOTFIX ONLINE!",
         rpName, money);
     ShowPlayerDialog(playerid, DIALOG_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "HOTFIX ONLINE " C_WHITE "| Добре дошъл", "%s", "Да играем!", "", body);
@@ -539,8 +539,8 @@ stock Auth_FinishRegistration(playerid)
     PlayerData[playerid][pVirtualWorld] = 0;
 
     format(q, sizeof (q),
-        "INSERT INTO accounts (name, password, salt, email, gender, age, source, referrer_id, promo_code, skin, money, level, "
-        "pos_x, pos_y, pos_z, pos_a, register_ip, last_ip, registered_at, last_login) VALUES "
+        "INSERT INTO accounts (name, password, salt, email, gender, age, source, referrer_id, promo_code, skin, money, level, " \
+        "pos_x, pos_y, pos_z, pos_a, register_ip, last_ip, registered_at, last_login) VALUES " \
         "('%s', '%s', '%s', '%s', %d, %d, '%s', %d, '%s', %d, %d, 1, %f, %f, %f, %f, '%s', '%s', %d, %d)",
         PlayerData[playerid][pName], PlayerData[playerid][pPassHash], PlayerData[playerid][pSalt],
         eEmail, PlayerData[playerid][pGender], PlayerData[playerid][pAge], eSource,
@@ -657,7 +657,7 @@ stock Auth_SaveAccount(playerid)
 
     new q[512];
     format(q, sizeof (q),
-        "UPDATE accounts SET skin = %d, money = %d, level = %d, pos_x = %f, pos_y = %f, pos_z = %f, pos_a = %f, "
+        "UPDATE accounts SET skin = %d, money = %d, level = %d, pos_x = %f, pos_y = %f, pos_z = %f, pos_a = %f, " \
         "interior = %d, virtual_world = %d WHERE id = %d",
         PlayerData[playerid][pSkin], PlayerData[playerid][pMoney], PlayerData[playerid][pLevel],
         PlayerData[playerid][pPosX], PlayerData[playerid][pPosY], PlayerData[playerid][pPosZ], PlayerData[playerid][pPosA],
