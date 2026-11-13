@@ -151,3 +151,153 @@ stock FormatNumber(value, dest[], size = sizeof (dest))
     }
     dest[j] = EOS;
 }
+
+// ---------- Параметри на команди ----------
+
+stock SendUsage(playerid, const msg[])
+{
+    SendClientMessage(playerid, COLOR_GREY, "Използване: {FFFFFF}%s", msg);
+    return 1;
+}
+
+// Празен параметър (командният процесор подава "\1" вместо "")
+stock bool:IsNull(const str[])
+{
+    return (str[0] == EOS || (str[0] == '\1' && str[1] == EOS));
+}
+
+// Цяло число (може и отрицателно)
+stock bool:IsInteger(const str[])
+{
+    new i = (str[0] == '-') ? 1 : 0;
+    if (str[i] == EOS) return false;
+    for (; str[i] != EOS; i++) {
+        if (str[i] < '0' || str[i] > '9') return false;
+    }
+    return true;
+}
+
+// Думата с номер index (от 0)
+stock bool:GetParam(const src[], index, dest[], size = sizeof (dest))
+{
+    dest[0] = EOS;
+    if (IsNull(src)) return false;
+
+    new pos = 0, len = strlen(src), current = 0;
+    while (pos < len) {
+        while (pos < len && src[pos] == ' ') pos++;
+        if (pos >= len) break;
+
+        new start = pos;
+        while (pos < len && src[pos] != ' ') pos++;
+
+        if (current == index) {
+            strmid(dest, src, start, pos, size);
+            return true;
+        }
+        current++;
+    }
+    return false;
+}
+
+// Всичко от думата с номер index до края (за причина, текст...)
+stock bool:GetParamRest(const src[], index, dest[], size = sizeof (dest))
+{
+    dest[0] = EOS;
+    if (IsNull(src)) return false;
+
+    new pos = 0, len = strlen(src), current = 0;
+    while (pos < len) {
+        while (pos < len && src[pos] == ' ') pos++;
+        if (pos >= len) break;
+
+        if (current == index) {
+            strmid(dest, src, pos, len, size);
+            return true;
+        }
+        while (pos < len && src[pos] != ' ') pos++;
+        current++;
+    }
+    return false;
+}
+
+stock bool:GetParamInt(const src[], index, &value)
+{
+    new buf[16];
+    if (!GetParam(src, index, buf) || !IsInteger(buf) || strlen(buf) > 10) return false;
+    value = strval(buf);
+    return true;
+}
+
+// Играч по ID или част от името. INVALID_PLAYER_ID, ако няма или са няколко.
+stock FindPlayer(const str[])
+{
+    if (IsNumeric(str)) {
+        if (strlen(str) > 4) return INVALID_PLAYER_ID;
+        new id = strval(str);
+        if (0 <= id < MAX_PLAYERS && IsPlayerConnected(id)) return id;
+        return INVALID_PLAYER_ID;
+    }
+
+    new name[MAX_PLAYER_NAME + 1], found = INVALID_PLAYER_ID;
+    for (new i = 0; i < MAX_PLAYERS; i++) {
+        if (!IsPlayerConnected(i)) continue;
+        GetPlayerName(i, name, sizeof (name));
+        if (strfind(name, str, true) != -1) {
+            if (found != INVALID_PLAYER_ID) return INVALID_PLAYER_ID;
+            found = i;
+        }
+    }
+    return found;
+}
+
+// Взима играч от параметър; пише грешка, ако няма такъв.
+stock bool:GetParamPlayer(playerid, const src[], index, &targetid)
+{
+    new buf[MAX_PLAYER_NAME + 1];
+    targetid = INVALID_PLAYER_ID;
+    if (!GetParam(src, index, buf)) return false;
+
+    targetid = FindPlayer(buf);
+    if (targetid == INVALID_PLAYER_ID || !PlayerData[targetid][pLogged]) {
+        SendError(playerid, "Няма такъв играч (провери ID-то или името).");
+        targetid = INVALID_PLAYER_ID;
+        return false;
+    }
+    return true;
+}
+
+// ---------- Разстояния ----------
+
+stock bool:IsPlayerNearPlayer(playerid, targetid, Float:radius)
+{
+    if (GetPlayerVirtualWorld(playerid) != GetPlayerVirtualWorld(targetid)) return false;
+    if (GetPlayerInterior(playerid) != GetPlayerInterior(targetid)) return false;
+    new Float:x, Float:y, Float:z;
+    GetPlayerPos(targetid, x, y, z);
+    return (GetPlayerDistanceFromPoint(playerid, x, y, z) <= radius);
+}
+
+// Съобщение до всички наоколо; по-далечните виждат по-бледо.
+stock ProxMessage(playerid, Float:radius, colour, const msg[], bool:fade = true)
+{
+    new Float:x, Float:y, Float:z;
+    GetPlayerPos(playerid, x, y, z);
+    new vw = GetPlayerVirtualWorld(playerid), interior = GetPlayerInterior(playerid);
+
+    for (new i = 0; i < MAX_PLAYERS; i++) {
+        if (!IsPlayerConnected(i) || !PlayerData[i][pLogged]) continue;
+        if (GetPlayerVirtualWorld(i) != vw || GetPlayerInterior(i) != interior) continue;
+
+        new Float:dist = GetPlayerDistanceFromPoint(i, x, y, z);
+        if (dist > radius) continue;
+
+        new c = colour;
+        if (fade) {
+            if (dist > radius * 0.75) c = COLOR_FADE3;
+            else if (dist > radius * 0.5) c = COLOR_FADE2;
+            else if (dist > radius * 0.25) c = COLOR_FADE1;
+        }
+        SendClientMessage(i, c, "%s", msg);
+    }
+}

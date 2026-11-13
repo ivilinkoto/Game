@@ -17,6 +17,10 @@ enum {
     DIALOG_REG_PROMO,
     DIALOG_REG_SUMMARY,
 
+    // Главно меню
+    DIALOG_MENU,
+    DIALOG_MENU_BACK,   // информационен прозорец с бутон "Назад" към менюто
+
     // Информационни
     DIALOG_INFO,
     DIALOG_INFO_KICK    // след затваряне играчът се изгонва

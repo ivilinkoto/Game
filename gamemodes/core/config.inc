@@ -32,6 +32,27 @@
 #define SKIN_CAMERA_DISTANCE    3.2
 #define SKIN_CAMERA_HEIGHT      0.5
 
+// Болница All Saints – спаун след смърт
+#define HOSPITAL_X              1177.5
+#define HOSPITAL_Y              -1323.5
+#define HOSPITAL_Z              14.08
+#define HOSPITAL_A              270.0
+#define HOSPITAL_FEE            200
+
+// --- Нива и заплата ---
+#define PAYDAY_MINUTES          60      // активни минути до заплата
+#define PAYDAY_BASE             500     // базова заплата
+#define PAYDAY_PER_LEVEL        100     // + за всяко ниво
+#define EXP_PER_LEVEL           2       // нужен опит = ниво * това (1 заплата = 1 опит)
+#define AFK_IDLE_MINUTES        10      // след толкова минути без движение не се брои време
+#define AFK_PAUSE_MS            15000   // клиентът не праща данни -> играта е на пауза
+
+// --- Чат (разстояния) ---
+#define CHAT_RADIUS_NORMAL      20.0
+#define CHAT_RADIUS_SHOUT       40.0
+#define CHAT_RADIUS_LOW         5.0
+#define CHAT_RADIUS_ME          25.0
+
 // --- Свят ---
 #define WORLD_WEATHER           1
 #define WORLD_HOUR              12

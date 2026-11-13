@@ -6,7 +6,7 @@
  *
  *  Структура:
  *    core/     – настройки, цветове, данни на играча, база, помощни функции
- *    modules/  – отделните системи (вход/регистрация, избор на скин, ...)
+ *    modules/  – отделните системи (вход, админи, чат, меню, нива, ...)
  */
 
 #include <open.mp>
@@ -20,10 +20,17 @@
 #include "core/player.inc"
 #include "core/utils.inc"
 #include "core/database.inc"
+#include "core/commands.inc"
 
+#include "modules/money.inc"
+#include "modules/levels.inc"
+#include "modules/hospital.inc"
 #include "modules/promo.inc"
 #include "modules/skin_select.inc"
+#include "modules/admin.inc"
 #include "modules/auth.inc"
+#include "modules/chat.inc"
+#include "modules/menu.inc"
 
 new gTickCounter;
 
@@ -69,6 +76,17 @@ public Server_Tick()
 {
     gTickCounter++;
 
+    Money_OnTick();
+
+    // Всяка минута
+    if (gTickCounter % 60 == 0) {
+        for (new i = 0; i < MAX_PLAYERS; i++) {
+            if (IsPlayerConnected(i) && PlayerData[i][pLogged]) {
+                Levels_OnPlayerMinute(i);
+            }
+        }
+    }
+
     if (gTickCounter % AUTOSAVE_SECONDS == 0) {
         for (new i = 0; i < MAX_PLAYERS; i++) {
             if (IsPlayerConnected(i)) Auth_SaveAccount(i);
@@ -88,6 +106,7 @@ public OnPlayerDisconnect(playerid, reason)
     #pragma unused reason
     Auth_SaveAccount(playerid);
     Skin_OnPlayerDisconnect(playerid);
+    Admin_OnPlayerDisconnect(playerid);
     ResetPlayerData(playerid);
     return 1;
 }
@@ -105,23 +124,40 @@ public OnPlayerSpawn(playerid)
     return 1;
 }
 
+public OnPlayerDeath(playerid, killerid, WEAPON:reason)
+{
+    #pragma unused killerid, reason
+    Hospital_OnPlayerDeath(playerid);
+    return 1;
+}
+
+public OnPlayerUpdate(playerid)
+{
+    Levels_OnPlayerUpdate(playerid);
+    return 1;
+}
+
+public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
+{
+    Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
+    return 1;
+}
+
 public OnPlayerText(playerid, text[])
 {
-    #pragma unused text
-    if (!PlayerData[playerid][pLogged]) return 0;
-    return 1;
+    Chat_OnPlayerText(playerid, text);
+    return 0; // винаги 0 – сами изпращаме RP съобщението
 }
 
 public OnPlayerCommandText(playerid, cmdtext[])
 {
-    #pragma unused cmdtext
-    if (!PlayerData[playerid][pLogged]) return 1;
-    return 0;
+    return Commands_Process(playerid, cmdtext);
 }
 
 public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 {
     if (Auth_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
+    if (Menu_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     return 0;
 }
 

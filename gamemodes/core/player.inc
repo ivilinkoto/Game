@@ -19,6 +19,10 @@ enum E_PLAYER_DATA {
     pSkin,
     pMoney,
     pLevel,
+    pExp,
+    pAdmin,
+    pPlayedMinutes,     // общо активно време
+    pPaydayMinutes,     // активни минути от последната заплата
     Float:pPosX,
     Float:pPosY,
     Float:pPosZ,
@@ -34,7 +38,17 @@ enum E_PLAYER_DATA {
     pLoginAttempts,
     bool:pInSkinSelect,
     pSkinIndex,
-    PlayerText:pSkinCounterTD
+    PlayerText:pSkinCounterTD,
+    bool:pBanned,
+    pBanInfo[256],
+    bool:pDied,
+    pLastUpdateTick,    // последен пакет от клиента (за AFK)
+    pIdleMinutes,       // поредни минути без движение
+    Float:pIdleX,
+    Float:pIdleY,
+    Float:pIdleZ,
+    pLastPM,
+    pAdminVehicle
 }
 
 new PlayerData[MAX_PLAYERS][E_PLAYER_DATA];
@@ -45,4 +59,7 @@ stock ResetPlayerData(playerid)
     PlayerData[playerid] = empty;
     PlayerData[playerid][pLevel] = 1;
     PlayerData[playerid][pSkinCounterTD] = INVALID_PLAYER_TEXT_DRAW;
+    PlayerData[playerid][pLastPM] = INVALID_PLAYER_ID;
+    PlayerData[playerid][pAdminVehicle] = INVALID_VEHICLE_ID;
+    PlayerData[playerid][pLastUpdateTick] = GetTickCount();
 }

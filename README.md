@@ -14,6 +14,13 @@
 | `gamemodes/modules/auth.inc` | Регистрация и вход |
 | `gamemodes/modules/skin_select.inc` | Избор на скин след регистрация |
 | `gamemodes/modules/promo.inc` | Промокодове |
+| `gamemodes/core/commands.inc` | Команден процесор (`CMD:име(playerid, params[])`) |
+| `gamemodes/modules/menu.inc` | Главно меню (бутон Y или `/menu`) |
+| `gamemodes/modules/admin.inc` | Админ нива, команди и банове |
+| `gamemodes/modules/chat.inc` | RP чат |
+| `gamemodes/modules/money.inc` | Пари на сървъра (`Money_Give` / `Money_Set`) |
+| `gamemodes/modules/levels.inc` | Активно време, заплата, нива |
+| `gamemodes/modules/hospital.inc` | Смърт и болница |
 | `scripts/build.sh` | Компилиране (UTF-8 → Windows-1251 → `hotfix.amx`) |
 | `scripts/deploy.sh` | Обновяване на сървъра |
 
@@ -28,6 +35,13 @@
 | Състояние | `systemctl status omp --no-pager` |
 | Рестарт | `systemctl restart omp` |
 | Лог на живо | `journalctl -u omp -f` |
+
+## Първи собственик
+
+1. В `/home/omp/Server/config.json` задай парола в `"rcon": { "password": "..." }` и рестартирай (`systemctl restart omp`).
+2. В играта: `/rcon login ПАРОЛАТА`, после `/makeadmin [твоето ID] 5`.
+
+Админ нива: 1 Хелпър, 2 Модератор, 3 Администратор, 4 Главен администратор, 5 Собственик.
 
 ## Промокодове
 

@@ -31,6 +31,10 @@ stock Auth_OnPlayerConnect(playerid)
         return 1; // ще покажем обяснение в Auth_ShowAuth
     }
 
+    if (Bans_CheckPlayer(playerid)) {
+        return 1; // ще покажем прозорец за бана в Auth_ShowAuth
+    }
+
     new q[160];
     format(q, sizeof (q), "SELECT password, salt FROM accounts WHERE name = '%s' LIMIT 1", PlayerData[playerid][pName]);
     new DBResult:result = Database_Query(q);
@@ -68,6 +72,8 @@ public Auth_ShowAuth(playerid)
 
     if (!IsValidRPName(PlayerData[playerid][pName])) {
         Auth_ShowBadName(playerid);
+    } else if (PlayerData[playerid][pBanned]) {
+        Bans_ShowDialog(playerid);
     } else if (PlayerData[playerid][pHasAccount]) {
         Auth_ShowLogin(playerid, "");
     } else {
@@ -292,6 +298,7 @@ stock Auth_ShowRegComplete(playerid)
         C_WHITE "Добре дошъл в " C_GOLD "Los Santos" C_WHITE ", " C_BRAND "%s" C_WHITE "!\n\n" \
         C_BRAND "»" C_WHITE " Получи " C_GREEN "$%s" C_WHITE " за начало\n" \
         C_BRAND "»" C_WHITE " Намираш се на гара " C_GOLD "Unity" C_WHITE " – оттук започва всичко\n" \
+        C_BRAND "»" C_WHITE " Натисни " C_GOLD "Y" C_WHITE ", за да отвориш менюто с всичко важно\n" \
         C_BRAND "»" C_WHITE " Сървърът е в активна разработка – нови системи идват редовно\n\n" \
         C_GREY "Приятна игра от екипа на HOTFIX ONLINE!",
         rpName, money);
@@ -574,7 +581,7 @@ stock Auth_FinishRegistration(playerid)
     SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
     TogglePlayerControllable(playerid, true);
     SetCameraBehindPlayer(playerid);
-    Auth_SyncMoney(playerid);
+    Money_Sync(playerid);
 
     ClearChat(playerid);
     Auth_ShowRegComplete(playerid);
@@ -599,6 +606,10 @@ stock Auth_LoadAccount(playerid)
     PlayerData[playerid][pSkin]         = DB_GetFieldIntByName(result, "skin");
     PlayerData[playerid][pMoney]        = DB_GetFieldIntByName(result, "money");
     PlayerData[playerid][pLevel]        = DB_GetFieldIntByName(result, "level");
+    PlayerData[playerid][pExp]          = DB_GetFieldIntByName(result, "exp");
+    PlayerData[playerid][pAdmin]        = DB_GetFieldIntByName(result, "admin");
+    PlayerData[playerid][pPlayedMinutes] = DB_GetFieldIntByName(result, "played_minutes");
+    PlayerData[playerid][pPaydayMinutes] = DB_GetFieldIntByName(result, "payday_minutes");
     PlayerData[playerid][pPosX]         = DB_GetFieldFloatByName(result, "pos_x");
     PlayerData[playerid][pPosY]         = DB_GetFieldFloatByName(result, "pos_y");
     PlayerData[playerid][pPosZ]         = DB_GetFieldFloatByName(result, "pos_z");
@@ -657,24 +668,30 @@ stock Auth_SaveAccount(playerid)
 
     new q[512];
     format(q, sizeof (q),
-        "UPDATE accounts SET skin = %d, money = %d, level = %d, pos_x = %f, pos_y = %f, pos_z = %f, pos_a = %f, " \
-        "interior = %d, virtual_world = %d WHERE id = %d",
+        "UPDATE accounts SET skin = %d, money = %d, level = %d, exp = %d, admin = %d, played_minutes = %d, payday_minutes = %d, " \
+        "pos_x = %f, pos_y = %f, pos_z = %f, pos_a = %f, interior = %d, virtual_world = %d WHERE id = %d",
         PlayerData[playerid][pSkin], PlayerData[playerid][pMoney], PlayerData[playerid][pLevel],
+        PlayerData[playerid][pExp], PlayerData[playerid][pAdmin], PlayerData[playerid][pPlayedMinutes], PlayerData[playerid][pPaydayMinutes],
         PlayerData[playerid][pPosX], PlayerData[playerid][pPosY], PlayerData[playerid][pPosZ], PlayerData[playerid][pPosA],
         PlayerData[playerid][pInterior], PlayerData[playerid][pVirtualWorld], PlayerData[playerid][pID]);
     Database_Exec(q);
     return 1;
 }
 
-stock Auth_SyncMoney(playerid)
-{
-    ResetPlayerMoney(playerid);
-    GivePlayerMoney(playerid, PlayerData[playerid][pMoney]);
-}
 
 // ============================================================
 //  Спаун
 // ============================================================
+
+stock Auth_ShowLoginTip(playerid)
+{
+    SendClientMessage(playerid, COLOR_BRAND, "[HOTFIX] {FFFFFF}Натисни {FFD54A}Y{FFFFFF}, за да отвориш менюто.");
+    if (PlayerData[playerid][pAdmin] > 0) {
+        new rank[32];
+        Admin_GetRankName(PlayerData[playerid][pAdmin], rank);
+        SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Влезе като %s. Командите са в менюто или /ahelp.", rank);
+    }
+}
 
 stock Auth_OnPlayerSpawn(playerid)
 {
@@ -691,18 +708,16 @@ stock Auth_OnPlayerSpawn(playerid)
 
     SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
     SetPlayerScore(playerid, PlayerData[playerid][pLevel]);
-    Auth_SyncMoney(playerid);
+    Money_Sync(playerid);
+
+    if (Hospital_OnPlayerSpawn(playerid)) return 1;
 
     if (!PlayerData[playerid][pFirstSpawnDone]) {
         PlayerData[playerid][pFirstSpawnDone] = true;
         SetPlayerInterior(playerid, PlayerData[playerid][pInterior]);
         SetPlayerVirtualWorld(playerid, PlayerData[playerid][pVirtualWorld]);
         SetCameraBehindPlayer(playerid);
-        // След смърт – обратно на гарата (докато няма болница).
-        SetSpawnInfo(playerid, NO_TEAM, PlayerData[playerid][pSkin], SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_A);
-    } else {
-        SetPlayerInterior(playerid, 0);
-        SetPlayerVirtualWorld(playerid, 0);
+        Auth_ShowLoginTip(playerid);
     }
     return 1;
 }
