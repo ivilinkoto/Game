@@ -24,6 +24,9 @@
 | `gamemodes/modules/hospital.inc` | Смърт, болница, вход/изход |
 | `gamemodes/maps/` | Карти (обекти през Streamer) |
 | `scripts/install-streamer.sh` | Инсталира Streamer плъгина (deploy го пуска сам, ако липсва) |
+| `scripts/install-bcrypt.sh` | Инсталира samp-bcrypt (deploy го пуска сам, ако липсва) |
+| `gamemodes/core/passwords.inc` | Пароли с BCrypt (асинхронно) + прехвърляне на стари SHA-256 пароли |
+| `gamemodes/include/` | Външни include файлове (samp_bcrypt.inc) |
 | `scripts/build.sh` | Компилиране (UTF-8 → Windows-1251 → `hotfix.amx`) |
 | `scripts/deploy.sh` | Обновяване на сървъра |
 
@@ -66,3 +69,4 @@ sqlite3 /home/omp/Server/scriptfiles/hotfix.db "INSERT INTO promo_codes (code, m
 
 - Интериор на болница All Saints – AdamsLT ([SA-MP форум](https://sampforum.blast.hk/showthread.php?tid=500284))
 - Streamer плъгин – samp-incognito ([GitHub](https://github.com/samp-incognito/samp-streamer-plugin))
+- samp-bcrypt – Sreyas-Sreelal ([GitHub](https://github.com/Sreyas-Sreelal/samp-bcrypt), MIT)

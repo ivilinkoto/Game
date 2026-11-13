@@ -25,6 +25,11 @@ main() {
         SERVER_DIR="$SERVER_DIR" bash "$REPO_DIR/scripts/install-streamer.sh"
     fi
 
+    if [ ! -f "$SERVER_DIR/plugins/samp_bcrypt.so" ]; then
+        echo "==> Инсталиране на samp-bcrypt"
+        SERVER_DIR="$SERVER_DIR" bash "$REPO_DIR/scripts/install-bcrypt.sh"
+    fi
+
     echo "==> Компилиране"
     SERVER_DIR="$SERVER_DIR" runuser -u omp -- bash "$REPO_DIR/scripts/build.sh"
 
@@ -40,8 +45,9 @@ cfg["language"] = "Bulgarian"
 pawn = cfg.setdefault("pawn", {})
 pawn["main_scripts"] = ["hotfix 1"]
 plugins = pawn.setdefault("legacy_plugins", [])
-if "streamer" not in plugins:
-    plugins.append("streamer")
+for plugin in ("streamer", "samp_bcrypt"):
+    if plugin not in plugins:
+        plugins.append(plugin)
 if json.dumps(cfg, sort_keys=True) != before:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=4, ensure_ascii=False)

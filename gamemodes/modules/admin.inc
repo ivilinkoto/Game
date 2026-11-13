@@ -130,27 +130,16 @@ stock Admin_OnDialogResponse(playerid, dialogid, response, const inputtext[])
         case DIALOG_ALOGIN: {
             if (!response || PlayerData[playerid][pAdmin] == 0) return 1;
 
-            new hash[65];
-            SHA256_PassHash(inputtext, PlayerData[playerid][pAdminSalt], hash);
-            if (inputtext[0] != EOS && !strcmp(hash, PlayerData[playerid][pAdminPass], false)) {
-                Admin_LoginSuccess(playerid);
-                return 1;
-            }
-
-            PlayerData[playerid][pAdminLoginAttempts]++;
-            if (PlayerData[playerid][pAdminLoginAttempts] >= MAX_LOGIN_ATTEMPTS) {
-                new msg[128];
-                format(msg, sizeof (msg), "[A] ВНИМАНИЕ: %s сгреши админ паролата %d пъти и е изгонен.",
-                    PlayerData[playerid][pName], MAX_LOGIN_ATTEMPTS);
-                Admin_Broadcast(msg);
-                Log_Add("alogin_fail", PlayerData[playerid][pName], "", "kick");
-                SendError(playerid, "Твърде много грешни опити за админ парола.");
-                KickEx(playerid);
+            if (Pass_IsLegacy(PlayerData[playerid][pAdminSalt])) {
+                // Стара SHA-256 админ парола: проверяваме и я прехвърляме към BCrypt.
+                if (Pass_LegacyCheck(inputtext, PlayerData[playerid][pAdminSalt], PlayerData[playerid][pAdminPass])) {
+                    Pass_Hash(playerid, PASS_REHASH_ADMIN, inputtext);
+                    Admin_OnLoginResult(playerid, true);
+                } else {
+                    Admin_OnLoginResult(playerid, false);
+                }
             } else {
-                new err[80];
-                format(err, sizeof (err), "Грешна админ парола! Остават опити: %d",
-                    MAX_LOGIN_ATTEMPTS - PlayerData[playerid][pAdminLoginAttempts]);
-                Admin_ShowLogin(playerid, err);
+                Pass_Verify(playerid, PASS_ADMIN_LOGIN, inputtext, PlayerData[playerid][pAdminPass]);
             }
             return 1;
         }
@@ -163,46 +152,101 @@ stock Admin_OnDialogResponse(playerid, dialogid, response, const inputtext[])
                 Admin_ShowLogin(playerid, "Паролата е твърде къса или твърде дълга.");
                 return 1;
             }
-            // Не бива да е същата като паролата на акаунта
-            new hash[65];
-            SHA256_PassHash(inputtext, PlayerData[playerid][pSalt], hash);
-            if (!strcmp(hash, PlayerData[playerid][pPassHash], false)) {
-                Admin_ShowLogin(playerid, "Админ паролата трябва да е различна от паролата на акаунта.");
-                return 1;
-            }
+            format(PlayerData[playerid][pTempPass], MAX_PASSWORD_LENGTH + 1, "%s", inputtext);
 
-            GenerateSalt(PlayerData[playerid][pAdminSalt], 16, 17);
-            SHA256_PassHash(inputtext, PlayerData[playerid][pAdminSalt], PlayerData[playerid][pAdminPass], 65);
-            ShowPlayerDialog(playerid, DIALOG_ALOGIN_CONFIRM, DIALOG_STYLE_PASSWORD, C_RED "Админ " C_WHITE "| Нова парола",
-                C_WHITE "Въведи админ паролата " C_GOLD "още веднъж" C_WHITE " за потвърждение.", "Запази", "Назад");
+            // Не бива да е същата като паролата на акаунта
+            if (Pass_IsLegacy(PlayerData[playerid][pSalt])) {
+                Admin_OnSameCheck(playerid, Pass_LegacyCheck(inputtext, PlayerData[playerid][pSalt], PlayerData[playerid][pPassHash]));
+            } else {
+                Pass_Verify(playerid, PASS_ADMIN_SAME, inputtext, PlayerData[playerid][pPassHash]);
+            }
             return 1;
         }
 
         case DIALOG_ALOGIN_CONFIRM: {
             if (PlayerData[playerid][pAdmin] == 0) return 1;
 
-            new hash[65];
-            if (response) SHA256_PassHash(inputtext, PlayerData[playerid][pAdminSalt], hash);
-            if (!response || inputtext[0] == EOS || strcmp(hash, PlayerData[playerid][pAdminPass], false) != 0) {
-                // Връщаме се към създаването (паролата още не е записана)
-                PlayerData[playerid][pAdminPass][0] = EOS;
-                PlayerData[playerid][pAdminSalt][0] = EOS;
-                if (response) Admin_ShowLogin(playerid, "Паролите не съвпадат. Опитай отново.");
-                else Admin_ShowLogin(playerid, "");
+            if (!response) {
+                PlayerData[playerid][pTempPass][0] = EOS;
+                Admin_ShowLogin(playerid, "");
                 return 1;
             }
-
-            new q[256];
-            format(q, sizeof (q), "UPDATE accounts SET admin_password = '%s', admin_salt = '%s' WHERE id = %d",
-                PlayerData[playerid][pAdminPass], PlayerData[playerid][pAdminSalt], PlayerData[playerid][pID]);
-            Database_Exec(q);
-
-            SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Админ паролата е създадена. Запомни я!");
-            Admin_LoginSuccess(playerid);
+            if (inputtext[0] == EOS || strcmp(inputtext, PlayerData[playerid][pTempPass], false) != 0) {
+                PlayerData[playerid][pTempPass][0] = EOS;
+                Admin_ShowLogin(playerid, "Паролите не съвпадат. Опитай отново.");
+                return 1;
+            }
+            // Хешира се асинхронно – продължаваме в Admin_OnPassHashed.
+            Pass_Hash(playerid, PASS_ADMIN_CREATE, PlayerData[playerid][pTempPass]);
+            PlayerData[playerid][pTempPass][0] = EOS;
             return 1;
         }
     }
     return 0;
+}
+
+// ---------- Резултати от BCrypt (виж core/passwords.inc) ----------
+
+stock Admin_OnLoginResult(playerid, bool:success)
+{
+    if (PlayerData[playerid][pAdmin] == 0 || PlayerData[playerid][pAdminLogged]) return;
+
+    if (success) {
+        Admin_LoginSuccess(playerid);
+        return;
+    }
+
+    PlayerData[playerid][pAdminLoginAttempts]++;
+    if (PlayerData[playerid][pAdminLoginAttempts] >= MAX_LOGIN_ATTEMPTS) {
+        new msg[128];
+        format(msg, sizeof (msg), "[A] ВНИМАНИЕ: %s сгреши админ паролата %d пъти и е изгонен.",
+            PlayerData[playerid][pName], MAX_LOGIN_ATTEMPTS);
+        Admin_Broadcast(msg);
+        Log_Add("alogin_fail", PlayerData[playerid][pName], "", "kick");
+        SendError(playerid, "Твърде много грешни опити за админ парола.");
+        KickEx(playerid);
+    } else {
+        new err[80];
+        format(err, sizeof (err), "Грешна админ парола! Остават опити: %d",
+            MAX_LOGIN_ATTEMPTS - PlayerData[playerid][pAdminLoginAttempts]);
+        Admin_ShowLogin(playerid, err);
+    }
+}
+
+// same = true -> новата админ парола съвпада с паролата на акаунта
+stock Admin_OnSameCheck(playerid, bool:same)
+{
+    if (same) {
+        PlayerData[playerid][pTempPass][0] = EOS;
+        Admin_ShowLogin(playerid, "Админ паролата трябва да е различна от паролата на акаунта.");
+        return;
+    }
+    ShowPlayerDialog(playerid, DIALOG_ALOGIN_CONFIRM, DIALOG_STYLE_PASSWORD, C_RED "Админ " C_WHITE "| Нова парола",
+        C_WHITE "Въведи админ паролата " C_GOLD "още веднъж" C_WHITE " за потвърждение.", "Запази", "Назад");
+}
+
+stock Admin_SaveAdminPassword(playerid, const hash[])
+{
+    format(PlayerData[playerid][pAdminPass], 65, "%s", hash);
+    PlayerData[playerid][pAdminSalt][0] = EOS;
+
+    new q[256];
+    format(q, sizeof (q), "UPDATE accounts SET admin_password = '%s', admin_salt = '' WHERE id = %d",
+        hash, PlayerData[playerid][pID]);
+    Database_Exec(q);
+}
+
+stock Admin_OnPassHashed(playerid, const hash[])
+{
+    Admin_SaveAdminPassword(playerid, hash);
+    SendClientMessage(playerid, COLOR_ADMIN, "[Админ] Админ паролата е създадена. Запомни я!");
+    Admin_LoginSuccess(playerid);
+}
+
+// Стара админ парола е прехвърлена към BCrypt.
+stock Admin_OnRehashed(playerid, const hash[])
+{
+    Admin_SaveAdminPassword(playerid, hash);
 }
 
 // ============================================================

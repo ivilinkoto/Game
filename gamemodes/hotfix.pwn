@@ -21,6 +21,7 @@
 #include "core/player.inc"
 #include "core/utils.inc"
 #include "core/database.inc"
+#include "core/passwords.inc"
 #include "core/commands.inc"
 
 #include "maps/hospital.inc"

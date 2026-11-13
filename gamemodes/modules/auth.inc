@@ -24,6 +24,7 @@ static const SourceNames[][] = {
 stock Auth_OnPlayerConnect(playerid)
 {
     ResetPlayerData(playerid);
+    Pass_OnPlayerConnect(playerid);
     GetPlayerName(playerid, PlayerData[playerid][pName], MAX_PLAYER_NAME + 1);
     ClearChat(playerid);
 
@@ -324,22 +325,16 @@ stock Auth_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 return 1;
             }
 
-            new hash[65];
-            SHA256_PassHash(inputtext, PlayerData[playerid][pSalt], hash);
-            if (inputtext[0] != EOS && !strcmp(hash, PlayerData[playerid][pPassHash], false)) {
-                Auth_LoadAccount(playerid);
-                return 1;
-            }
-
-            PlayerData[playerid][pLoginAttempts]++;
-            if (PlayerData[playerid][pLoginAttempts] >= MAX_LOGIN_ATTEMPTS) {
-                SendError(playerid, "Твърде много грешни опити. Опитай отново по-късно.");
-                KickEx(playerid);
+            if (Pass_IsLegacy(PlayerData[playerid][pSalt])) {
+                // Стара SHA-256 парола: проверяваме веднага и я прехвърляме към BCrypt.
+                if (Pass_LegacyCheck(inputtext, PlayerData[playerid][pSalt], PlayerData[playerid][pPassHash])) {
+                    Pass_Hash(playerid, PASS_REHASH_ACCOUNT, inputtext);
+                    Auth_OnLoginResult(playerid, true);
+                } else {
+                    Auth_OnLoginResult(playerid, false);
+                }
             } else {
-                new err[80];
-                format(err, sizeof (err), "Грешна парола! Остават опити: %d",
-                    MAX_LOGIN_ATTEMPTS - PlayerData[playerid][pLoginAttempts]);
-                Auth_ShowLogin(playerid, err);
+                Pass_Verify(playerid, PASS_LOGIN, inputtext, PlayerData[playerid][pPassHash]);
             }
             return 1;
         }
@@ -364,8 +359,8 @@ stock Auth_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 Auth_ShowRegPassword(playerid, "Паролата е твърде къса или твърде дълга.");
                 return 1;
             }
-            GenerateSalt(PlayerData[playerid][pSalt], 16, 17);
-            SHA256_PassHash(inputtext, PlayerData[playerid][pSalt], PlayerData[playerid][pPassHash], 65);
+            // Пазим я само в паметта, докато бъде потвърдена.
+            format(PlayerData[playerid][pTempPass], MAX_PASSWORD_LENGTH + 1, "%s", inputtext);
             Auth_ShowRegPasswordConfirm(playerid);
             return 1;
         }
@@ -376,13 +371,14 @@ stock Auth_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 return 1;
             }
 
-            new hash[65];
-            SHA256_PassHash(inputtext, PlayerData[playerid][pSalt], hash);
-            if (inputtext[0] == EOS || strcmp(hash, PlayerData[playerid][pPassHash], false) != 0) {
+            if (inputtext[0] == EOS || strcmp(inputtext, PlayerData[playerid][pTempPass], false) != 0) {
+                PlayerData[playerid][pTempPass][0] = EOS;
                 Auth_ShowRegPassword(playerid, "Паролите не съвпадат. Опитай отново.");
                 return 1;
             }
-            Auth_ShowRegEmail(playerid, "");
+            // Хешира се асинхронно – продължаваме в Auth_OnRegisterHashed.
+            Pass_Hash(playerid, PASS_REGISTER, PlayerData[playerid][pTempPass]);
+            PlayerData[playerid][pTempPass][0] = EOS;
             return 1;
         }
 
@@ -490,6 +486,51 @@ stock Auth_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
         }
     }
     return 0;
+}
+
+// ============================================================
+//  Резултати от BCrypt (виж core/passwords.inc)
+// ============================================================
+
+stock Auth_OnLoginResult(playerid, bool:success)
+{
+    if (PlayerData[playerid][pLogged]) return;
+
+    if (success) {
+        Auth_LoadAccount(playerid);
+        return;
+    }
+
+    PlayerData[playerid][pLoginAttempts]++;
+    if (PlayerData[playerid][pLoginAttempts] >= MAX_LOGIN_ATTEMPTS) {
+        SendError(playerid, "Твърде много грешни опити. Опитай отново по-късно.");
+        KickEx(playerid);
+    } else {
+        new err[80];
+        format(err, sizeof (err), "Грешна парола! Остават опити: %d",
+            MAX_LOGIN_ATTEMPTS - PlayerData[playerid][pLoginAttempts]);
+        Auth_ShowLogin(playerid, err);
+    }
+}
+
+stock Auth_OnRegisterHashed(playerid, const hash[])
+{
+    format(PlayerData[playerid][pPassHash], 65, "%s", hash);
+    PlayerData[playerid][pSalt][0] = EOS;
+    Auth_ShowRegEmail(playerid, "");
+}
+
+// Стара парола е прехвърлена към BCrypt.
+stock Auth_OnRehashed(playerid, const hash[])
+{
+    format(PlayerData[playerid][pPassHash], 65, "%s", hash);
+    PlayerData[playerid][pSalt][0] = EOS;
+    if (PlayerData[playerid][pID] <= 0) return;
+
+    new q[256];
+    format(q, sizeof (q), "UPDATE accounts SET password = '%s', salt = '' WHERE id = %d", hash, PlayerData[playerid][pID]);
+    Database_Exec(q);
+    printf("[ACCOUNT] %s: password upgraded to BCrypt", PlayerData[playerid][pName]);
 }
 
 // ============================================================

@@ -7,8 +7,8 @@ enum E_PLAYER_DATA {
     // --- Записват се в базата ---
     pID,
     pName[MAX_PLAYER_NAME + 1],
-    pPassHash[65],
-    pSalt[17],
+    pPassHash[65],      // BCrypt (60 символа) или стар SHA-256 (64)
+    pSalt[17],          // само за стари SHA-256 пароли; при BCrypt е празна
     pEmail[65],
     pGender,
     pAge,
@@ -32,6 +32,8 @@ enum E_PLAYER_DATA {
 
     // --- Само в паметта ---
     bool:pLogged,
+    pConnSeq,           // номер на свързването (core/passwords.inc)
+    pTempPass[MAX_PASSWORD_LENGTH + 1], // въведена, но още непотвърдена парола
     bool:pHasAccount,
     bool:pAuthShown,
     bool:pFirstSpawnDone,

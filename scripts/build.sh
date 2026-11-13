@@ -21,7 +21,7 @@ done
 
 # Компилираме във временен файл, за да не се развали работещият .amx при грешка.
 LD_LIBRARY_PATH="$QAWNO" "$QAWNO/pawncc" "$SRC/$GM.pwn" \
-    "-i$QAWNO/include" "-i$SRC" \
+    "-i$QAWNO/include" "-i$SRC/include" "-i$SRC" \
     "-o$SRC/$GM.amx" \
     -d3 '-;+' -O1
 
