@@ -27,6 +27,7 @@
 #include "core/database.inc"
 #include "core/passwords.inc"
 #include "core/commands.inc"
+#include "core/jobs.inc"
 
 #include "maps/hospital.inc"
 
@@ -40,6 +41,10 @@
 #include "modules/auth.inc"
 #include "modules/chat.inc"
 #include "modules/report.inc"
+#include "modules/weather.inc"
+#include "modules/market.inc"
+#include "modules/minigame.inc"
+#include "modules/jobs/farm.inc"
 #include "modules/menu.inc"
 
 new gTickCounter;
@@ -55,9 +60,11 @@ public OnGameModeInit()
         return 0;
     }
     Report_CreateTables();
+    Job_CreateTables();
+    Market_Init();
 
     SetGameModeText("HOTFIX ONLINE");
-    SetWeather(WORLD_WEATHER);
+    Weather_Init();
     SetWorldTime(WORLD_HOUR);
     UsePlayerPedAnims();
     EnableStuntBonusForAll(false);
@@ -69,6 +76,8 @@ public OnGameModeInit()
 
     Skin_CreateTextDraws();
     Hospital_Init();
+    Minigame_Init();
+    Farm_Init();
 
     SetTimer("Server_Tick", 1000, true);
     return 1;
@@ -90,6 +99,9 @@ public Server_Tick()
 
     Money_OnTick();
     Report_OnTick(gTickCounter);
+    Weather_OnTick(gTickCounter);
+    Market_OnTick(gTickCounter);
+    Farm_OnTick(gTickCounter);
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerConnected(i) && PlayerData[i][pLogged]) {
@@ -116,6 +128,8 @@ public Server_Tick()
 
 public OnPlayerConnect(playerid)
 {
+    Job_ResetPlayer(playerid);
+    Farm_ResetPlayer(playerid);
     Auth_OnPlayerConnect(playerid);
     return 1;
 }
@@ -127,6 +141,9 @@ public OnPlayerDisconnect(playerid, reason)
     Skin_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
     Afk_OnPlayerDisconnect(playerid);
+    Farm_OnPlayerDisconnect(playerid);
+    Minigame_OnPlayerDisconnect(playerid);
+    Job_ResetPlayer(playerid);
     ResetPlayerData(playerid);
     return 1;
 }
@@ -141,6 +158,7 @@ public OnPlayerRequestClass(playerid, classid)
 public OnPlayerSpawn(playerid)
 {
     Auth_OnPlayerSpawn(playerid);
+    Farm_OnPlayerSpawn(playerid);
     return 1;
 }
 
@@ -181,6 +199,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, inputtext)) return 1;
     if (Report_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
+    if (Farm_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     return 0;
 }
 
@@ -190,8 +209,15 @@ public OnPlayerPickUpPickup(playerid, pickupid)
     return 1;
 }
 
+public OnPlayerPickUpDynamicPickup(playerid, STREAMER_TAG_PICKUP:pickupid)
+{
+    Farm_OnPickUp(playerid, pickupid);
+    return 1;
+}
+
 public OnPlayerClickTextDraw(playerid, Text:clickedid)
 {
     if (Skin_OnClickTextDraw(playerid, clickedid)) return 1;
+    if (Minigame_OnClickTextDraw(playerid, clickedid)) return 1;
     return 0;
 }

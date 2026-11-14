@@ -21,6 +21,11 @@
 | `gamemodes/modules/money.inc` | Пари на сървъра (`Money_Give` / `Money_Set`) |
 | `gamemodes/modules/levels.inc` | Активно време, PayDay (опит), нива |
 | `gamemodes/modules/afk.inc` | AFK система |
+| `gamemodes/core/jobs.inc` | Рамка за работите: видове, скилове, точки на картата |
+| `gamemodes/modules/jobs/farm.inc` | Работа: Фермер (`/farm`, админ: `/farmedit`) |
+| `gamemodes/modules/minigame.inc` | Мини-игра „натисни навреме“ за работите |
+| `gamemodes/modules/market.inc` | Пазар на суровини с динамични цени |
+| `gamemodes/modules/weather.inc` | Динамично време |
 | `gamemodes/modules/report.inc` | Репорт система (билети, опашка, оценки, статистика) |
 | `gamemodes/modules/hospital.inc` | Смърт, болница, вход/изход |
 | `gamemodes/maps/` | Карти (обекти през Streamer) |

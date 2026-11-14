@@ -662,6 +662,7 @@ stock Auth_LoadAccount(playerid)
     DB_GetFieldStringByName(result, "admin_salt", PlayerData[playerid][pAdminSalt], 17);
     PlayerData[playerid][pReportBlockedUntil] = DB_GetFieldIntByName(result, "report_block_until");
     DB_FreeResultSet(result);
+    Job_LoadSkills(playerid);
 
     if (PlayerData[playerid][pPosX] == 0.0 && PlayerData[playerid][pPosY] == 0.0) {
         PlayerData[playerid][pPosX] = SPAWN_X;

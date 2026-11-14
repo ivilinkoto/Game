@@ -14,6 +14,8 @@ stock Menu_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     if (!PlayerData[playerid][pLogged] || PlayerData[playerid][pInSkinSelect]) return;
     if ((newkeys & KEY_YES) && !(oldkeys & KEY_YES)) {
+        // Y е контекстен: на свой парцел във фермата отваря действията на парцела.
+        if (Farm_OnYPressed(playerid)) return;
         Menu_Show(playerid);
     }
 }
@@ -89,6 +91,10 @@ stock Menu_ShowStats(playerid)
     }
     format(line, sizeof (line), C_GREY "Скин: " C_WHITE "%d\n", PlayerData[playerid][pSkin]);
     strcat(body, line);
+
+    strcat(body, "\n" C_BRAND "Работи\n");
+    Job_AppendSkillsText(playerid, body, sizeof (body));
+    strcat(body, "\n");
 
     if (PlayerData[playerid][pAdmin] > 0) {
         Admin_GetRankName(PlayerData[playerid][pAdmin], rank);

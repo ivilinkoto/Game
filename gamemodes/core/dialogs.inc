@@ -38,6 +38,14 @@ enum {
     DIALOG_REPORT_ACTIONS,
     DIALOG_REPORT_REPLY,
 
+    // Ферма
+    DIALOG_FARM_JOB,
+    DIALOG_FARM_INFO,
+    DIALOG_FARM_PLOT,
+    DIALOG_FARM_SEED,
+    DIALOG_FARM_SELL,
+    DIALOG_FARM_STATUS,
+
     // Информационни
     DIALOG_INFO,
     DIALOG_INFO_KICK    // след затваряне играчът се изгонва
