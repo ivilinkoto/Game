@@ -298,12 +298,8 @@ stock Farm_RefreshPoints()
 
     new Float:x, Float:y, Float:z, Float:a;
     // Ако точка не е поставена, надписът се слага далеч под картата.
-    if (Job_GetPoint(JOB_FARM, "job", x, y, z, a)) {
-        gFarmPickupJob = CreateDynamicPickup(1275, 1, x, y, z, 0, 0);
-    } else {
-        x = 0.0; y = 0.0; z = -100.0;
-    }
-    gFarmLabelJob = CreateDynamic3DTextLabel("{FF6A00}Ферма\n{FFFFFF}Работа като фермер", COLOR_WHITE, x, y, z + 0.8, 15.0);
+    // Входът на работата е NPC-то "Фермер" (modules/npc.inc) – тук няма пикап.
+    gFarmLabelJob = CreateDynamic3DTextLabel(" ", COLOR_WHITE, 0.0, 0.0, -100.0, 1.0);
 
     if (Job_GetPoint(JOB_FARM, "buyer", x, y, z, a)) {
         gFarmPickupBuyer = CreateDynamicPickup(1274, 1, x, y, z, 0, 0);
@@ -734,6 +730,12 @@ stock Farm_SellAll(playerid)
 // ============================================================
 //  Y и пикапи
 // ============================================================
+
+// Разговор с NPC "Фермер" (ALT)
+stock Farm_OnNpcInteract(playerid)
+{
+    Farm_ShowJobMenu(playerid);
+}
 
 // Връща true, ако Y е използван от фермата (играчът е на свой парцел).
 stock bool:Farm_OnYPressed(playerid)

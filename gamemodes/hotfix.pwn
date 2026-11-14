@@ -46,6 +46,7 @@
 #include "modules/minigame.inc"
 #include "modules/gps.inc"
 #include "modules/jobs/farm.inc"
+#include "modules/npc.inc"
 #include "modules/menu.inc"
 
 new gTickCounter;
@@ -80,6 +81,7 @@ public OnGameModeInit()
     Minigame_Init();
     Gps_Init();
     Farm_Init();
+    Npc_Init();
 
     SetTimer("Server_Tick", 1000, true);
     return 1;
@@ -104,6 +106,7 @@ public Server_Tick()
     Weather_OnTick(gTickCounter);
     Market_OnTick(gTickCounter);
     Farm_OnTick(gTickCounter);
+    Npc_OnTick(gTickCounter);
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerConnected(i) && PlayerData[i][pLogged]) {
@@ -181,6 +184,7 @@ public OnPlayerUpdate(playerid)
 public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     Afk_OnKeyStateChange(playerid);
+    if (Npc_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -204,6 +208,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Report_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Farm_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Npc_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }
 

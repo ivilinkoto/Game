@@ -51,6 +51,12 @@ enum {
     DIALOG_GPS_LIST,
     DIALOG_GPS_EMPTY,
 
+    // NPC редактор
+    DIALOG_NPC_NAME,
+    DIALOG_NPC_ROLE,
+    DIALOG_NPC_SKIN,
+    DIALOG_NPC_ANIM,
+
     // Информационни
     DIALOG_INFO,
     DIALOG_INFO_KICK    // след затваряне играчът се изгонва
