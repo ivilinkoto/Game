@@ -1,0 +1,51 @@
+name: Android client
+
+# Сглобява APK-то на клиента при всяка промяна в client/android
+# и го качва като тестово издание "client-dev".
+
+on:
+  push:
+    paths:
+      - 'client/android/**'
+      - '.github/workflows/client.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        run: gradle -p client/android assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APK
+        run: cp client/android/app/build/outputs/apk/debug/app-debug.apk hotfix-online-client.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hotfix-online-client
+          path: hotfix-online-client.apk
+
+      - name: Publish test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete client-dev --yes --cleanup-tag || true
+          gh release create client-dev hotfix-online-client.apk \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "HOTFIX ONLINE клиент (тестова версия)" \
+            --notes "Автоматична тестова версия от ${GITHUB_SHA::7}. Не съдържа файлове на играта – изисква GTA: San Andreas от Google Play."
