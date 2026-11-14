@@ -12,6 +12,10 @@
 #include <open.mp>
 #include <streamer>
 
+// Памет за стека/heap-а на скрипта (в клетки по 4 байта = 256 KB).
+// Стандартните 16 KB не стигат за големите диалози и SQL заявки (напр. репортите).
+#pragma dynamic 65536
+
 #undef MAX_PLAYERS
 #define MAX_PLAYERS 200
 
