@@ -67,6 +67,35 @@
 #define FARM_JOB_INFO       5
 
 // ------------------------------------------------------------
+//  Начално разположение – полето западно от Blueberry (Red County).
+//  Записва се в базата само ако още нищо не е поставено.
+//  Височината (Z) на всеки парцел се самонастройва, когато собственикът застане на него.
+//  Всичко може да се промени в играта с /farmedit.
+// ------------------------------------------------------------
+
+#define FARM_DEFAULT_JOB_X      -123.02
+#define FARM_DEFAULT_JOB_Y      -32.47
+#define FARM_DEFAULT_JOB_Z      3.12
+#define FARM_DEFAULT_BUYER_X    -102.72
+#define FARM_DEFAULT_BUYER_Y    -35.50
+#define FARM_DEFAULT_BUYER_Z    3.96
+#define FARM_DEFAULT_WELL_X     -117.00
+#define FARM_DEFAULT_WELL_Y     -38.00
+#define FARM_DEFAULT_WELL_Z     3.12
+#define FARM_DEFAULT_VEH_X      -131.00
+#define FARM_DEFAULT_VEH_Y      -32.50
+#define FARM_DEFAULT_VEH_Z      3.12
+#define FARM_DEFAULT_VEH_A      90.0
+
+// Мрежа от парцели: FARM_DEFAULT_COLS x FARM_DEFAULT_ROWS, през FARM_DEFAULT_STEP метра
+#define FARM_DEFAULT_PLOT_X     -140.0
+#define FARM_DEFAULT_PLOT_Y     -20.0
+#define FARM_DEFAULT_PLOT_Z     3.12
+#define FARM_DEFAULT_COLS       4
+#define FARM_DEFAULT_ROWS       3
+#define FARM_DEFAULT_STEP       6.0
+
+// ------------------------------------------------------------
 //  Култури
 // ------------------------------------------------------------
 
@@ -149,7 +178,88 @@ stock Farm_Init()
         }
         DB_FreeResultSet(result);
     }
+    Farm_SeedDefaults();
     Farm_RefreshPoints();
+}
+
+// Първо пускане: поставя фермата на началното място.
+stock Farm_SeedDefaults()
+{
+    new Float:x, Float:y, Float:z, Float:a, bool:seeded = false;
+    if (!Job_GetPoint(JOB_FARM, "job", x, y, z, a)) {
+        Job_SetPoint(JOB_FARM, "job", FARM_DEFAULT_JOB_X, FARM_DEFAULT_JOB_Y, FARM_DEFAULT_JOB_Z, 0.0);
+        seeded = true;
+    }
+    if (!Job_GetPoint(JOB_FARM, "buyer", x, y, z, a)) {
+        Job_SetPoint(JOB_FARM, "buyer", FARM_DEFAULT_BUYER_X, FARM_DEFAULT_BUYER_Y, FARM_DEFAULT_BUYER_Z, 0.0);
+        seeded = true;
+    }
+    if (!Job_GetPoint(JOB_FARM, "well", x, y, z, a)) {
+        Job_SetPoint(JOB_FARM, "well", FARM_DEFAULT_WELL_X, FARM_DEFAULT_WELL_Y, FARM_DEFAULT_WELL_Z, 0.0);
+        seeded = true;
+    }
+    if (!Job_GetPoint(JOB_FARM, "vehicle", x, y, z, a)) {
+        Job_SetPoint(JOB_FARM, "vehicle", FARM_DEFAULT_VEH_X, FARM_DEFAULT_VEH_Y, FARM_DEFAULT_VEH_Z, FARM_DEFAULT_VEH_A);
+        seeded = true;
+    }
+
+    new count = 0;
+    for (new i = 0; i < FARM_MAX_PLOTS; i++) if (FarmPlot[i][plExists]) count++;
+    if (count == 0) {
+        new q[192];
+        for (new r = 0; r < FARM_DEFAULT_ROWS; r++) {
+            for (new c = 0; c < FARM_DEFAULT_COLS; c++) {
+                new Float:px = FARM_DEFAULT_PLOT_X - float(c) * FARM_DEFAULT_STEP,
+                    Float:py = FARM_DEFAULT_PLOT_Y + float(r) * FARM_DEFAULT_STEP;
+                format(q, sizeof (q), "INSERT INTO farm_plots (x, y, z) VALUES (%f, %f, %f)", px, py, FARM_DEFAULT_PLOT_Z);
+                Database_Exec(q);
+
+                new dbid = 0;
+                new DBResult:result = Database_Query("SELECT MAX(id) AS id FROM farm_plots");
+                if (result != DBResult:0) {
+                    dbid = DB_GetFieldIntByName(result, "id");
+                    DB_FreeResultSet(result);
+                }
+                Farm_AddPlotToMemory(dbid, px, py, FARM_DEFAULT_PLOT_Z);
+            }
+        }
+        seeded = true;
+    }
+    if (seeded) print("[FARM] Default farm layout created (Blueberry field). Adjust in-game with /farmedit.");
+}
+
+// Хоризонтално разстояние до парцела (височината може още да не е настроена).
+stock bool:Farm_IsNearPlot(playerid, plot, Float:radius)
+{
+    new Float:x, Float:y, Float:z;
+    GetPlayerPos(playerid, x, y, z);
+    new Float:dx = x - FarmPlot[plot][plX], Float:dy = y - FarmPlot[plot][plY];
+    if (dx * dx + dy * dy > radius * radius) return false;
+    return (floatabs(z - FarmPlot[plot][plZ]) < 6.0);
+}
+
+// Запомня реалната височина на земята под парцела (по позицията на играча пеша).
+stock Farm_CalibratePlotZ(playerid, plot)
+{
+    if (IsPlayerInAnyVehicle(playerid)) return;
+    new Float:x, Float:y, Float:z;
+    GetPlayerPos(playerid, x, y, z);
+    if (floatabs(z - FarmPlot[plot][plZ]) < 0.3) return;
+
+    FarmPlot[plot][plZ] = z;
+    new q[128];
+    format(q, sizeof (q), "UPDATE farm_plots SET z = %f WHERE id = %d", z, FarmPlot[plot][plDBID]);
+    Database_Exec(q);
+
+    // Местим надписа и растението на новата височина
+    DestroyDynamic3DTextLabel(FarmPlot[plot][plLabel]);
+    FarmPlot[plot][plLabel] = CreateDynamic3DTextLabel("...", COLOR_WHITE, FarmPlot[plot][plX], FarmPlot[plot][plY], z + 0.6, 12.0);
+    Farm_UpdatePlotLabel(plot);
+    if (FarmPlot[plot][plObject] != 0 && FarmPlot[plot][plState] == PLOT_GROWING) {
+        Farm_SetPlotObject(plot, CropInfo[FarmPlot[plot][plCrop]][cpModels][FarmPlot[plot][plStage]]);
+    } else if (FarmPlot[plot][plObject] != 0 && FarmPlot[plot][plState] == PLOT_RIPE) {
+        Farm_SetPlotObject(plot, CropInfo[FarmPlot[plot][plCrop]][cpModels][2]);
+    }
 }
 
 stock Farm_AddPlotToMemory(dbid, Float:x, Float:y, Float:z)
@@ -309,7 +419,7 @@ stock Farm_GetNearOwnPlot(playerid)
 {
     for (new i = 0; i < FARM_MAX_PLOTS; i++) {
         if (!FarmPlot[i][plExists] || FarmPlot[i][plOwner] != playerid) continue;
-        if (IsPlayerInRangeOfPoint(playerid, FARM_PLOT_RADIUS, FarmPlot[i][plX], FarmPlot[i][plY], FarmPlot[i][plZ])) return i;
+        if (Farm_IsNearPlot(playerid, i, FARM_PLOT_RADIUS)) return i;
     }
     return -1;
 }
@@ -484,7 +594,7 @@ stock Farm_ShowInfo(playerid)
     strcat(body, C_WHITE "1: 1 парцел, на ръка   2: 2 парцела + трактор   3: 3 парцела + комбайн\n");
     strcat(body, C_GREY "+1 EXP за всяка жътва, +1 за качество A.");
 
-    ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Информация", "%s", "Назад", "", body);
+    ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Информация", "%s", "GPS", "Затвори", body);
 }
 
 stock Farm_ShowPlotMenu(playerid, plot)
@@ -631,6 +741,7 @@ stock bool:Farm_OnYPressed(playerid)
     if (!FarmOnShift[playerid] || IsPlayerInAnyVehicle(playerid) || Minigame_IsActive(playerid)) return false;
     new plot = Farm_GetNearOwnPlot(playerid);
     if (plot == -1) return false;
+    Farm_CalibratePlotZ(playerid, plot);
     Farm_ShowPlotMenu(playerid, plot);
     return true;
 }
@@ -682,7 +793,11 @@ stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
             return 1;
         }
         case DIALOG_FARM_INFO: {
-            Farm_ShowJobMenu(playerid);
+            if (!response) return 1;
+            new Float:x, Float:y, Float:z, Float:a;
+            if (!Job_GetPoint(JOB_FARM, "job", x, y, z, a)) return SendError(playerid, "Фермата още не е поставена на картата.");
+            SetPlayerCheckpoint(playerid, x, y, z, 3.0);
+            SendClientMessage(playerid, COLOR_GREEN, "[GPS] {FFFFFF}Фермата е маркирана на картата (червената точка).");
             return 1;
         }
         case DIALOG_FARM_STATUS: {
@@ -886,7 +1001,7 @@ stock Farm_OnTick(tick)
         new model = GetVehicleModel(FarmVehicle[p]);
         for (new i = 0; i < FARM_MAX_PLOTS; i++) {
             if (!FarmPlot[i][plExists] || FarmPlot[i][plOwner] != p) continue;
-            if (!IsPlayerInRangeOfPoint(p, 5.0, FarmPlot[i][plX], FarmPlot[i][plY], FarmPlot[i][plZ])) continue;
+            if (!Farm_IsNearPlot(p, i, 5.0)) continue;
             if (model == FARM_TRACTOR_MODEL && FarmPlot[i][plState] == PLOT_RENTED) {
                 FarmPlot[i][plState] = PLOT_PLOWED;
                 Farm_UpdatePlotLabel(i);
@@ -1013,7 +1128,7 @@ CMD:farmedit(playerid, params[])
     if (!strcmp(sub, "delplot", true)) {
         for (new i = 0; i < FARM_MAX_PLOTS; i++) {
             if (!FarmPlot[i][plExists]) continue;
-            if (!IsPlayerInRangeOfPoint(playerid, 3.0, FarmPlot[i][plX], FarmPlot[i][plY], FarmPlot[i][plZ])) continue;
+            if (!Farm_IsNearPlot(playerid, i, 3.0)) continue;
             if (FarmPlot[i][plOwner] != INVALID_PLAYER_ID) return SendError(playerid, "Парцелът е зает от играч.");
 
             new q[96];

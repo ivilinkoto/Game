@@ -209,6 +209,13 @@ public OnPlayerPickUpPickup(playerid, pickupid)
     return 1;
 }
 
+public OnPlayerEnterCheckpoint(playerid)
+{
+    // GPS точка – махаме я, щом играчът стигне
+    DisablePlayerCheckpoint(playerid);
+    return 1;
+}
+
 public OnPlayerPickUpDynamicPickup(playerid, STREAMER_TAG_PICKUP:pickupid)
 {
     Farm_OnPickUp(playerid, pickupid);
