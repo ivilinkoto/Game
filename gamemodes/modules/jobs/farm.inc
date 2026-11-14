@@ -563,13 +563,13 @@ stock Farm_ShowJobMenu(playerid)
 stock Farm_ShowInfo(playerid)
 {
     new body[2048], line[192], weather[24];
-    new skill = Job_GetSkill(playerid, JOB_FARM), max = Job_GetMaxSkill(JOB_FARM);
+    new skill = Job_GetSkill(playerid, JOB_FARM), maxSkill = Job_GetMaxSkill(JOB_FARM);
     Weather_GetName(weather);
 
     format(body, sizeof (body),
         C_WHITE "Твоят скил: " C_GOLD "%d/%d" C_WHITE " (%d EXP)   Заплащане: " C_GREEN "%d%%" C_WHITE "   Парцели: " C_GOLD "%d\n" \
         C_WHITE "Времето сега: " C_BLUE "%s\n\n",
-        skill, max, PlayerJobExp[playerid][JOB_FARM], Job_GetPayPercent(playerid, JOB_FARM), skill, weather);
+        skill, maxSkill, PlayerJobExp[playerid][JOB_FARM], Job_GetPayPercent(playerid, JOB_FARM), skill, weather);
 
     strcat(body, C_BRAND "Как се работи\n");
     strcat(body, C_WHITE "1. Застани на своя парцел и натисни " C_GOLD "Y" C_WHITE " - прекопай земята.\n");

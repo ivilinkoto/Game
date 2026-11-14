@@ -64,9 +64,9 @@ stock Market_GetStock(goods)
 stock Market_GetPrice(goods)
 {
     new base = GoodsInfo[goods][gdBasePrice], cap = GoodsInfo[goods][gdCapacity];
-    new stock = gGoodsStock[goods];
-    if (stock > cap) stock = cap;
-    new percent = 130 - (80 * stock / cap);
+    new amount = gGoodsStock[goods];
+    if (amount > cap) amount = cap;
+    new percent = 130 - (80 * amount / cap);
     new price = base * percent / 100;
     return (price < 1) ? 1 : price;
 }

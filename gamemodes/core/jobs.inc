@@ -68,8 +68,8 @@ stock Job_GetSkillExp(job, skill)
 
 stock Job_GetSkill(playerid, job)
 {
-    new exp = PlayerJobExp[playerid][job], max = Job_GetMaxSkill(job), skill = 1;
-    for (new s = 2; s <= max; s++) {
+    new exp = PlayerJobExp[playerid][job], maxSkill = Job_GetMaxSkill(job), skill = 1;
+    for (new s = 2; s <= maxSkill; s++) {
         if (exp >= Job_GetSkillExp(job, s)) skill = s;
     }
     return skill;
@@ -137,13 +137,13 @@ stock Job_AppendSkillsText(playerid, dest[], size)
     new line[128], name[32], count = 0;
     for (new j = 1; j < MAX_JOBS; j++) {
         if (PlayerJobExp[playerid][j] <= 0) continue;
-        new skill = Job_GetSkill(playerid, j), max = Job_GetMaxSkill(j);
+        new skill = Job_GetSkill(playerid, j), maxSkill = Job_GetMaxSkill(j);
         Job_GetName(j, name);
-        if (skill < max) {
+        if (skill < maxSkill) {
             format(line, sizeof (line), C_GREY "%s: " C_GOLD "скил %d/%d" C_GREY " (%d / %d EXP)\n",
-                name, skill, max, PlayerJobExp[playerid][j], Job_GetSkillExp(j, skill + 1));
+                name, skill, maxSkill, PlayerJobExp[playerid][j], Job_GetSkillExp(j, skill + 1));
         } else {
-            format(line, sizeof (line), C_GREY "%s: " C_GOLD "скил %d/%d" C_GREEN " (максимален)\n", name, skill, max);
+            format(line, sizeof (line), C_GREY "%s: " C_GOLD "скил %d/%d" C_GREEN " (максимален)\n", name, skill, maxSkill);
         }
         strcat(dest, line, size);
         count++;
