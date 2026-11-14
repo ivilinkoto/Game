@@ -22,7 +22,7 @@
 | `gamemodes/modules/levels.inc` | Активно време, PayDay (опит), нива |
 | `gamemodes/modules/afk.inc` | AFK система |
 | `gamemodes/core/jobs.inc` | Рамка за работите: видове, скилове, точки на картата |
-| `gamemodes/modules/jobs/farm.inc` | Работа: Фермер – задачи от NPC Иван (`/farm`, админ: `/farmedit center`) |
+| `gamemodes/modules/jobs/farm.inc` | Работа: Фермер – памучно поле (`/farm`, админ: `/farmedit`) |
 | `gamemodes/modules/minigame.inc` | Мини-игра „натисни навреме“ за работите |
 | `gamemodes/modules/market.inc` | Пазар на суровини с динамични цени |
 | `gamemodes/modules/npc.inc` | NPC система (ALT/Y до NPC, админ: `/npcadd`, `/npcdel`, `/npclist`) |

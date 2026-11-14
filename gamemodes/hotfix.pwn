@@ -169,6 +169,7 @@ public OnPlayerRequestClass(playerid, classid)
 public OnPlayerSpawn(playerid)
 {
     Auth_OnPlayerSpawn(playerid);
+    Farm_OnPlayerSpawn(playerid);
     return 1;
 }
 
@@ -190,6 +191,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     Afk_OnKeyStateChange(playerid);
     if (Npc_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Farm_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -226,14 +228,7 @@ public OnPlayerPickUpPickup(playerid, pickupid)
 
 public OnPlayerEnterCheckpoint(playerid)
 {
-    if (Farm_OnEnterCheckpoint(playerid, false)) return 1;
     Gps_OnEnterCheckpoint(playerid);
-    return 1;
-}
-
-public OnPlayerEnterRaceCheckpoint(playerid)
-{
-    Farm_OnEnterCheckpoint(playerid, true);
     return 1;
 }
 
