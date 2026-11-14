@@ -15,8 +15,6 @@ stock Menu_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     if (!PlayerData[playerid][pLogged] || PlayerData[playerid][pInSkinSelect]) return;
     if ((newkeys & KEY_YES) && !(oldkeys & KEY_YES)) {
-        // Y е контекстен: на свой парцел във фермата отваря действията на парцела.
-        if (Farm_OnYPressed(playerid)) return;
         Menu_Show(playerid);
     }
 }

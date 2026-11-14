@@ -1,159 +1,178 @@
 // Работа: ФЕРМЕР (начална – без ниво, без кметство)
 //
-// Цикъл на парцела:
-//   прекопаване -> засяване -> растеж (поливане, врани, плевели) -> жътва -> продажба
+// NPC "Иван - Фермер" (ALT) дава задачи една след друга. Всяка е различна и кратка:
 //
-//  - Всеки фермер получава свои парцели за смяната (скил 1/2/3 -> 1/2/3 парцела).
-//  - Растенията растат по реално време и се виждат на полето.
-//  - Времето влияе: в жега изсъхват по-бързо, дъждът ги полива.
-//  - Качеството (A/B/C) зависи от грижата и определя цената.
-//  - Реколтата отива на пазара (modules/market.inc) – суровина за бъдещите бизнеси.
-//  - Скил 2: трактор (прекопава, като минеш през парцела). Скил 3: комбайн (жъне сам).
+//   Скил 1:  Щайги домати    – носиш щайги от полето до камиона (на ръце)
+//            Ограда          – поправяш счупени колове (мини-игра с чук)
+//            Оранжерия       – поливаш разсада (мини-игра)
+//   Скил 2:  Кошери          – опушваш кошерите и вадиш пити мед, носиш меда в склада
+//            Сено            – с пикап зареждаш сено и го караш до обора
+//            Оран            – трактор по маршрут из полето
+//   Скил 3:  Жътва           – комбайн по маршрут
+//            Зърно           – с пикап караш зърното до мелницата
 //
-// Действие на парцела: застани на него и натисни Y.
-// Точките (вход, изкупвач, кладенец, техника) и парцелите се поставят от админите:
-//   /farmedit job | buyer | well | vehicle | addplot | delplot
-
-#define FARM_MAX_PLOTS          40
-#define FARM_PLOT_RADIUS        2.5
-#define FARM_TICK_SECONDS       5
-#define FARM_WATER_START        60
-#define FARM_WATER_PER_MIN      5       // разход на вода за минута при нормално време
-#define FARM_WATER_ADD          40      // едно поливане
-#define FARM_CAN_USES           5       // поливания с една пълна кана
-#define FARM_RIPE_GRACE_MIN     20      // след толкова минути узряло растение започва да се разваля
-#define FARM_RIPE_LOST_MIN      40      // след толкова минути изсъхва напълно
-#define FARM_SKIN_MALE          158
-#define FARM_SKIN_FEMALE        157
-#define FARM_TRACTOR_MODEL      531
-#define FARM_COMBINE_MODEL      532
-
-// Състояния на парцела
-#define PLOT_FREE       0
-#define PLOT_RENTED     1   // нает, трябва да се прекопае
-#define PLOT_PLOWED     2   // готов за засяване
-#define PLOT_GROWING    3
-#define PLOT_RIPE       4
-#define PLOT_WITHERED   5
-
-// Качество
-#define QUALITY_A       0
-#define QUALITY_B       1
-#define QUALITY_C       2
-
-// Мини-игри на фермата
-#define FARM_MG_DIG     1
-#define FARM_MG_WATER   2
-#define FARM_MG_CROWS   3
-#define FARM_MG_WEEDS   4
-#define FARM_MG_HARVEST 5
-
-// Действия в менюто на парцела
-#define FARM_ACT_DIG        1
-#define FARM_ACT_SEED       2
-#define FARM_ACT_WATER      3
-#define FARM_ACT_CROWS      4
-#define FARM_ACT_WEEDS      5
-#define FARM_ACT_STATUS     6
-#define FARM_ACT_HARVEST    7
-#define FARM_ACT_CLEAR      8
-#define FARM_ACT_MAINMENU   9
-
-// Действия в менюто на работата
-#define FARM_JOB_START      1
-#define FARM_JOB_END        2
-#define FARM_JOB_TRACTOR    3
-#define FARM_JOB_COMBINE    4
-#define FARM_JOB_INFO       5
+// Репутация при Иван: всяка задача я вдига, отказът я сваля. По-висок ранг = бонус към заплащането.
+// Продукцията (домати, мед, пшеница) отива на пазара – суровина за бъдещите бизнеси.
+//
+// Всички места са отместване (в метри) от точката на Иван ("job").
+// /farmedit center – мести цялата ферма (Иван, местата и картата "ferma") там, където стоиш.
 
 // ------------------------------------------------------------
-//  Начално разположение – полето западно от Blueberry (Red County).
-//  Записва се в базата само ако още нищо не е поставено.
-//  Височината (Z) на всеки парцел се самонастройва, когато собственикът застане на него.
-//  Всичко може да се промени в играта с /farmedit.
+//  Начално място – полето западно от Blueberry (Red County)
 // ------------------------------------------------------------
 
-#define FARM_DEFAULT_JOB_X      -123.02
-#define FARM_DEFAULT_JOB_Y      -32.47
-#define FARM_DEFAULT_JOB_Z      3.12
-#define FARM_DEFAULT_BUYER_X    -102.72
-#define FARM_DEFAULT_BUYER_Y    -35.50
-#define FARM_DEFAULT_BUYER_Z    3.96
-#define FARM_DEFAULT_WELL_X     -117.00
-#define FARM_DEFAULT_WELL_Y     -38.00
-#define FARM_DEFAULT_WELL_Z     3.12
-#define FARM_DEFAULT_VEH_X      -131.00
-#define FARM_DEFAULT_VEH_Y      -32.50
-#define FARM_DEFAULT_VEH_Z      3.12
-#define FARM_DEFAULT_VEH_A      90.0
-
-// Мрежа от парцели: FARM_DEFAULT_COLS x FARM_DEFAULT_ROWS, през FARM_DEFAULT_STEP метра
-#define FARM_DEFAULT_PLOT_X     -140.0
-#define FARM_DEFAULT_PLOT_Y     -20.0
-#define FARM_DEFAULT_PLOT_Z     3.12
-#define FARM_DEFAULT_COLS       4
-#define FARM_DEFAULT_ROWS       3
-#define FARM_DEFAULT_STEP       6.0
+#define FARM_DEFAULT_X      -123.02
+#define FARM_DEFAULT_Y      -32.47
+#define FARM_DEFAULT_Z      3.12
 
 // ------------------------------------------------------------
-//  Култури
+//  Места във фермата (отместване от Иван: dx, dy)
 // ------------------------------------------------------------
 
-enum E_CROP {
-    cpName[24],
-    cpGoods,            // стока на пазара
-    cpSeedCost,
-    cpGrowMinutes,
-    cpYield,            // кг при нормална жътва
-    cpModels[3]         // обект за кълн / стрък / зряло (провери в играта и смени при нужда)
+enum {
+    FSPOT_VEHICLE,      // тук се появява техниката
+    FSPOT_FIELD,        // полето с доматите (щайги)
+    FSPOT_TRUCK,        // камионът за щайгите
+    FSPOT_FENCE1,
+    FSPOT_FENCE2,
+    FSPOT_FENCE3,
+    FSPOT_GREEN1,       // оранжерия
+    FSPOT_GREEN2,
+    FSPOT_GREEN3,
+    FSPOT_HIVE1,        // кошери
+    FSPOT_HIVE2,
+    FSPOT_HIVE3,
+    FSPOT_HONEY,        // склад за мед
+    FSPOT_HAY,          // купа сено
+    FSPOT_BARN,         // обор
+    FSPOT_MILL,         // мелница
+    FSPOT_COUNT
 }
 
-static const CropInfo[][E_CROP] = {
-    {"Пшеница", GOODS_WHEAT,  20, 15, 12, {874, 3409, 3409}},
-    {"Картофи", GOODS_POTATO, 40, 25,  9, {874, 19473, 19473}},
-    {"Домати",  GOODS_TOMATO, 70, 40,  7, {874, 19473, 19473}}
+static const Float:FarmSpotOffset[FSPOT_COUNT][2] = {
+    {-8.0,   0.0},
+    {-25.0,  18.0},
+    {8.0,   -8.0},
+    {-45.0, -6.0},
+    {-45.0,  14.0},
+    {-45.0,  34.0},
+    {14.0,   20.0},
+    {17.0,   20.0},
+    {20.0,   20.0},
+    {24.0,  -16.0},
+    {27.0,  -16.0},
+    {30.0,  -16.0},
+    {12.0,  -14.0},
+    {-12.0, -22.0},
+    {30.0,   40.0},
+    {45.0,  -35.0}
 };
 
-static const QualityName[][] = {"A", "B", "C"};
-static const QualityPercent[] = {150, 100, 50};
+static const FarmSpotName[FSPOT_COUNT][] = {
+    "Техника", "Поле с домати", "Камион", "Ограда", "Ограда", "Ограда",
+    "Оранжерия", "Оранжерия", "Оранжерия", "Кошер", "Кошер", "Кошер",
+    "Склад за мед", "Купа сено", "Обор", "Мелница"
+};
+
+// Маршрут за оран и жътва (змийка из полето)
+static const Float:FarmRouteOffset[][2] = {
+    {-20.0, 10.0}, {-60.0, 10.0}, {-60.0, 18.0}, {-20.0, 18.0},
+    {-20.0, 26.0}, {-60.0, 26.0}, {-60.0, 34.0}, {-20.0, 34.0}
+};
+
+// ------------------------------------------------------------
+//  Задачи
+// ------------------------------------------------------------
+
+enum {
+    FTASK_NONE,
+    FTASK_CRATES,
+    FTASK_FENCE,
+    FTASK_GREENHOUSE,
+    FTASK_HIVES,
+    FTASK_HAY,
+    FTASK_PLOW,
+    FTASK_HARVEST,
+    FTASK_GRAIN,
+    FTASK_COUNT
+}
+
+static const FarmTaskName[FTASK_COUNT][] = {
+    "", "Щайги домати", "Поправка на оградата", "Поливане в оранжерията", "Мед от кошерите",
+    "Сено за обора", "Оран с трактор", "Жътва с комбайн", "Зърно до мелницата"
+};
+
+static const FarmTaskDesc[FTASK_COUNT][] = {
+    "",
+    "Пренеси 4 щайги домати от полето до камиона. Носиш ги на ръце.",
+    "Вятърът събори няколко кола. Поправи 3 места по оградата.",
+    "Разсадът в оранжерията е жаден. Полей 3 лехи, без да прелееш.",
+    "Опуши 3 кошера и извади питите мед. Внимавай – пчелите жилят! После занеси меда в склада.",
+    "Вземи пикапа, натовари сено от купата и го закарай до обора. Два курса.",
+    "Изори полето с трактора по маркирания маршрут.",
+    "Ожъни пшеницата с комбайна по маркирания маршрут.",
+    "Натовари зърното от полето и го закарай с пикапа до мелницата."
+};
+
+static const FarmTaskSkill[FTASK_COUNT] = {0, 1, 1, 1, 2, 2, 2, 3, 3};
+static const FarmTaskPay[FTASK_COUNT]   = {0, 180, 160, 170, 220, 200, 260, 300, 280};
+static const FarmTaskTime[FTASK_COUNT]  = {0, 150, 120, 120, 180, 210, 180, 200, 200}; // секунди за бонус "бързо"
+
+// Действие на всяка стъпка
+#define FSTEP_REACH         0   // само стигни
+#define FSTEP_PICK_CRATE    1   // вземи щайга (на ръце)
+#define FSTEP_DROP_CRATE    2   // остави щайгата
+#define FSTEP_MG_HAMMER     3   // мини-игра: чук
+#define FSTEP_MG_WATER      4   // мини-игра: поливане
+#define FSTEP_MG_HONEY      5   // мини-игра: мед (при провал – ужилване)
+#define FSTEP_LOAD          6   // товарене с превозно средство (3 сек.)
+#define FSTEP_UNLOAD        7   // разтоварване (3 сек.)
+
+#define FARM_MAX_STEPS      12
+#define FARM_CARRY_SLOT     9
+
+// Мини-игри на фермата (purpose)
+#define FARM_MG_HAMMER      1
+#define FARM_MG_WATER       2
+#define FARM_MG_HONEY       3
+
+// Репутация при Иван
+static const FarmRankName[][] = {"Новак", "Помощник", "Работник", "Доверен човек", "Дясната ръка на Иван"};
+static const FarmRankRep[]    = {0, 20, 60, 150, 300};
+static const FarmRankBonus[]  = {0, 5, 10, 15, 20};   // % към заплащането
+
+// Модели
+#define FARM_TRACTOR_MODEL  531
+#define FARM_COMBINE_MODEL  532
+#define FARM_PICKUP_MODEL   478
+#define FARM_CRATE_MODEL    2912
+#define FARM_HONEY_MODEL    1220
 
 // ------------------------------------------------------------
 //  Данни
 // ------------------------------------------------------------
 
-enum E_PLOT {
-    bool:plExists,
-    plDBID,
-    Float:plX,
-    Float:plY,
-    Float:plZ,
-    plOwner,
-    plState,
-    plCrop,
-    plGrowth,           // секунди растеж
-    plWater,
-    plHealth,
-    bool:plCrows,
-    bool:plWeeds,
-    plRipeTime,
-    plStage,
-    plSecondsAcc,
-    plObject,
-    STREAMER_TAG_3D_TEXT_LABEL:plLabel
-}
-static FarmPlot[FARM_MAX_PLOTS][E_PLOT];
-
-static bool:FarmOnShift[MAX_PLAYERS],
-    FarmCanUses[MAX_PLAYERS],
-    FarmVehicle[MAX_PLAYERS],
-    FarmActionPlot[MAX_PLAYERS],
-    FarmMenuAction[MAX_PLAYERS][8],
-    FarmPickupTick[MAX_PLAYERS];
-static FarmGoods[MAX_PLAYERS][MAX_GOODS][3];   // кг по стока и качество
-
-static gFarmPickupJob = -1, gFarmPickupBuyer = -1, gFarmPickupWell = -1;
-static STREAMER_TAG_3D_TEXT_LABEL:gFarmLabelJob, STREAMER_TAG_3D_TEXT_LABEL:gFarmLabelBuyer, STREAMER_TAG_3D_TEXT_LABEL:gFarmLabelWell;
+static Float:gFarmX, Float:gFarmY, Float:gFarmZ;      // точката на Иван
+static STREAMER_TAG_3D_TEXT_LABEL:gFarmSpotLabel[FSPOT_COUNT];
 static bool:gFarmLabelsCreated;
+
+static FarmTask[MAX_PLAYERS],
+    FarmStep[MAX_PLAYERS],
+    FarmStepCount[MAX_PLAYERS],
+    FarmStepAction[MAX_PLAYERS][FARM_MAX_STEPS],
+    bool:FarmStepVehicle[MAX_PLAYERS][FARM_MAX_STEPS],
+    Float:FarmStepX[MAX_PLAYERS][FARM_MAX_STEPS],
+    Float:FarmStepY[MAX_PLAYERS][FARM_MAX_STEPS],
+    FarmVehicle[MAX_PLAYERS],
+    FarmStartTime[MAX_PLAYERS],
+    FarmLastTask[MAX_PLAYERS],
+    FarmOfferTask[MAX_PLAYERS],
+    FarmRep[MAX_PLAYERS],
+    bool:FarmRepLoaded[MAX_PLAYERS],
+    bool:FarmBusy[MAX_PLAYERS],         // чака мини-игра или товарене
+    bool:FarmCarrying[MAX_PLAYERS],
+    FarmOutOfVehicle[MAX_PLAYERS],      // секунди извън превозното средство
+    FarmMenuAction[MAX_PLAYERS][6];
 
 // ============================================================
 //  Инициализация
@@ -161,618 +180,598 @@ static bool:gFarmLabelsCreated;
 
 stock Farm_Init()
 {
-    Database_Exec("CREATE TABLE IF NOT EXISTS farm_plots (id INTEGER PRIMARY KEY AUTOINCREMENT, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL)");
+    Database_Exec("CREATE TABLE IF NOT EXISTS farm_rep (account_id INTEGER PRIMARY KEY, rep INTEGER NOT NULL DEFAULT 0)");
 
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-        FarmPlot[i][plExists] = false;
-        FarmPlot[i][plOwner] = INVALID_PLAYER_ID;
+    new Float:a;
+    if (!Job_GetPoint(JOB_FARM, "job", gFarmX, gFarmY, gFarmZ, a)) {
+        gFarmX = FARM_DEFAULT_X;
+        gFarmY = FARM_DEFAULT_Y;
+        gFarmZ = FARM_DEFAULT_Z;
+        Job_SetPoint(JOB_FARM, "job", gFarmX, gFarmY, gFarmZ, 0.0);
+    }
+    Farm_CreateLabels();
+}
+
+stock Farm_GetSpot(spot, &Float:x, &Float:y, &Float:z)
+{
+    x = gFarmX + FarmSpotOffset[spot][0];
+    y = gFarmY + FarmSpotOffset[spot][1];
+    z = gFarmZ;
+}
+
+stock Farm_CreateLabels()
+{
+    if (gFarmLabelsCreated) {
+        for (new s = 0; s < FSPOT_COUNT; s++) DestroyDynamic3DTextLabel(gFarmSpotLabel[s]);
+    }
+    new Float:x, Float:y, Float:z, text[64];
+    for (new s = 0; s < FSPOT_COUNT; s++) {
+        Farm_GetSpot(s, x, y, z);
+        format(text, sizeof (text), "{FF6A00}%s", FarmSpotName[s]);
+        gFarmSpotLabel[s] = CreateDynamic3DTextLabel(text, COLOR_WHITE, x, y, z + 0.8, 20.0);
+    }
+    gFarmLabelsCreated = true;
+}
+
+// Mapping на фермата – създава се веднъж в картата "ferma" (редактира се с /maps, /msel, /medit).
+stock Farm_SeedMap()
+{
+    if (Map_GetID("ferma") != 0) return;
+    new mapid = Map_CreateMap("ferma", "HOTFIX");
+    if (mapid == 0) return;
+
+    new Float:x, Float:y, Float:z, obj;
+    new Float:gz = gFarmZ - 1.0; // земята
+
+    // Табела до Иван
+    obj = Map_CreateObject(mapid, 19353, gFarmX + 2.5, gFarmY + 1.5, gz + 1.8, 0.0, 0.0, 90.0, 0, 0);
+    if (obj != -1) Map_SetText(obj, 0, "{FF6A00}ФЕРМА\n{FFFFFF}HOTFIX", 40);
+
+    // Щайги на полето и при камиона
+    Farm_GetSpot(FSPOT_FIELD, x, y, z);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y, gz + 0.5, 0.0, 0.0, 0.0, 0, 0);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y + 1.2, gz + 0.5, 0.0, 0.0, 15.0, 0, 0);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y + 0.6, gz + 1.5, 0.0, 0.0, 5.0, 0, 0);
+    Farm_GetSpot(FSPOT_TRUCK, x, y, z);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 2.0, y, gz + 0.5, 0.0, 0.0, 0.0, 0, 0);
+
+    // Сено
+    Farm_GetSpot(FSPOT_HAY, x, y, z);
+    Map_CreateObject(mapid, 3374, x + 3.0, y, gz + 1.0, 0.0, 0.0, 0.0, 0, 0);
+    Map_CreateObject(mapid, 3374, x + 3.0, y + 4.0, gz + 1.0, 0.0, 0.0, 0.0, 0, 0);
+
+    // Кошери (засега от щайги – mapper може да ги смени)
+    for (new s = FSPOT_HIVE1; s <= FSPOT_HIVE3; s++) {
+        Farm_GetSpot(s, x, y, z);
+        Map_CreateObject(mapid, FARM_CRATE_MODEL, x, y + 1.2, gz + 0.5, 0.0, 0.0, 0.0, 0, 0);
     }
 
-    new DBResult:result = Database_Query("SELECT id, x, y, z FROM farm_plots ORDER BY id");
+    // Оранжерия – саксии с разсад
+    for (new s = FSPOT_GREEN1; s <= FSPOT_GREEN3; s++) {
+        Farm_GetSpot(s, x, y, z);
+        Map_CreateObject(mapid, 2245, x, y + 1.0, gz + 0.1, 0.0, 0.0, 0.0, 0, 0);
+        Map_CreateObject(mapid, 2245, x, y + 2.0, gz + 0.1, 0.0, 0.0, 0.0, 0, 0);
+    }
+    print("[FARM] Farm map \"ferma\" created. Adjust with /maps, /msel, /medit.");
+}
+
+stock Farm_LoadRep(playerid)
+{
+    FarmRep[playerid] = 0;
+    FarmRepLoaded[playerid] = true;
+    new q[96];
+    format(q, sizeof (q), "SELECT rep FROM farm_rep WHERE account_id = %d", PlayerData[playerid][pID]);
+    new DBResult:result = Database_Query(q);
     if (result != DBResult:0) {
-        if (DB_GetRowCount(result) > 0) {
-            do {
-                Farm_AddPlotToMemory(DB_GetFieldIntByName(result, "id"),
-                    DB_GetFieldFloatByName(result, "x"), DB_GetFieldFloatByName(result, "y"), DB_GetFieldFloatByName(result, "z"));
-            } while (DB_SelectNextRow(result));
-        }
+        if (DB_GetRowCount(result) > 0) FarmRep[playerid] = DB_GetFieldIntByName(result, "rep");
         DB_FreeResultSet(result);
     }
-    Farm_SeedDefaults();
-    Farm_RefreshPoints();
 }
 
-// Първо пускане: поставя фермата на началното място.
-stock Farm_SeedDefaults()
+stock Farm_GetRank(playerid)
 {
-    new Float:x, Float:y, Float:z, Float:a, bool:seeded = false;
-    if (!Job_GetPoint(JOB_FARM, "job", x, y, z, a)) {
-        Job_SetPoint(JOB_FARM, "job", FARM_DEFAULT_JOB_X, FARM_DEFAULT_JOB_Y, FARM_DEFAULT_JOB_Z, 0.0);
-        seeded = true;
+    new rank = 0;
+    for (new r = 0; r < sizeof (FarmRankRep); r++) {
+        if (FarmRep[playerid] >= FarmRankRep[r]) rank = r;
     }
-    if (!Job_GetPoint(JOB_FARM, "buyer", x, y, z, a)) {
-        Job_SetPoint(JOB_FARM, "buyer", FARM_DEFAULT_BUYER_X, FARM_DEFAULT_BUYER_Y, FARM_DEFAULT_BUYER_Z, 0.0);
-        seeded = true;
-    }
-    if (!Job_GetPoint(JOB_FARM, "well", x, y, z, a)) {
-        Job_SetPoint(JOB_FARM, "well", FARM_DEFAULT_WELL_X, FARM_DEFAULT_WELL_Y, FARM_DEFAULT_WELL_Z, 0.0);
-        seeded = true;
-    }
-    if (!Job_GetPoint(JOB_FARM, "vehicle", x, y, z, a)) {
-        Job_SetPoint(JOB_FARM, "vehicle", FARM_DEFAULT_VEH_X, FARM_DEFAULT_VEH_Y, FARM_DEFAULT_VEH_Z, FARM_DEFAULT_VEH_A);
-        seeded = true;
-    }
-
-    new count = 0;
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) if (FarmPlot[i][plExists]) count++;
-    if (count == 0) {
-        new q[192];
-        for (new r = 0; r < FARM_DEFAULT_ROWS; r++) {
-            for (new c = 0; c < FARM_DEFAULT_COLS; c++) {
-                new Float:px = FARM_DEFAULT_PLOT_X - float(c) * FARM_DEFAULT_STEP,
-                    Float:py = FARM_DEFAULT_PLOT_Y + float(r) * FARM_DEFAULT_STEP;
-                format(q, sizeof (q), "INSERT INTO farm_plots (x, y, z) VALUES (%f, %f, %f)", px, py, FARM_DEFAULT_PLOT_Z);
-                Database_Exec(q);
-
-                new dbid = 0;
-                new DBResult:result = Database_Query("SELECT MAX(id) AS id FROM farm_plots");
-                if (result != DBResult:0) {
-                    dbid = DB_GetFieldIntByName(result, "id");
-                    DB_FreeResultSet(result);
-                }
-                Farm_AddPlotToMemory(dbid, px, py, FARM_DEFAULT_PLOT_Z);
-            }
-        }
-        seeded = true;
-    }
-    if (seeded) print("[FARM] Default farm layout created (Blueberry field). Adjust in-game with /farmedit.");
+    return rank;
 }
 
-// Хоризонтално разстояние до парцела (височината може още да не е настроена).
-stock bool:Farm_IsNearPlot(playerid, plot, Float:radius)
+stock Farm_AddRep(playerid, amount)
 {
-    new Float:x, Float:y, Float:z;
-    GetPlayerPos(playerid, x, y, z);
-    new Float:dx = x - FarmPlot[plot][plX], Float:dy = y - FarmPlot[plot][plY];
-    if (dx * dx + dy * dy > radius * radius) return false;
-    return (floatabs(z - FarmPlot[plot][plZ]) < 6.0);
-}
-
-// Запомня реалната височина на земята под парцела (по позицията на играча пеша).
-stock Farm_CalibratePlotZ(playerid, plot)
-{
-    if (IsPlayerInAnyVehicle(playerid)) return;
-    new Float:x, Float:y, Float:z;
-    GetPlayerPos(playerid, x, y, z);
-    if (floatabs(z - FarmPlot[plot][plZ]) < 0.3) return;
-
-    FarmPlot[plot][plZ] = z;
+    new before = Farm_GetRank(playerid);
+    FarmRep[playerid] += amount;
+    if (FarmRep[playerid] < 0) FarmRep[playerid] = 0;
     new q[128];
-    format(q, sizeof (q), "UPDATE farm_plots SET z = %f WHERE id = %d", z, FarmPlot[plot][plDBID]);
+    format(q, sizeof (q), "INSERT OR REPLACE INTO farm_rep (account_id, rep) VALUES (%d, %d)", PlayerData[playerid][pID], FarmRep[playerid]);
     Database_Exec(q);
 
-    // Местим надписа и растението на новата височина
-    DestroyDynamic3DTextLabel(FarmPlot[plot][plLabel]);
-    FarmPlot[plot][plLabel] = CreateDynamic3DTextLabel("...", COLOR_WHITE, FarmPlot[plot][plX], FarmPlot[plot][plY], z + 0.6, 12.0);
-    Farm_UpdatePlotLabel(plot);
-    if (FarmPlot[plot][plObject] != 0 && FarmPlot[plot][plState] == PLOT_GROWING) {
-        Farm_SetPlotObject(plot, CropInfo[FarmPlot[plot][plCrop]][cpModels][FarmPlot[plot][plStage]]);
-    } else if (FarmPlot[plot][plObject] != 0 && FarmPlot[plot][plState] == PLOT_RIPE) {
-        Farm_SetPlotObject(plot, CropInfo[FarmPlot[plot][plCrop]][cpModels][2]);
+    new after = Farm_GetRank(playerid);
+    if (after > before) {
+        SendClientMessage(playerid, COLOR_GOLD, "[Ферма] Иван вече те смята за \"%s\" (+%d%% към заплащането).",
+            FarmRankName[after], FarmRankBonus[after]);
     }
-}
-
-stock Farm_AddPlotToMemory(dbid, Float:x, Float:y, Float:z)
-{
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-        if (FarmPlot[i][plExists]) continue;
-        FarmPlot[i][plExists] = true;
-        FarmPlot[i][plDBID] = dbid;
-        FarmPlot[i][plX] = x;
-        FarmPlot[i][plY] = y;
-        FarmPlot[i][plZ] = z;
-        FarmPlot[i][plOwner] = INVALID_PLAYER_ID;
-        FarmPlot[i][plState] = PLOT_FREE;
-        FarmPlot[i][plObject] = 0;
-        FarmPlot[i][plLabel] = CreateDynamic3DTextLabel("...", COLOR_WHITE, x, y, z + 0.6, 12.0);
-        Farm_UpdatePlotLabel(i);
-        return i;
-    }
-    return -1;
-}
-
-// Пикапи и надписи на точките (вход, изкупвач, кладенец)
-stock Farm_RefreshPoints()
-{
-    if (gFarmPickupJob != -1) DestroyDynamicPickup(gFarmPickupJob);
-    if (gFarmPickupBuyer != -1) DestroyDynamicPickup(gFarmPickupBuyer);
-    if (gFarmPickupWell != -1) DestroyDynamicPickup(gFarmPickupWell);
-    if (gFarmLabelsCreated) {
-        DestroyDynamic3DTextLabel(gFarmLabelJob);
-        DestroyDynamic3DTextLabel(gFarmLabelBuyer);
-        DestroyDynamic3DTextLabel(gFarmLabelWell);
-    }
-    gFarmPickupJob = -1;
-    gFarmPickupBuyer = -1;
-    gFarmPickupWell = -1;
-
-    new Float:x, Float:y, Float:z, Float:a;
-    // Ако точка не е поставена, надписът се слага далеч под картата.
-    // Входът на работата е NPC-то "Фермер" (modules/npc.inc) – тук няма пикап.
-    gFarmLabelJob = CreateDynamic3DTextLabel(" ", COLOR_WHITE, 0.0, 0.0, -100.0, 1.0);
-
-    if (Job_GetPoint(JOB_FARM, "buyer", x, y, z, a)) {
-        gFarmPickupBuyer = CreateDynamicPickup(1274, 1, x, y, z, 0, 0);
-    } else {
-        x = 0.0; y = 0.0; z = -100.0;
-    }
-    gFarmLabelBuyer = CreateDynamic3DTextLabel("{FF6A00}Изкупуване на реколта\n{FFFFFF}Продай тук", COLOR_WHITE, x, y, z + 0.8, 15.0);
-
-    if (Job_GetPoint(JOB_FARM, "well", x, y, z, a)) {
-        gFarmPickupWell = CreateDynamicPickup(1239, 1, x, y, z, 0, 0);
-    } else {
-        x = 0.0; y = 0.0; z = -100.0;
-    }
-    gFarmLabelWell = CreateDynamic3DTextLabel("{4FC3F7}Кладенец\n{FFFFFF}Напълни каната", COLOR_WHITE, x, y, z + 0.8, 15.0);
-    gFarmLabelsCreated = true;
 }
 
 stock Farm_ResetPlayer(playerid)
 {
-    FarmOnShift[playerid] = false;
-    FarmCanUses[playerid] = 0;
+    FarmTask[playerid] = FTASK_NONE;
+    FarmStep[playerid] = 0;
+    FarmStepCount[playerid] = 0;
     FarmVehicle[playerid] = INVALID_VEHICLE_ID;
-    FarmActionPlot[playerid] = -1;
-    FarmPickupTick[playerid] = 0;
-    for (new g = 0; g < MAX_GOODS; g++) {
-        for (new q = 0; q < 3; q++) FarmGoods[playerid][g][q] = 0;
-    }
+    FarmLastTask[playerid] = FTASK_NONE;
+    FarmOfferTask[playerid] = FTASK_NONE;
+    FarmRep[playerid] = 0;
+    FarmRepLoaded[playerid] = false;
+    FarmBusy[playerid] = false;
+    FarmCarrying[playerid] = false;
+    FarmOutOfVehicle[playerid] = 0;
 }
 
 // ============================================================
-//  Парцели
+//  Разговор с Иван
 // ============================================================
 
-stock Farm_GetGrowTotal(plot)
+stock Farm_OnNpcInteract(playerid)
 {
-    return CropInfo[FarmPlot[plot][plCrop]][cpGrowMinutes] * 60;
-}
+    if (!FarmRepLoaded[playerid]) Farm_LoadRep(playerid);
 
-stock Farm_SetPlotObject(plot, model)
-{
-    if (FarmPlot[plot][plObject] != 0) {
-        DestroyDynamicObject(STREAMER_TAG_OBJECT:FarmPlot[plot][plObject]);
-        FarmPlot[plot][plObject] = 0;
+    new body[512], count = 0;
+    body[0] = EOS;
+    if (FarmTask[playerid] == FTASK_NONE) {
+        strcat(body, C_GREEN "» " C_WHITE "Дай ми работа\n");
+        FarmMenuAction[playerid][count++] = 1;
+    } else {
+        strcat(body, C_RED "» " C_WHITE "Откажи се от задачата " C_GREY "(-2 репутация)\n");
+        FarmMenuAction[playerid][count++] = 2;
     }
-    if (model > 0) {
-        FarmPlot[plot][plObject] = _:CreateDynamicObject(model,
-            FarmPlot[plot][plX], FarmPlot[plot][plY], FarmPlot[plot][plZ] - 1.0, 0.0, 0.0, float(random(360)), 0, 0, -1, 150.0);
+    strcat(body, C_BLUE "» " C_WHITE "Моят напредък\n");
+    FarmMenuAction[playerid][count++] = 3;
+    strcat(body, C_BLUE "» " C_WHITE "Как работи фермата");
+    FarmMenuAction[playerid][count] = 4;
+
+    ShowPlayerDialog(playerid, DIALOG_FARM_NPC, DIALOG_STYLE_LIST, C_BRAND "Иван - Фермер", "%s", "Избери", "Затвори", body);
+}
+
+stock Farm_PickTask(playerid)
+{
+    new skill = Job_GetSkill(playerid, JOB_FARM), options[FTASK_COUNT], count = 0;
+    for (new t = 1; t < FTASK_COUNT; t++) {
+        if (FarmTaskSkill[t] > skill || t == FarmLastTask[playerid]) continue;
+        options[count++] = t;
     }
+    if (count == 0) return FTASK_CRATES;
+    return options[random(count)];
 }
 
-stock Farm_ResetPlot(plot)
+stock Farm_GetTaskPay(playerid, task)
 {
-    FarmPlot[plot][plOwner] = INVALID_PLAYER_ID;
-    FarmPlot[plot][plState] = PLOT_FREE;
-    FarmPlot[plot][plCrows] = false;
-    FarmPlot[plot][plWeeds] = false;
-    Farm_SetPlotObject(plot, 0);
-    Farm_UpdatePlotLabel(plot);
+    new pay = FarmTaskPay[task] * Job_GetPayPercent(playerid, JOB_FARM) / 100;
+    pay += pay * FarmRankBonus[Farm_GetRank(playerid)] / 100;
+    return pay;
 }
 
-stock Farm_GetGrade(health)
+stock Farm_OfferTask(playerid)
 {
-    if (health >= 80) return QUALITY_A;
-    if (health >= 50) return QUALITY_B;
-    return QUALITY_C;
+    new task = Farm_PickTask(playerid);
+    FarmOfferTask[playerid] = task;
+
+    new body[768];
+    format(body, sizeof (body),
+        C_GREY "Иван: " C_WHITE "\"Имам нещо за теб...\"\n\n" \
+        C_BRAND "%s\n" \
+        C_WHITE "%s\n\n" \
+        C_WHITE "Заплащане: " C_GREEN "$%d" C_GREY " (+бонус, ако се справиш бързо)",
+        FarmTaskName[task], FarmTaskDesc[task], Farm_GetTaskPay(playerid, task));
+    ShowPlayerDialog(playerid, DIALOG_FARM_OFFER, DIALOG_STYLE_MSGBOX, C_BRAND "Иван - Фермер", "%s", "Приемам", "Друга", body);
 }
 
-stock Farm_UpdatePlotLabel(plot)
+stock Farm_ShowProgress(playerid)
 {
-    new text[256], owner[MAX_PLAYER_NAME + 1];
-    new pid = FarmPlot[plot][plOwner];
-    if (pid != INVALID_PLAYER_ID) GetRPName(pid, owner);
+    new body[1024], line[160];
+    new skill = Job_GetSkill(playerid, JOB_FARM), maxSkill = Job_GetMaxSkill(JOB_FARM), rank = Farm_GetRank(playerid);
 
-    switch (FarmPlot[plot][plState]) {
-        case PLOT_FREE: {
-            format(text, sizeof (text), "{A0A0A0}Парцел #%d\nсвободен", plot + 1);
-        }
-        case PLOT_RENTED: {
-            format(text, sizeof (text), "{FF6A00}Парцел #%d {FFFFFF}| %s\n{A0A0A0}Прекопай земята (Y)", plot + 1, owner);
-        }
-        case PLOT_PLOWED: {
-            format(text, sizeof (text), "{FF6A00}Парцел #%d {FFFFFF}| %s\n{A0A0A0}Готов за засяване (Y)", plot + 1, owner);
-        }
-        case PLOT_GROWING: {
-            new percent = FarmPlot[plot][plGrowth] * 100 / Farm_GetGrowTotal(plot);
-            format(text, sizeof (text), "{FF6A00}%s {FFFFFF}%d%% | %s\n{4FC3F7}Вода: %d%% {FFFFFF}| Здраве: %d%%",
-                CropInfo[FarmPlot[plot][plCrop]][cpName], percent, owner, FarmPlot[plot][plWater], FarmPlot[plot][plHealth]);
-            if (FarmPlot[plot][plCrows]) strcat(text, "\n{FF4040}Врани!");
-            if (FarmPlot[plot][plWeeds]) strcat(text, "\n{FF4040}Плевели!");
-        }
-        case PLOT_RIPE: {
-            format(text, sizeof (text), "{33CC66}%s е готова за жътва! (Y)\n{FFFFFF}%s | Качество: %s",
-                CropInfo[FarmPlot[plot][plCrop]][cpName], owner, QualityName[Farm_GetGrade(FarmPlot[plot][plHealth])]);
-        }
-        default: {
-            format(text, sizeof (text), "{FF4040}Изсъхнало\n{A0A0A0}%s – почисти парцела (Y)", owner);
-        }
+    format(body, sizeof (body), C_WHITE "Скил: " C_GOLD "%d/%d" C_WHITE " (%d EXP)", skill, maxSkill, PlayerJobExp[playerid][JOB_FARM]);
+    if (skill < maxSkill) {
+        format(line, sizeof (line), C_GREY " - следващ при %d EXP", Job_GetSkillExp(JOB_FARM, skill + 1));
+        strcat(body, line);
     }
-    UpdateDynamic3DTextLabelText(FarmPlot[plot][plLabel], COLOR_WHITE, text);
+    format(line, sizeof (line), "\n" C_WHITE "Репутация при Иван: " C_GOLD "%s" C_WHITE " (%d т.)", FarmRankName[rank], FarmRep[playerid]);
+    strcat(body, line);
+    if (rank < sizeof (FarmRankRep) - 1) {
+        format(line, sizeof (line), C_GREY " - следващ ранг при %d т.", FarmRankRep[rank + 1]);
+        strcat(body, line);
+    }
+    format(line, sizeof (line), "\n" C_WHITE "Бонус към заплащането: " C_GREEN "скил %d%%, ранг +%d%%\n\n",
+        Job_GetPayPercent(playerid, JOB_FARM), FarmRankBonus[rank]);
+    strcat(body, line);
+
+    strcat(body, C_BRAND "Задачи\n");
+    for (new t = 1; t < FTASK_COUNT; t++) {
+        if (FarmTaskSkill[t] <= skill) {
+            format(line, sizeof (line), C_GREEN "+ " C_WHITE "%s " C_GREY "($%d)\n", FarmTaskName[t], Farm_GetTaskPay(playerid, t));
+        } else {
+            format(line, sizeof (line), C_GREY "- %s (скил %d)\n", FarmTaskName[t], FarmTaskSkill[t]);
+        }
+        strcat(body, line);
+    }
+    ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Напредък", "%s", "Назад", "", body);
 }
 
-stock Farm_CountOwnedPlots(playerid)
+stock Farm_ShowHelp(playerid)
 {
-    new count = 0;
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-        if (FarmPlot[i][plExists] && FarmPlot[i][plOwner] == playerid) count++;
-    }
-    return count;
-}
-
-// Собствен парцел, на който стои играчът (-1 ако няма)
-stock Farm_GetNearOwnPlot(playerid)
-{
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-        if (!FarmPlot[i][plExists] || FarmPlot[i][plOwner] != playerid) continue;
-        if (Farm_IsNearPlot(playerid, i, FARM_PLOT_RADIUS)) return i;
-    }
-    return -1;
-}
-
-stock Farm_NotifyOwner(plot, const msg[])
-{
-    new pid = FarmPlot[plot][plOwner];
-    if (pid != INVALID_PLAYER_ID) {
-        SendClientMessage(pid, COLOR_GREEN, "[Ферма] {FFFFFF}Парцел #%d: %s", plot + 1, msg);
-    }
+    new body[1500];
+    body[0] = EOS;
+    strcat(body, C_WHITE "Говори с " C_BRAND "Иван" C_WHITE " (ALT) и той ще ти даде задача.\n");
+    strcat(body, C_WHITE "Задачите са кратки и всяка следваща е различна.\n\n");
+    strcat(body, C_BRAND "Как се изпълняват\n");
+    strcat(body, C_WHITE "Следвай червената точка на картата. На всяко място действието започва само:\n");
+    strcat(body, C_WHITE "взимаш щайга, пускаш мини-игра, товариш и т.н.\n\n");
+    strcat(body, C_BRAND "Скил и репутация\n");
+    strcat(body, C_WHITE "Скил 1: щайги, ограда, оранжерия\n");
+    strcat(body, C_WHITE "Скил 2: + кошери, сено, оран с трактор\n");
+    strcat(body, C_WHITE "Скил 3: + жътва с комбайн, зърно до мелницата\n");
+    strcat(body, C_WHITE "Репутацията при Иван дава до " C_GREEN "+20%" C_WHITE " към заплащането.\n\n");
+    strcat(body, C_GREY "Всяка задача: +1 EXP (+1 ако си бърз). Продукцията отива на пазара.");
+    ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Как работи", "%s", "Назад", "", body);
 }
 
 // ============================================================
-//  Смяна
+//  Задачата – стъпки
 // ============================================================
 
-stock Farm_StartShift(playerid)
+static stock Farm_AddStep(playerid, Float:x, Float:y, action, bool:vehicle)
 {
-    if (FarmOnShift[playerid]) return SendError(playerid, "Вече си на смяна.");
+    new s = FarmStepCount[playerid];
+    if (s >= FARM_MAX_STEPS) return;
+    FarmStepX[playerid][s] = x;
+    FarmStepY[playerid][s] = y;
+    FarmStepAction[playerid][s] = action;
+    FarmStepVehicle[playerid][s] = vehicle;
+    FarmStepCount[playerid]++;
+}
 
-    new skill = Job_GetSkill(playerid, JOB_FARM), given = 0;
-    for (new i = 0; i < FARM_MAX_PLOTS && given < skill; i++) {
-        if (!FarmPlot[i][plExists] || FarmPlot[i][plOwner] != INVALID_PLAYER_ID) continue;
-        FarmPlot[i][plOwner] = playerid;
-        FarmPlot[i][plState] = PLOT_RENTED;
-        Farm_UpdatePlotLabel(i);
-        given++;
+static stock Farm_AddSpotStep(playerid, spot, action, bool:vehicle)
+{
+    new Float:x, Float:y, Float:z;
+    Farm_GetSpot(spot, x, y, z);
+    Farm_AddStep(playerid, x, y, action, vehicle);
+}
+
+stock Farm_StartTask(playerid, task)
+{
+    FarmTask[playerid] = task;
+    FarmStep[playerid] = 0;
+    FarmStepCount[playerid] = 0;
+    FarmStartTime[playerid] = gettime();
+    FarmBusy[playerid] = false;
+    FarmCarrying[playerid] = false;
+    FarmOutOfVehicle[playerid] = 0;
+    Gps_Stop(playerid);
+
+    new vehicleModel = 0;
+    switch (task) {
+        case FTASK_CRATES: {
+            new Float:x, Float:y, Float:z;
+            Farm_GetSpot(FSPOT_FIELD, x, y, z);
+            for (new c = 0; c < 4; c++) {
+                Farm_AddStep(playerid, x - float(random(8)), y + float(random(8)), FSTEP_PICK_CRATE, false);
+                Farm_AddSpotStep(playerid, FSPOT_TRUCK, FSTEP_DROP_CRATE, false);
+            }
+        }
+        case FTASK_FENCE: {
+            Farm_AddSpotStep(playerid, FSPOT_FENCE1, FSTEP_MG_HAMMER, false);
+            Farm_AddSpotStep(playerid, FSPOT_FENCE2, FSTEP_MG_HAMMER, false);
+            Farm_AddSpotStep(playerid, FSPOT_FENCE3, FSTEP_MG_HAMMER, false);
+        }
+        case FTASK_GREENHOUSE: {
+            Farm_AddSpotStep(playerid, FSPOT_GREEN1, FSTEP_MG_WATER, false);
+            Farm_AddSpotStep(playerid, FSPOT_GREEN2, FSTEP_MG_WATER, false);
+            Farm_AddSpotStep(playerid, FSPOT_GREEN3, FSTEP_MG_WATER, false);
+        }
+        case FTASK_HIVES: {
+            Farm_AddSpotStep(playerid, FSPOT_HIVE1, FSTEP_MG_HONEY, false);
+            Farm_AddSpotStep(playerid, FSPOT_HIVE2, FSTEP_MG_HONEY, false);
+            Farm_AddSpotStep(playerid, FSPOT_HIVE3, FSTEP_MG_HONEY, false);
+            Farm_AddSpotStep(playerid, FSPOT_HONEY, FSTEP_DROP_CRATE, false);
+        }
+        case FTASK_HAY: {
+            vehicleModel = FARM_PICKUP_MODEL;
+            for (new r = 0; r < 2; r++) {
+                Farm_AddSpotStep(playerid, FSPOT_HAY, FSTEP_LOAD, true);
+                Farm_AddSpotStep(playerid, FSPOT_BARN, FSTEP_UNLOAD, true);
+            }
+        }
+        case FTASK_PLOW, FTASK_HARVEST: {
+            vehicleModel = (task == FTASK_PLOW) ? FARM_TRACTOR_MODEL : FARM_COMBINE_MODEL;
+            for (new r = 0; r < sizeof (FarmRouteOffset); r++) {
+                Farm_AddStep(playerid, gFarmX + FarmRouteOffset[r][0], gFarmY + FarmRouteOffset[r][1], FSTEP_REACH, true);
+            }
+        }
+        case FTASK_GRAIN: {
+            vehicleModel = FARM_PICKUP_MODEL;
+            Farm_AddSpotStep(playerid, FSPOT_FIELD, FSTEP_LOAD, true);
+            Farm_AddSpotStep(playerid, FSPOT_MILL, FSTEP_UNLOAD, true);
+        }
     }
-    if (given == 0) {
-        // Нищо не е дадено – връщаме нищо
-        return SendError(playerid, "В момента всички парцели са заети. Опитай след малко.");
+
+    if (vehicleModel != 0) {
+        new Float:x, Float:y, Float:z;
+        Farm_GetSpot(FSPOT_VEHICLE, x, y, z);
+        new vehicleid = CreateVehicle(vehicleModel, x, y, z + 0.5, 90.0, 1, 1, -1);
+        if (vehicleid == INVALID_VEHICLE_ID || vehicleid == 0) {
+            SendError(playerid, "Техниката не може да бъде създадена. Опитай пак.");
+            Farm_EndTask(playerid);
+            return;
+        }
+        FarmVehicle[playerid] = vehicleid;
+        SetVehicleNumberPlate(vehicleid, "FARM");
+        PutPlayerInVehicle(playerid, vehicleid, 0);
     }
 
-    FarmOnShift[playerid] = true;
-    FarmCanUses[playerid] = FARM_CAN_USES;
-    SetPlayerSkin(playerid, (PlayerData[playerid][pGender] == GENDER_FEMALE) ? FARM_SKIN_FEMALE : FARM_SKIN_MALE);
+    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}%s: %s", FarmTaskName[task], FarmTaskDesc[task]);
+    SendClientMessage(playerid, COLOR_GREY, "Следвай червената точка на картата.");
+    Farm_ShowStep(playerid);
+}
 
-    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната започна! Получи %d парцел(а) – номерата им се виждат на полето.", given);
-    SendClientMessage(playerid, COLOR_WHITE, "Застани на парцела си и натисни {FFD54A}Y{FFFFFF}: прекопай, засей, поливай, ожъни.");
-    SendClientMessage(playerid, COLOR_GREY, "Каната ти е пълна (%d поливания). Пълни я на кладенеца. Реколтата се продава при изкупвача.", FARM_CAN_USES);
+stock Farm_ShowStep(playerid)
+{
+    new s = FarmStep[playerid];
+    new Float:x = FarmStepX[playerid][s], Float:y = FarmStepY[playerid][s], Float:z = gFarmZ;
+
+    DisablePlayerCheckpoint(playerid);
+    DisablePlayerRaceCheckpoint(playerid);
+
+    if (FarmStepVehicle[playerid][s]) {
+        new Float:nx = x, Float:ny = y;
+        new bool:last = (s + 1 >= FarmStepCount[playerid]);
+        if (!last) {
+            nx = FarmStepX[playerid][s + 1];
+            ny = FarmStepY[playerid][s + 1];
+        }
+        SetPlayerRaceCheckpoint(playerid, last ? CP_TYPE_GROUND_FINISH : CP_TYPE_GROUND_NORMAL, x, y, z, nx, ny, z, 5.0);
+    } else {
+        SetPlayerCheckpoint(playerid, x, y, z, 1.5);
+    }
+
+    switch (FarmStepAction[playerid][s]) {
+        case FSTEP_PICK_CRATE: GameTextForPlayer(playerid, "~w~Take a ~y~crate", 2500, 3);
+        case FSTEP_DROP_CRATE: GameTextForPlayer(playerid, "~w~Carry it to the ~y~marker", 2500, 3);
+        case FSTEP_LOAD:       GameTextForPlayer(playerid, "~w~Drive to ~y~load", 2500, 3);
+        case FSTEP_UNLOAD:     GameTextForPlayer(playerid, "~w~Drive to ~y~unload", 2500, 3);
+    }
+}
+
+// От OnPlayerEnterCheckpoint / OnPlayerEnterRaceCheckpoint. Връща true, ако е на фермата.
+stock bool:Farm_OnEnterCheckpoint(playerid, bool:race)
+{
+    if (FarmTask[playerid] == FTASK_NONE || FarmBusy[playerid]) return false;
+    new s = FarmStep[playerid];
+    if (FarmStepVehicle[playerid][s] != race) return false;
+
+    if (race) {
+        if (GetPlayerVehicleID(playerid) != FarmVehicle[playerid]) {
+            SendError(playerid, "Трябва да си в превозното средство на фермата.");
+            return true;
+        }
+    } else if (IsPlayerInAnyVehicle(playerid)) {
+        SendError(playerid, "Слез от превозното средство.");
+        return true;
+    }
+
+    switch (FarmStepAction[playerid][s]) {
+        case FSTEP_REACH: Farm_NextStep(playerid);
+        case FSTEP_PICK_CRATE: {
+            Farm_Carry(playerid, FARM_CRATE_MODEL);
+            Farm_NextStep(playerid);
+        }
+        case FSTEP_DROP_CRATE: {
+            Farm_StopCarry(playerid);
+            ApplyAnimation(playerid, "CARRY", "putdwn", 4.1, false, false, false, false, 0);
+            Farm_NextStep(playerid);
+        }
+        case FSTEP_MG_HAMMER: {
+            FarmBusy[playerid] = true;
+            ApplyAnimation(playerid, "BASEBALL", "Bat_4", 4.1, false, false, false, false, 0);
+            Minigame_Start(playerid, MG_TYPE_BOUNCE, "FIX THE FENCE", MG_OWNER_FARM, FARM_MG_HAMMER, s);
+        }
+        case FSTEP_MG_WATER: {
+            FarmBusy[playerid] = true;
+            Minigame_Start(playerid, MG_TYPE_FILL, "WATER", MG_OWNER_FARM, FARM_MG_WATER, s);
+        }
+        case FSTEP_MG_HONEY: {
+            FarmBusy[playerid] = true;
+            ApplyAnimation(playerid, "BOMBER", "BOM_Plant", 4.1, false, false, false, false, 0);
+            Minigame_Start(playerid, MG_TYPE_BOUNCE, "HONEY", MG_OWNER_FARM, FARM_MG_HONEY, s);
+        }
+        case FSTEP_LOAD, FSTEP_UNLOAD: {
+            FarmBusy[playerid] = true;
+            TogglePlayerControllable(playerid, false);
+            if (FarmStepAction[playerid][s] == FSTEP_LOAD) GameTextForPlayer(playerid, "~y~Loading...", 3000, 3);
+            else GameTextForPlayer(playerid, "~y~Unloading...", 3000, 3);
+            SetTimerEx("Farm_LoadDone", 3000, false, "i", playerid);
+        }
+    }
+    return true;
+}
+
+forward Farm_LoadDone(playerid);
+public Farm_LoadDone(playerid)
+{
+    if (!IsPlayerConnected(playerid) || FarmTask[playerid] == FTASK_NONE) return 0;
+    TogglePlayerControllable(playerid, true);
+    FarmBusy[playerid] = false;
+    Farm_NextStep(playerid);
     return 1;
 }
 
-stock Farm_EndShift(playerid, bool:silent = false)
+stock Farm_OnMinigameResult(playerid, purpose, step, result)
 {
-    if (!FarmOnShift[playerid]) return;
-    FarmOnShift[playerid] = false;
+    ClearAnimations(playerid);
+    if (FarmTask[playerid] == FTASK_NONE || step != FarmStep[playerid]) return;
+    FarmBusy[playerid] = false;
 
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-        if (FarmPlot[i][plExists] && FarmPlot[i][plOwner] == playerid) Farm_ResetPlot(i);
+    if (result == MG_RESULT_FAIL) {
+        switch (purpose) {
+            case FARM_MG_HAMMER: SendClientMessage(playerid, COLOR_GREY, "Удари си пръста... Опитай пак.");
+            case FARM_MG_WATER:  SendClientMessage(playerid, COLOR_GREY, "Преля! Опитай пак по-внимателно.");
+            case FARM_MG_HONEY: {
+                new Float:hp;
+                GetPlayerHealth(playerid, hp);
+                SetPlayerHealth(playerid, (hp > 8.0) ? (hp - 5.0) : 3.0);
+                SendClientMessage(playerid, COLOR_RED, "Ох! Пчелите те ужилиха (-5 HP). Опитай пак.");
+            }
+        }
+        // Пак същата стъпка – мини-играта тръгва отново след малко
+        SetTimerEx("Farm_RetryStep", 1200, false, "ii", playerid, step);
+        return;
     }
+
+    // След последния кошер носиш меда до склада
+    if (purpose == FARM_MG_HONEY && step + 1 < FarmStepCount[playerid] && FarmStepAction[playerid][step + 1] == FSTEP_DROP_CRATE) {
+        Farm_Carry(playerid, FARM_HONEY_MODEL);
+    }
+    Farm_NextStep(playerid);
+}
+
+forward Farm_RetryStep(playerid, step);
+public Farm_RetryStep(playerid, step)
+{
+    if (!IsPlayerConnected(playerid) || FarmTask[playerid] == FTASK_NONE || FarmStep[playerid] != step) return 0;
+    if (GetPlayerDistanceFromPoint(playerid, FarmStepX[playerid][step], FarmStepY[playerid][step], gFarmZ) > 4.0) {
+        Farm_ShowStep(playerid); // отдалечил се е – пак маркираме точката
+        return 0;
+    }
+    Farm_OnEnterCheckpoint(playerid, false);
+    return 1;
+}
+
+stock Farm_NextStep(playerid)
+{
+    FarmStep[playerid]++;
+    if (FarmStep[playerid] >= FarmStepCount[playerid]) {
+        Farm_CompleteTask(playerid);
+        return;
+    }
+    Farm_ShowStep(playerid);
+}
+
+stock Farm_Carry(playerid, model)
+{
+    FarmCarrying[playerid] = true;
+    SetPlayerSpecialAction(playerid, SPECIAL_ACTION_CARRY);
+    SetPlayerAttachedObject(playerid, FARM_CARRY_SLOT, model, 1, 0.25, 0.45, 0.0, 0.0, 90.0, 0.0, 0.6, 0.6, 0.6);
+}
+
+stock Farm_StopCarry(playerid)
+{
+    if (!FarmCarrying[playerid]) return;
+    FarmCarrying[playerid] = false;
+    if (IsPlayerConnected(playerid)) {
+        RemovePlayerAttachedObject(playerid, FARM_CARRY_SLOT);
+        SetPlayerSpecialAction(playerid, SPECIAL_ACTION_NONE);
+    }
+}
+
+stock Farm_CompleteTask(playerid)
+{
+    new task = FarmTask[playerid];
+    new pay = Farm_GetTaskPay(playerid, task), exp = 1;
+    new seconds = gettime() - FarmStartTime[playerid];
+    new bool:fast = (seconds <= FarmTaskTime[task]);
+    if (fast) {
+        pay += pay / 5;
+        exp++;
+    }
+
+    // Продукцията отива на пазара
+    switch (task) {
+        case FTASK_CRATES, FTASK_GREENHOUSE: Market_Add(GOODS_TOMATO, 20);
+        case FTASK_HIVES:                     Market_Add(GOODS_HONEY, 8);
+        case FTASK_HARVEST, FTASK_GRAIN:      Market_Add(GOODS_WHEAT, 60);
+    }
+
+    Farm_EndTask(playerid);
+    Money_Give(playerid, pay);
+    Auth_SaveAccount(playerid);
+
+    if (fast) {
+        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Готово за %d:%02d – бързо! Получи {33CC66}$%d{FFFFFF} (+20%% бонус).",
+            seconds / 60, seconds % 60, pay);
+    } else {
+        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Задачата е готова. Получи {33CC66}$%d{FFFFFF}.", pay);
+    }
+    SendClientMessage(playerid, COLOR_GREY, "Върни се при Иван за следваща задача.");
+    Job_AddExp(playerid, JOB_FARM, exp);
+    Farm_AddRep(playerid, 1);
+
+    new details[64];
+    format(details, sizeof (details), "%s: $%d", FarmTaskName[task], pay);
+    Log_Add("farm_task", PlayerData[playerid][pName], "", details);
+}
+
+stock Farm_EndTask(playerid)
+{
+    if (FarmTask[playerid] == FTASK_NONE) return;
+    FarmLastTask[playerid] = FarmTask[playerid];
+    FarmTask[playerid] = FTASK_NONE;
+    FarmBusy[playerid] = false;
+
+    if (IsPlayerConnected(playerid)) {
+        DisablePlayerCheckpoint(playerid);
+        DisablePlayerRaceCheckpoint(playerid);
+        TogglePlayerControllable(playerid, true);
+        if (Minigame_IsActive(playerid)) Minigame_Stop(playerid);
+    }
+    Farm_StopCarry(playerid);
     if (FarmVehicle[playerid] != INVALID_VEHICLE_ID) {
         DestroyVehicle(FarmVehicle[playerid]);
         FarmVehicle[playerid] = INVALID_VEHICLE_ID;
     }
-    if (Minigame_IsActive(playerid)) Minigame_Stop(playerid);
-    if (IsPlayerConnected(playerid)) SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
+}
 
-    if (!silent) {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната приключи. Ако носиш реколта, продай я при изкупвача.");
-    }
+stock Farm_FailTask(playerid, const reason[])
+{
+    if (FarmTask[playerid] == FTASK_NONE) return;
+    Farm_EndTask(playerid);
+    Farm_AddRep(playerid, -2);
+    SendClientMessage(playerid, COLOR_RED, "[Ферма] Задачата е провалена: %s (-2 репутация)", reason);
 }
 
 stock Farm_OnPlayerDisconnect(playerid)
 {
-    Farm_EndShift(playerid, true);
+    Farm_EndTask(playerid);
     Farm_ResetPlayer(playerid);
 }
 
-stock Farm_OnPlayerSpawn(playerid)
+stock Farm_OnPlayerDeath(playerid)
 {
-    if (FarmOnShift[playerid]) {
-        SetPlayerSkin(playerid, (PlayerData[playerid][pGender] == GENDER_FEMALE) ? FARM_SKIN_FEMALE : FARM_SKIN_MALE);
-    }
+    if (FarmTask[playerid] != FTASK_NONE) Farm_FailTask(playerid, "пострада по време на работа");
 }
 
-stock Farm_SpawnVehicle(playerid, model)
+// Всяка секунда: проверка дали е в техниката
+stock Farm_OnTick()
 {
-    new Float:x, Float:y, Float:z, Float:a;
-    if (!Job_GetPoint(JOB_FARM, "vehicle", x, y, z, a)) {
-        SendError(playerid, "Мястото за техниката още не е поставено (админ: /farmedit vehicle).");
-        return;
-    }
-    if (FarmVehicle[playerid] != INVALID_VEHICLE_ID) DestroyVehicle(FarmVehicle[playerid]);
+    for (new p = 0; p < MAX_PLAYERS; p++) {
+        if (FarmTask[p] == FTASK_NONE || FarmVehicle[p] == INVALID_VEHICLE_ID) continue;
+        if (!IsPlayerConnected(p)) continue;
 
-    new vehicleid = CreateVehicle(model, x, y, z + 0.5, a, 1, 1, -1);
-    if (vehicleid == INVALID_VEHICLE_ID || vehicleid == 0) {
-        FarmVehicle[playerid] = INVALID_VEHICLE_ID;
-        SendError(playerid, "Техниката не може да бъде създадена.");
-        return;
-    }
-    FarmVehicle[playerid] = vehicleid;
-    SetVehicleNumberPlate(vehicleid, "FARM");
-    PutPlayerInVehicle(playerid, vehicleid, 0);
-
-    if (model == FARM_TRACTOR_MODEL) {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Трактор: мини през свой парцел, който чака прекопаване – прекопава го сам.");
-    } else {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Комбайн: мини през свой узрял парцел – ожънва го сам.");
-    }
-}
-
-// ============================================================
-//  Менюта
-// ============================================================
-
-stock Farm_ShowJobMenu(playerid)
-{
-    new body[512], count = 0, skill = Job_GetSkill(playerid, JOB_FARM);
-    body[0] = EOS;
-
-    if (!FarmOnShift[playerid]) {
-        strcat(body, C_GREEN "» " C_WHITE "Започни смяна\n");
-        FarmMenuAction[playerid][count++] = FARM_JOB_START;
-    } else {
-        strcat(body, C_RED "» " C_WHITE "Приключи смяната\n");
-        FarmMenuAction[playerid][count++] = FARM_JOB_END;
-        if (skill >= 2) {
-            strcat(body, C_BRAND "» " C_WHITE "Вземи трактор\n");
-            FarmMenuAction[playerid][count++] = FARM_JOB_TRACTOR;
-        } else {
-            strcat(body, C_GREY "» Трактор (нужен скил 2)\n");
-            FarmMenuAction[playerid][count++] = 0;
+        if (GetVehicleModel(FarmVehicle[p]) == 0) {
+            FarmVehicle[p] = INVALID_VEHICLE_ID;
+            Farm_FailTask(p, "техниката е унищожена");
+            continue;
         }
-        if (skill >= 3) {
-            strcat(body, C_BRAND "» " C_WHITE "Вземи комбайн\n");
-            FarmMenuAction[playerid][count++] = FARM_JOB_COMBINE;
-        } else {
-            strcat(body, C_GREY "» Комбайн (нужен скил 3)\n");
-            FarmMenuAction[playerid][count++] = 0;
+        if (GetPlayerVehicleID(p) == FarmVehicle[p]) {
+            FarmOutOfVehicle[p] = 0;
+            continue;
+        }
+        FarmOutOfVehicle[p]++;
+        if (FarmOutOfVehicle[p] == 5) {
+            SendClientMessage(p, COLOR_GOLD, "[Ферма] Върни се в превозното средство до 60 секунди, иначе задачата се проваля.");
+        } else if (FarmOutOfVehicle[p] >= 60) {
+            Farm_FailTask(p, "изостави техниката");
         }
     }
-    strcat(body, C_BLUE "» " C_WHITE "Как работи фермата");
-    FarmMenuAction[playerid][count] = FARM_JOB_INFO;
-
-    new title[64];
-    format(title, sizeof (title), C_BRAND "Ферма " C_WHITE "| скил %d/%d", skill, Job_GetMaxSkill(JOB_FARM));
-    ShowPlayerDialog(playerid, DIALOG_FARM_JOB, DIALOG_STYLE_LIST, title, "%s", "Избери", "Затвори", body);
-}
-
-stock Farm_ShowInfo(playerid)
-{
-    new body[2048], line[192], weather[24];
-    new skill = Job_GetSkill(playerid, JOB_FARM), maxSkill = Job_GetMaxSkill(JOB_FARM);
-    Weather_GetName(weather);
-
-    format(body, sizeof (body),
-        C_WHITE "Твоят скил: " C_GOLD "%d/%d" C_WHITE " (%d EXP)   Заплащане: " C_GREEN "%d%%" C_WHITE "   Парцели: " C_GOLD "%d\n" \
-        C_WHITE "Времето сега: " C_BLUE "%s\n\n",
-        skill, maxSkill, PlayerJobExp[playerid][JOB_FARM], Job_GetPayPercent(playerid, JOB_FARM), skill, weather);
-
-    strcat(body, C_BRAND "Как се работи\n");
-    strcat(body, C_WHITE "1. Застани на своя парцел и натисни " C_GOLD "Y" C_WHITE " - прекопай земята.\n");
-    strcat(body, C_WHITE "2. Засей култура (семената се плащат).\n");
-    strcat(body, C_WHITE "3. Поливай навреме, гони враните, скубни плевелите.\n");
-    strcat(body, C_WHITE "4. Ожъни, щом узрее - не чакай, иначе се разваля.\n");
-    strcat(body, C_WHITE "5. Продай реколтата при изкупвача.\n\n");
-
-    strcat(body, C_BRAND "Култури и изкупни цени сега\n");
-    for (new c = 0; c < sizeof (CropInfo); c++) {
-        format(line, sizeof (line), C_GOLD "%s" C_WHITE ": семена $%d, расте %d мин., ~%d кг, " C_GREEN "$%d/кг" C_GREY " (склад: %d кг)\n",
-            CropInfo[c][cpName], CropInfo[c][cpSeedCost], CropInfo[c][cpGrowMinutes], CropInfo[c][cpYield],
-            Market_GetPrice(CropInfo[c][cpGoods]), Market_GetStock(CropInfo[c][cpGoods]));
-        strcat(body, line);
-    }
-
-    strcat(body, "\n" C_BRAND "Качество\n");
-    strcat(body, C_WHITE "A (здраве 80+) - x1.5   B (50+) - x1.0   C - x0.5\n");
-    strcat(body, C_GREY "В жега растенията пият повече вода, а дъждът ги полива.\n\n");
-
-    strcat(body, C_BRAND "Скил\n");
-    strcat(body, C_WHITE "1: 1 парцел, на ръка   2: 2 парцела + трактор   3: 3 парцела + комбайн\n");
-    strcat(body, C_GREY "+1 EXP за всяка жътва, +1 за качество A.");
-
-    ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Информация", "%s", "GPS", "Затвори", body);
-}
-
-stock Farm_ShowPlotMenu(playerid, plot)
-{
-    new body[512], count = 0, title[96];
-    body[0] = EOS;
-    FarmActionPlot[playerid] = plot;
-
-    switch (FarmPlot[plot][plState]) {
-        case PLOT_RENTED: {
-            strcat(body, C_BRAND "» " C_WHITE "Прекопай земята\n");
-            FarmMenuAction[playerid][count++] = FARM_ACT_DIG;
-            format(title, sizeof (title), C_BRAND "Парцел #%d " C_WHITE "| неподготвен", plot + 1);
-        }
-        case PLOT_PLOWED: {
-            strcat(body, C_BRAND "» " C_WHITE "Засей\n");
-            FarmMenuAction[playerid][count++] = FARM_ACT_SEED;
-            format(title, sizeof (title), C_BRAND "Парцел #%d " C_WHITE "| прекопан", plot + 1);
-        }
-        case PLOT_GROWING: {
-            new line[96];
-            format(line, sizeof (line), C_BLUE "» " C_WHITE "Полей (в каната: %d)\n", FarmCanUses[playerid]);
-            strcat(body, line);
-            FarmMenuAction[playerid][count++] = FARM_ACT_WATER;
-            if (FarmPlot[plot][plCrows]) {
-                strcat(body, C_RED "» " C_WHITE "Прогони враните\n");
-                FarmMenuAction[playerid][count++] = FARM_ACT_CROWS;
-            }
-            if (FarmPlot[plot][plWeeds]) {
-                strcat(body, C_RED "» " C_WHITE "Изскубни плевелите\n");
-                FarmMenuAction[playerid][count++] = FARM_ACT_WEEDS;
-            }
-            strcat(body, C_GREY "» " C_WHITE "Състояние\n");
-            FarmMenuAction[playerid][count++] = FARM_ACT_STATUS;
-            format(title, sizeof (title), C_BRAND "Парцел #%d " C_WHITE "| %s %d%%", plot + 1,
-                CropInfo[FarmPlot[plot][plCrop]][cpName], FarmPlot[plot][plGrowth] * 100 / Farm_GetGrowTotal(plot));
-        }
-        case PLOT_RIPE: {
-            strcat(body, C_GREEN "» " C_WHITE "Ожъни\n");
-            FarmMenuAction[playerid][count++] = FARM_ACT_HARVEST;
-            format(title, sizeof (title), C_BRAND "Парцел #%d " C_GREEN "| узряло", plot + 1);
-        }
-        default: {
-            strcat(body, C_RED "» " C_WHITE "Почисти парцела\n");
-            FarmMenuAction[playerid][count++] = FARM_ACT_CLEAR;
-            format(title, sizeof (title), C_BRAND "Парцел #%d " C_RED "| изсъхнало", plot + 1);
-        }
-    }
-    strcat(body, C_GREY "» Главно меню");
-    FarmMenuAction[playerid][count] = FARM_ACT_MAINMENU;
-    ShowPlayerDialog(playerid, DIALOG_FARM_PLOT, DIALOG_STYLE_LIST, title, "%s", "Избери", "Затвори", body);
-}
-
-stock Farm_ShowSeedMenu(playerid)
-{
-    new body[512], line[128];
-    body[0] = EOS;
-    for (new c = 0; c < sizeof (CropInfo); c++) {
-        format(line, sizeof (line), C_GOLD "%s" C_WHITE " - семена " C_GREEN "$%d" C_WHITE ", расте %d мин.\n",
-            CropInfo[c][cpName], CropInfo[c][cpSeedCost], CropInfo[c][cpGrowMinutes]);
-        strcat(body, line);
-    }
-    ShowPlayerDialog(playerid, DIALOG_FARM_SEED, DIALOG_STYLE_LIST, C_BRAND "Ферма " C_WHITE "| Какво ще садиш?", "%s", "Засей", "Назад", body);
-}
-
-stock Farm_ShowStatus(playerid, plot)
-{
-    new body[768], weather[24];
-    Weather_GetName(weather);
-    new total = Farm_GetGrowTotal(plot), left = (total - FarmPlot[plot][plGrowth]) / 60 + 1;
-    format(body, sizeof (body),
-        C_WHITE "Култура: " C_GOLD "%s\n" \
-        C_WHITE "Растеж: " C_GOLD "%d%%" C_WHITE " (още ~%d мин.)\n" \
-        C_WHITE "Вода: " C_BLUE "%d%%\n" \
-        C_WHITE "Здраве: " C_GREEN "%d%%" C_WHITE " -> очаквано качество " C_GOLD "%s\n" \
-        C_WHITE "Времето: " C_BLUE "%s\n\n" \
-        C_GREY "Без вода растенето спира и здравето пада. Враните и плевелите също вредят.",
-        CropInfo[FarmPlot[plot][plCrop]][cpName], FarmPlot[plot][plGrowth] * 100 / total, left,
-        FarmPlot[plot][plWater], FarmPlot[plot][plHealth], QualityName[Farm_GetGrade(FarmPlot[plot][plHealth])], weather);
-    ShowPlayerDialog(playerid, DIALOG_FARM_STATUS, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Състояние", "%s", "Назад", "", body);
-}
-
-// Изкупвач
-stock Farm_GetGoodsValue(playerid, goods, quality)
-{
-    new kg = FarmGoods[playerid][goods][quality];
-    if (kg <= 0) return 0;
-    return kg * Market_GetPrice(goods) * QualityPercent[quality] / 100 * Job_GetPayPercent(playerid, JOB_FARM) / 100;
-}
-
-stock Farm_ShowSellMenu(playerid)
-{
-    new body[1024], line[160], total = 0, name[24];
-    format(body, sizeof (body), C_WHITE "Изкупвачът предлага за реколтата ти:\n\n");
-    for (new g = 0; g < MAX_GOODS; g++) {
-        for (new q = 0; q < 3; q++) {
-            new kg = FarmGoods[playerid][g][q];
-            if (kg <= 0) continue;
-            new value = Farm_GetGoodsValue(playerid, g, q);
-            Market_GetName(g, name);
-            format(line, sizeof (line), C_GOLD "%s" C_WHITE " (кач. %s): %d кг -> " C_GREEN "$%d\n", name, QualityName[q], kg, value);
-            strcat(body, line);
-            total += value;
-        }
-    }
-    if (total == 0) {
-        ShowPlayerDialog(playerid, DIALOG_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Изкупуване", C_WHITE "Нямаш реколта за продан.", "Затвори", "");
-        return;
-    }
-    format(line, sizeof (line), "\n" C_WHITE "Общо: " C_GREEN "$%d" C_GREY " (с бонус за скил %d%%)", total, Job_GetPayPercent(playerid, JOB_FARM));
-    strcat(body, line);
-    ShowPlayerDialog(playerid, DIALOG_FARM_SELL, DIALOG_STYLE_MSGBOX, C_BRAND "Изкупуване на реколта", "%s", "Продай", "Отказ", body);
-}
-
-stock Farm_SellAll(playerid)
-{
-    new total = 0;
-    for (new g = 0; g < MAX_GOODS; g++) {
-        new kgTotal = 0;
-        for (new q = 0; q < 3; q++) {
-            total += Farm_GetGoodsValue(playerid, g, q);
-            kgTotal += FarmGoods[playerid][g][q];
-            FarmGoods[playerid][g][q] = 0;
-        }
-        if (kgTotal > 0) Market_Add(g, kgTotal);
-    }
-    if (total <= 0) return;
-    Money_Give(playerid, total);
-    Auth_SaveAccount(playerid);
-    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Продаде реколтата за {33CC66}$%d{FFFFFF}.", total);
-
-    new details[32];
-    format(details, sizeof (details), "$%d", total);
-    Log_Add("farm_sell", PlayerData[playerid][pName], "", details);
-}
-
-// ============================================================
-//  Y и пикапи
-// ============================================================
-
-// Разговор с NPC "Фермер" (ALT)
-stock Farm_OnNpcInteract(playerid)
-{
-    Farm_ShowJobMenu(playerid);
-}
-
-// Връща true, ако Y е използван от фермата (играчът е на свой парцел).
-stock bool:Farm_OnYPressed(playerid)
-{
-    if (!FarmOnShift[playerid] || IsPlayerInAnyVehicle(playerid) || Minigame_IsActive(playerid)) return false;
-    new plot = Farm_GetNearOwnPlot(playerid);
-    if (plot == -1) return false;
-    Farm_CalibratePlotZ(playerid, plot);
-    Farm_ShowPlotMenu(playerid, plot);
-    return true;
-}
-
-stock bool:Farm_OnPickUp(playerid, pickupid)
-{
-    if (pickupid != gFarmPickupJob && pickupid != gFarmPickupBuyer && pickupid != gFarmPickupWell) return false;
-    if (!PlayerData[playerid][pLogged] || IsPlayerInAnyVehicle(playerid)) return true;
-
-    new now = GetTickCount();
-    if (now - FarmPickupTick[playerid] < 4000) return true;
-    FarmPickupTick[playerid] = now;
-
-    if (pickupid == gFarmPickupJob) {
-        Farm_ShowJobMenu(playerid);
-    } else if (pickupid == gFarmPickupBuyer) {
-        Farm_ShowSellMenu(playerid);
-    } else {
-        if (!FarmOnShift[playerid]) {
-            SendInfo(playerid, "Каната се пълни само по време на смяна във фермата.");
-        } else if (FarmCanUses[playerid] >= FARM_CAN_USES) {
-            SendInfo(playerid, "Каната ти вече е пълна.");
-        } else {
-            FarmCanUses[playerid] = FARM_CAN_USES;
-            ApplyAnimation(playerid, "BOMBER", "BOM_Plant", 4.1, false, false, false, false, 0);
-            SendClientMessage(playerid, COLOR_LIGHTBLUE, "[Ферма] {FFFFFF}Напълни каната (%d поливания).", FARM_CAN_USES);
-        }
-    }
-    return true;
 }
 
 // ============================================================
@@ -782,100 +781,31 @@ stock bool:Farm_OnPickUp(playerid, pickupid)
 stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
 {
     switch (dialogid) {
-        case DIALOG_FARM_JOB: {
-            if (!response || listitem < 0 || listitem >= 8) return 1;
+        case DIALOG_FARM_NPC: {
+            if (!response || listitem < 0 || listitem > 3) return 1;
             switch (FarmMenuAction[playerid][listitem]) {
-                case FARM_JOB_START:   Farm_StartShift(playerid);
-                case FARM_JOB_END:     Farm_EndShift(playerid);
-                case FARM_JOB_TRACTOR: Farm_SpawnVehicle(playerid, FARM_TRACTOR_MODEL);
-                case FARM_JOB_COMBINE: Farm_SpawnVehicle(playerid, FARM_COMBINE_MODEL);
-                case FARM_JOB_INFO:    Farm_ShowInfo(playerid);
-                default:               SendError(playerid, "Скилът ти още не стига за това.");
+                case 1: Farm_OfferTask(playerid);
+                case 2: Farm_FailTask(playerid, "отказа се");
+                case 3: Farm_ShowProgress(playerid);
+                case 4: Farm_ShowHelp(playerid);
             }
+            return 1;
+        }
+        case DIALOG_FARM_OFFER: {
+            new task = FarmOfferTask[playerid];
+            FarmOfferTask[playerid] = FTASK_NONE;
+            if (task == FTASK_NONE || FarmTask[playerid] != FTASK_NONE) return 1;
+            if (!response) {
+                // "Друга" – друга задача (без наказание)
+                FarmLastTask[playerid] = task;
+                Farm_OfferTask(playerid);
+                return 1;
+            }
+            Farm_StartTask(playerid, task);
             return 1;
         }
         case DIALOG_FARM_INFO: {
-            if (!response) return 1;
-            new Float:x, Float:y, Float:z, Float:a;
-            if (!Job_GetPoint(JOB_FARM, "job", x, y, z, a)) return SendError(playerid, "Фермата още не е поставена на картата.");
-            Gps_SetTarget(playerid, "Ферма", x, y, z);
-            return 1;
-        }
-        case DIALOG_FARM_STATUS: {
-            new plot = FarmActionPlot[playerid];
-            if (plot >= 0 && FarmPlot[plot][plOwner] == playerid) Farm_ShowPlotMenu(playerid, plot);
-            return 1;
-        }
-        case DIALOG_FARM_PLOT: {
-            new plot = FarmActionPlot[playerid];
-            if (!response || listitem < 0 || listitem >= 8) return 1;
-            if (plot < 0 || FarmPlot[plot][plOwner] != playerid) return 1;
-            if (FarmMenuAction[playerid][listitem] != FARM_ACT_MAINMENU && Farm_GetNearOwnPlot(playerid) != plot) {
-                SendError(playerid, "Отиде твърде далеч от парцела.");
-                return 1;
-            }
-            switch (FarmMenuAction[playerid][listitem]) {
-                case FARM_ACT_DIG: {
-                    ApplyAnimation(playerid, "BASEBALL", "Bat_4", 4.1, false, false, false, false, 0);
-                    Minigame_Start(playerid, MG_TYPE_BOUNCE, "DIG", MG_OWNER_FARM, FARM_MG_DIG, plot);
-                }
-                case FARM_ACT_SEED: Farm_ShowSeedMenu(playerid);
-                case FARM_ACT_WATER: {
-                    if (FarmCanUses[playerid] <= 0) return SendError(playerid, "Каната е празна. Напълни я на кладенеца.");
-                    Minigame_Start(playerid, MG_TYPE_FILL, "WATER", MG_OWNER_FARM, FARM_MG_WATER, plot);
-                }
-                case FARM_ACT_CROWS: Minigame_Start(playerid, MG_TYPE_BOUNCE, "SCARE THE CROWS", MG_OWNER_FARM, FARM_MG_CROWS, plot);
-                case FARM_ACT_WEEDS: {
-                    ApplyAnimation(playerid, "BOMBER", "BOM_Plant", 4.1, false, false, false, false, 0);
-                    Minigame_Start(playerid, MG_TYPE_BOUNCE, "WEEDS", MG_OWNER_FARM, FARM_MG_WEEDS, plot);
-                }
-                case FARM_ACT_STATUS: Farm_ShowStatus(playerid, plot);
-                case FARM_ACT_HARVEST: {
-                    ApplyAnimation(playerid, "BOMBER", "BOM_Plant", 4.1, false, false, false, false, 0);
-                    Minigame_Start(playerid, MG_TYPE_BOUNCE, "HARVEST", MG_OWNER_FARM, FARM_MG_HARVEST, plot);
-                }
-                case FARM_ACT_CLEAR: {
-                    FarmPlot[plot][plState] = PLOT_RENTED;
-                    Farm_SetPlotObject(plot, 0);
-                    Farm_UpdatePlotLabel(plot);
-                    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Парцелът е почистен. Прекопай го отново.");
-                }
-                case FARM_ACT_MAINMENU: Menu_Show(playerid);
-            }
-            return 1;
-        }
-        case DIALOG_FARM_SEED: {
-            new plot = FarmActionPlot[playerid];
-            if (plot < 0 || FarmPlot[plot][plOwner] != playerid) return 1;
-            if (!response) {
-                Farm_ShowPlotMenu(playerid, plot);
-                return 1;
-            }
-            if (listitem < 0 || listitem >= sizeof (CropInfo) || FarmPlot[plot][plState] != PLOT_PLOWED) return 1;
-
-            new cost = CropInfo[listitem][cpSeedCost];
-            if (Money_Get(playerid) < cost) return SendError(playerid, "Нямаш достатъчно пари за семената.");
-            Money_Give(playerid, -cost);
-
-            FarmPlot[plot][plState] = PLOT_GROWING;
-            FarmPlot[plot][plCrop] = listitem;
-            FarmPlot[plot][plGrowth] = 0;
-            FarmPlot[plot][plWater] = FARM_WATER_START;
-            FarmPlot[plot][plHealth] = 100;
-            FarmPlot[plot][plCrows] = false;
-            FarmPlot[plot][plWeeds] = false;
-            FarmPlot[plot][plStage] = 0;
-            FarmPlot[plot][plSecondsAcc] = 0;
-            Farm_SetPlotObject(plot, CropInfo[listitem][cpModels][0]);
-            Farm_UpdatePlotLabel(plot);
-
-            ApplyAnimation(playerid, "BOMBER", "BOM_Plant", 4.1, false, false, false, false, 0);
-            SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Засади %s ($%d). Ще узрее след около %d мин. Не забравяй да поливаш!",
-                CropInfo[listitem][cpName], cost, CropInfo[listitem][cpGrowMinutes]);
-            return 1;
-        }
-        case DIALOG_FARM_SELL: {
-            if (response) Farm_SellAll(playerid);
+            Farm_OnNpcInteract(playerid);
             return 1;
         }
     }
@@ -883,289 +813,39 @@ stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
 }
 
 // ============================================================
-//  Резултати от мини-игрите
-// ============================================================
-
-stock Farm_OnMinigameResult(playerid, purpose, plot, result)
-{
-    ClearAnimations(playerid);
-    if (plot < 0 || plot >= FARM_MAX_PLOTS || FarmPlot[plot][plOwner] != playerid) return;
-
-    switch (purpose) {
-        case FARM_MG_DIG: {
-            if (result == MG_RESULT_FAIL) {
-                SendClientMessage(playerid, COLOR_GREY, "Мотиката удари камък. Опитай пак (Y).");
-                return;
-            }
-            FarmPlot[plot][plState] = PLOT_PLOWED;
-            Farm_UpdatePlotLabel(plot);
-            SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Земята е прекопана. Натисни Y, за да засееш.");
-        }
-        case FARM_MG_WATER: {
-            if (FarmPlot[plot][plState] != PLOT_GROWING) return;
-            FarmCanUses[playerid]--;
-            if (result == MG_RESULT_FAIL) {
-                FarmPlot[plot][plWater] += 10;
-                FarmPlot[plot][plHealth] -= 5;
-                SendClientMessage(playerid, COLOR_GREY, "Преля! Корените се преовлажниха (-5 здраве).");
-            } else if (result == MG_RESULT_PERFECT) {
-                FarmPlot[plot][plWater] += FARM_WATER_ADD + 10;
-                FarmPlot[plot][plHealth] += 3;
-                SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Перфектно поливане! (+3 здраве)");
-            } else {
-                FarmPlot[plot][plWater] += FARM_WATER_ADD;
-                SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Поля растенията.");
-            }
-            if (FarmPlot[plot][plWater] > 100) FarmPlot[plot][plWater] = 100;
-            if (FarmPlot[plot][plHealth] > 100) FarmPlot[plot][plHealth] = 100;
-            if (FarmPlot[plot][plHealth] < 0) FarmPlot[plot][plHealth] = 0;
-            Farm_UpdatePlotLabel(plot);
-        }
-        case FARM_MG_CROWS: {
-            if (result == MG_RESULT_FAIL) {
-                SendClientMessage(playerid, COLOR_GREY, "Враните само отлетяха на съседния ред... Опитай пак.");
-                return;
-            }
-            FarmPlot[plot][plCrows] = false;
-            Farm_UpdatePlotLabel(plot);
-            SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Прогони враните!");
-        }
-        case FARM_MG_WEEDS: {
-            if (result == MG_RESULT_FAIL) {
-                SendClientMessage(playerid, COLOR_GREY, "Плевелът се скъса, но корените останаха. Опитай пак.");
-                return;
-            }
-            FarmPlot[plot][plWeeds] = false;
-            if (result == MG_RESULT_PERFECT && FarmPlot[plot][plHealth] < 100) FarmPlot[plot][plHealth] += 2;
-            Farm_UpdatePlotLabel(plot);
-            SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Изскубна плевелите.");
-        }
-        case FARM_MG_HARVEST: {
-            if (FarmPlot[plot][plState] != PLOT_RIPE) return;
-            new percent = 100;
-            if (result == MG_RESULT_FAIL) percent = 80;
-            else if (result == MG_RESULT_PERFECT) percent = 110;
-            Farm_Harvest(playerid, plot, percent);
-        }
-    }
-}
-
-stock Farm_Harvest(playerid, plot, yieldPercent)
-{
-    new crop = FarmPlot[plot][plCrop];
-    new grade = Farm_GetGrade(FarmPlot[plot][plHealth]);
-    new kg = CropInfo[crop][cpYield] * yieldPercent / 100;
-    if (kg < 1) kg = 1;
-
-    FarmGoods[playerid][CropInfo[crop][cpGoods]][grade] += kg;
-
-    FarmPlot[plot][plState] = PLOT_RENTED;
-    Farm_SetPlotObject(plot, 0);
-    Farm_UpdatePlotLabel(plot);
-
-    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Ожъна {FFD54A}%d кг %s{FFFFFF}, качество {FFD54A}%s{FFFFFF}. Продай ги при изкупвача.",
-        kg, CropInfo[crop][cpName], QualityName[grade]);
-
-    Job_AddExp(playerid, JOB_FARM, (grade == QUALITY_A) ? 2 : 1);
-}
-
-// ============================================================
-//  Таймер (всяка секунда от Server_Tick)
-// ============================================================
-
-stock Farm_OnTick(tick)
-{
-    if (tick % FARM_TICK_SECONDS != 0) return;
-
-    for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-        if (!FarmPlot[i][plExists] || FarmPlot[i][plOwner] == INVALID_PLAYER_ID) continue;
-        new st = FarmPlot[i][plState];
-        if (st != PLOT_GROWING && st != PLOT_RIPE) continue;
-
-        if (st == PLOT_GROWING && FarmPlot[i][plWater] > 0) {
-            FarmPlot[i][plGrowth] += FARM_TICK_SECONDS;
-        }
-
-        FarmPlot[i][plSecondsAcc] += FARM_TICK_SECONDS;
-        if (FarmPlot[i][plSecondsAcc] >= 60) {
-            FarmPlot[i][plSecondsAcc] = 0;
-            Farm_PlotMinute(i);
-        }
-        if (FarmPlot[i][plState] == PLOT_GROWING) Farm_CheckGrowth(i);
-        Farm_UpdatePlotLabel(i);
-    }
-
-    // Техника: трактор прекопава, комбайн жъне
-    for (new p = 0; p < MAX_PLAYERS; p++) {
-        if (!FarmOnShift[p] || FarmVehicle[p] == INVALID_VEHICLE_ID) continue;
-        if (GetPlayerVehicleID(p) != FarmVehicle[p]) continue;
-        new model = GetVehicleModel(FarmVehicle[p]);
-        for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-            if (!FarmPlot[i][plExists] || FarmPlot[i][plOwner] != p) continue;
-            if (!Farm_IsNearPlot(p, i, 5.0)) continue;
-            if (model == FARM_TRACTOR_MODEL && FarmPlot[i][plState] == PLOT_RENTED) {
-                FarmPlot[i][plState] = PLOT_PLOWED;
-                Farm_UpdatePlotLabel(i);
-                SendClientMessage(p, COLOR_GREEN, "[Ферма] {FFFFFF}Тракторът прекопа парцел #%d.", i + 1);
-            } else if (model == FARM_COMBINE_MODEL && FarmPlot[i][plState] == PLOT_RIPE) {
-                Farm_Harvest(p, i, 105);
-            }
-        }
-    }
-}
-
-stock Farm_PlotMinute(plot)
-{
-    // Вода според времето
-    switch (Weather_GetKind()) {
-        case WEATHER_KIND_RAIN:   FarmPlot[plot][plWater] += 15;
-        case WEATHER_KIND_HOT:    FarmPlot[plot][plWater] -= FARM_WATER_PER_MIN * 2;
-        case WEATHER_KIND_CLOUDY: FarmPlot[plot][plWater] -= FARM_WATER_PER_MIN * 7 / 10;
-        default:                  FarmPlot[plot][plWater] -= FARM_WATER_PER_MIN;
-    }
-    if (FarmPlot[plot][plWater] > 100) FarmPlot[plot][plWater] = 100;
-    if (FarmPlot[plot][plWater] < 0) FarmPlot[plot][plWater] = 0;
-
-    if (FarmPlot[plot][plState] == PLOT_GROWING) {
-        if (FarmPlot[plot][plWater] == 0) FarmPlot[plot][plHealth] -= 4;
-        if (FarmPlot[plot][plCrows]) FarmPlot[plot][plHealth] -= 3;
-        if (FarmPlot[plot][plWeeds]) FarmPlot[plot][plHealth] -= 2;
-
-        if (FarmPlot[plot][plWater] == 20) Farm_NotifyOwner(plot, "{4FC3F7}растенията жадуват – полей ги!");
-        if (!FarmPlot[plot][plCrows] && random(100) < 6) {
-            FarmPlot[plot][plCrows] = true;
-            Farm_NotifyOwner(plot, "{FF4040}врани кацнаха на посевите!");
-        }
-        if (!FarmPlot[plot][plWeeds] && random(100) < 4) {
-            FarmPlot[plot][plWeeds] = true;
-            Farm_NotifyOwner(plot, "{FF4040}поникнаха плевели!");
-        }
-    } else if (FarmPlot[plot][plState] == PLOT_RIPE) {
-        new overdue = (gettime() - FarmPlot[plot][plRipeTime]) / 60;
-        if (overdue >= FARM_RIPE_LOST_MIN) {
-            FarmPlot[plot][plState] = PLOT_WITHERED;
-            Farm_SetPlotObject(plot, 0);
-            Farm_NotifyOwner(plot, "{FF4040}реколтата изсъхна, защото не я ожъна навреме.");
-            return;
-        }
-        if (overdue >= FARM_RIPE_GRACE_MIN) {
-            FarmPlot[plot][plHealth] -= 5;
-            if (overdue == FARM_RIPE_GRACE_MIN) Farm_NotifyOwner(plot, "{FF4040}реколтата започва да се разваля – ожъни я!");
-        }
-    }
-
-    if (FarmPlot[plot][plHealth] < 0) FarmPlot[plot][plHealth] = 0;
-    if (FarmPlot[plot][plHealth] == 0 && FarmPlot[plot][plState] == PLOT_GROWING) {
-        FarmPlot[plot][plState] = PLOT_WITHERED;
-        Farm_SetPlotObject(plot, 0);
-        Farm_NotifyOwner(plot, "{FF4040}растенията загинаха.");
-    }
-}
-
-stock Farm_CheckGrowth(plot)
-{
-    new total = Farm_GetGrowTotal(plot), percent = FarmPlot[plot][plGrowth] * 100 / total;
-    new stage = (percent < 34) ? 0 : ((percent < 67) ? 1 : 2);
-    new crop = FarmPlot[plot][plCrop];
-
-    if (stage != FarmPlot[plot][plStage]) {
-        FarmPlot[plot][plStage] = stage;
-        Farm_SetPlotObject(plot, CropInfo[crop][cpModels][stage]);
-    }
-    if (FarmPlot[plot][plGrowth] >= total) {
-        FarmPlot[plot][plState] = PLOT_RIPE;
-        FarmPlot[plot][plRipeTime] = gettime();
-        FarmPlot[plot][plCrows] = false;
-        FarmPlot[plot][plWeeds] = false;
-        Farm_NotifyOwner(plot, "{33CC66}реколтата узря! Ожъни я, преди да се развали.");
-    }
-}
-
-// ============================================================
-//  Админ редактор
+//  Админ
 // ============================================================
 
 CMD:farmedit(playerid, params[])
 {
     if (!Admin_Check(playerid, ADMIN_ADMIN)) return 1;
-
     new sub[16];
-    if (!GetParam(params, 0, sub)) {
-        SendUsage(playerid, "/farmedit [job | buyer | well | vehicle | addplot | delplot | list]");
-        SendClientMessage(playerid, COLOR_GREY, "job - вход на работата, buyer - изкупвач, well - кладенец, vehicle - място за техниката");
+    if (!GetParam(params, 0, sub) || strcmp(sub, "center", true) != 0) {
+        SendUsage(playerid, "/farmedit center - мести цялата ферма (Иван, местата и картата \"ferma\") тук");
         return 1;
     }
 
     new Float:x, Float:y, Float:z, Float:a;
     GetPlayerPos(playerid, x, y, z);
     GetPlayerFacingAngle(playerid, a);
+    new Float:dx = x - gFarmX, Float:dy = y - gFarmY, Float:dz = z - gFarmZ;
 
-    if (!strcmp(sub, "job", true) || !strcmp(sub, "buyer", true) || !strcmp(sub, "well", true) || !strcmp(sub, "vehicle", true)) {
-        for (new i = 0; sub[i] != EOS; i++) sub[i] = tolower(sub[i]);
-        Job_SetPoint(JOB_FARM, sub, x, y, z, a);
-        Farm_RefreshPoints();
-        SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Точката \"%s\" е поставена тук.", sub);
-        Log_Add("farmedit", PlayerData[playerid][pName], sub, "");
-        return 1;
-    }
+    gFarmX = x;
+    gFarmY = y;
+    gFarmZ = z;
+    Job_SetPoint(JOB_FARM, "job", x, y, z, a);
+    Farm_CreateLabels();
+    Npc_MoveRole(NPC_ROLE_FARM, x, y, z, a);
+    new moved = Map_ShiftMap("ferma", dx, dy, dz);
 
-    if (!strcmp(sub, "addplot", true)) {
-        new q[192];
-        format(q, sizeof (q), "INSERT INTO farm_plots (x, y, z) VALUES (%f, %f, %f)", x, y, z);
-        Database_Exec(q);
-
-        new dbid = 0;
-        new DBResult:result = Database_Query("SELECT MAX(id) AS id FROM farm_plots");
-        if (result != DBResult:0) {
-            dbid = DB_GetFieldIntByName(result, "id");
-            DB_FreeResultSet(result);
-        }
-        new plot = Farm_AddPlotToMemory(dbid, x, y, z);
-        if (plot == -1) return SendError(playerid, "Достигнат е максималният брой парцели.");
-        SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Добавен парцел #%d.", plot + 1);
-        return 1;
-    }
-
-    if (!strcmp(sub, "delplot", true)) {
-        for (new i = 0; i < FARM_MAX_PLOTS; i++) {
-            if (!FarmPlot[i][plExists]) continue;
-            if (!Farm_IsNearPlot(playerid, i, 3.0)) continue;
-            if (FarmPlot[i][plOwner] != INVALID_PLAYER_ID) return SendError(playerid, "Парцелът е зает от играч.");
-
-            new q[96];
-            format(q, sizeof (q), "DELETE FROM farm_plots WHERE id = %d", FarmPlot[i][plDBID]);
-            Database_Exec(q);
-            Farm_SetPlotObject(i, 0);
-            DestroyDynamic3DTextLabel(FarmPlot[i][plLabel]);
-            FarmPlot[i][plExists] = false;
-            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Парцел #%d е премахнат.", i + 1);
-            return 1;
-        }
-        return SendError(playerid, "Няма парцел в радиус 3 м.");
-    }
-
-    if (!strcmp(sub, "list", true)) {
-        new count = 0;
-        for (new i = 0; i < FARM_MAX_PLOTS; i++) if (FarmPlot[i][plExists]) count++;
-        new names[][] = {"job", "buyer", "well", "vehicle"};
-        SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Парцели: %d/%d", count, FARM_MAX_PLOTS);
-        for (new n = 0; n < sizeof (names); n++) {
-            if (Job_GetPoint(JOB_FARM, names[n], x, y, z, a)) {
-                SendClientMessage(playerid, COLOR_WHITE, "%s: %.1f, %.1f, %.1f", names[n], x, y, z);
-            } else {
-                SendClientMessage(playerid, COLOR_RED, "%s: не е поставена", names[n]);
-            }
-        }
-        return 1;
-    }
-
-    SendUsage(playerid, "/farmedit [job | buyer | well | vehicle | addplot | delplot | list]");
+    SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Фермата е преместена тук (%d обекта от картата \"ferma\" също).", moved);
+    Log_Add("farmedit", PlayerData[playerid][pName], "center", "");
     return 1;
 }
 
 CMD:farm(playerid, params[])
 {
     #pragma unused params
-    Farm_ShowInfo(playerid);
+    Farm_ShowHelp(playerid);
     return 1;
 }

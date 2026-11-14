@@ -213,6 +213,58 @@ stock Map_DestroyObject(obj)
     MapObj[obj][moExists] = false;
 }
 
+// ------------------------------------------------------------
+//  Помощни функции за други модули (напр. фермата създава своята карта)
+// ------------------------------------------------------------
+
+stock Map_GetID(const name[])
+{
+    new q[160], id = 0;
+    format(q, sizeof (q), "SELECT id FROM maps WHERE name = '%s' LIMIT 1", name);
+    new DBResult:result = Database_Query(q);
+    if (result != DBResult:0) {
+        if (DB_GetRowCount(result) > 0) id = DB_GetFieldIntByName(result, "id");
+        DB_FreeResultSet(result);
+    }
+    return id;
+}
+
+stock Map_CreateMap(const name[], const author[])
+{
+    new q[256];
+    format(q, sizeof (q), "INSERT OR IGNORE INTO maps (name, author, created_at) VALUES ('%s', '%s', %d)", name, author, gettime());
+    Database_Exec(q);
+    return Map_GetID(name);
+}
+
+// Надпис върху обект (записва се и в базата)
+stock Map_SetText(obj, idx, const text[], fontsize)
+{
+    new eText[400], q[600];
+    SQL_Escape(text, eText);
+    format(q, sizeof (q), "INSERT OR REPLACE INTO map_materials (object_id, idx, kind, text, fontsize) VALUES (%d, %d, 1, '%s', %d)",
+        MapObj[obj][moDBID], idx, eText, fontsize);
+    Database_Exec(q);
+    Map_ApplyMaterial(obj, idx, 1, 0, "", "", text, fontsize);
+}
+
+// Мести всички обекти на карта с (dx, dy, dz). Връща броя преместени.
+stock Map_ShiftMap(const name[], Float:dx, Float:dy, Float:dz)
+{
+    new mapid = Map_GetID(name), count = 0;
+    if (mapid == 0) return 0;
+    for (new i = 0; i < MAP_MAX_OBJECTS; i++) {
+        if (!MapObj[i][moExists] || MapObj[i][moMap] != mapid) continue;
+        MapObj[i][moX] += dx;
+        MapObj[i][moY] += dy;
+        MapObj[i][moZ] += dz;
+        SetDynamicObjectPos(MapObj[i][moDynamic], MapObj[i][moX], MapObj[i][moY], MapObj[i][moZ]);
+        Map_SaveObject(i);
+        count++;
+    }
+    return count;
+}
+
 // ============================================================
 //  Проверки за командите
 // ============================================================

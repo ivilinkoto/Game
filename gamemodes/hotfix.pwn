@@ -45,9 +45,9 @@
 #include "modules/market.inc"
 #include "modules/minigame.inc"
 #include "modules/gps.inc"
-#include "modules/jobs/farm.inc"
 #include "modules/npc.inc"
 #include "modules/map_editor.inc"
+#include "modules/jobs/farm.inc"
 #include "modules/menu.inc"
 
 new gTickCounter;
@@ -84,6 +84,7 @@ public OnGameModeInit()
     Farm_Init();
     Npc_Init();
     Map_Init();
+    Farm_SeedMap();
 
     SetTimer("Server_Tick", 1000, true);
     return 1;
@@ -107,7 +108,7 @@ public Server_Tick()
     Report_OnTick(gTickCounter);
     Weather_OnTick(gTickCounter);
     Market_OnTick(gTickCounter);
-    Farm_OnTick(gTickCounter);
+    Farm_OnTick();
     Npc_OnTick(gTickCounter);
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
@@ -168,13 +169,13 @@ public OnPlayerRequestClass(playerid, classid)
 public OnPlayerSpawn(playerid)
 {
     Auth_OnPlayerSpawn(playerid);
-    Farm_OnPlayerSpawn(playerid);
     return 1;
 }
 
 public OnPlayerDeath(playerid, killerid, WEAPON:reason)
 {
     #pragma unused killerid, reason
+    Farm_OnPlayerDeath(playerid);
     Hospital_OnPlayerDeath(playerid);
     return 1;
 }
@@ -225,13 +226,14 @@ public OnPlayerPickUpPickup(playerid, pickupid)
 
 public OnPlayerEnterCheckpoint(playerid)
 {
+    if (Farm_OnEnterCheckpoint(playerid, false)) return 1;
     Gps_OnEnterCheckpoint(playerid);
     return 1;
 }
 
-public OnPlayerPickUpDynamicPickup(playerid, STREAMER_TAG_PICKUP:pickupid)
+public OnPlayerEnterRaceCheckpoint(playerid)
 {
-    Farm_OnPickUp(playerid, pickupid);
+    Farm_OnEnterCheckpoint(playerid, true);
     return 1;
 }
 

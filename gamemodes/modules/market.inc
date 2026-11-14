@@ -7,6 +7,7 @@ enum {
     GOODS_WHEAT,
     GOODS_POTATO,
     GOODS_TOMATO,
+    GOODS_HONEY,
     MAX_GOODS
 }
 
@@ -20,7 +21,8 @@ enum E_GOODS {
 static const GoodsInfo[MAX_GOODS][E_GOODS] = {
     {"Пшеница", "wheat",  12, 3000},
     {"Картофи", "potato", 20, 2000},
-    {"Домати",  "tomato", 35, 1500}
+    {"Домати",  "tomato", 35, 1500},
+    {"Мед",     "honey",  60, 800}
 };
 
 #define MARKET_CONSUME_MINUTES  10      // на всеки толкова минути градът изразходва

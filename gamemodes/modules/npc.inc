@@ -206,6 +206,25 @@ stock Npc_Destroy(i)
     NpcData[i][npcExists] = false;
 }
 
+// Мести първото NPC с дадена роля (напр. когато фермата се премести).
+stock Npc_MoveRole(role, Float:x, Float:y, Float:z, Float:a)
+{
+    for (new i = 0; i < MAX_NPCS; i++) {
+        if (!NpcData[i][npcExists] || NpcData[i][npcRole] != role) continue;
+
+        new q[256], name[NPC_NAME_LEN], dbid = NpcData[i][npcDBID], skin = NpcData[i][npcSkin];
+        new world = NpcData[i][npcWorld], anim = NpcData[i][npcAnim];
+        format(name, sizeof (name), "%s", NpcData[i][npcName]);
+        format(q, sizeof (q), "UPDATE npcs SET x = %f, y = %f, z = %f, a = %f WHERE id = %d", x, y, z, a, dbid);
+        Database_Exec(q);
+
+        Npc_Destroy(i);
+        Npc_Spawn(dbid, name, role, skin, x, y, z, a, world, anim);
+        return 1;
+    }
+    return 0;
+}
+
 // Някои анимации се „изключват“, когато играч влезе в обхват – подновяваме ги.
 stock Npc_OnTick(tick)
 {
