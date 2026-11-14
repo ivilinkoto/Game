@@ -57,10 +57,11 @@ stock Pass_Verify(playerid, purpose, const input[], const hash[])
     bcrypt_verify(playerid, "Pass_OnVerified", input, hash, "dd", purpose, PlayerData[playerid][pConnSeq]);
 }
 
-forward Pass_OnHashed(playerid, hashid, purpose, seq);
-public Pass_OnHashed(playerid, hashid, purpose, seq)
+// ВНИМАНИЕ: плъгинът подава само (playerid, нашите аргументи...) – без "hashid",
+// въпреки че документацията в samp_bcrypt.inc твърди друго.
+forward Pass_OnHashed(playerid, purpose, seq);
+public Pass_OnHashed(playerid, purpose, seq)
 {
-    #pragma unused hashid
     if (!IsPlayerConnected(playerid) || PlayerData[playerid][pConnSeq] != seq) return 0;
 
     new hash[BCRYPT_HASH_LENGTH];
