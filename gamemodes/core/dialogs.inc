@@ -46,6 +46,11 @@ enum {
     DIALOG_FARM_SELL,
     DIALOG_FARM_STATUS,
 
+    // GPS
+    DIALOG_GPS_MAIN,
+    DIALOG_GPS_LIST,
+    DIALOG_GPS_EMPTY,
+
     // Информационни
     DIALOG_INFO,
     DIALOG_INFO_KICK    // след затваряне играчът се изгонва

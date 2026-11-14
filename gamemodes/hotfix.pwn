@@ -44,6 +44,7 @@
 #include "modules/weather.inc"
 #include "modules/market.inc"
 #include "modules/minigame.inc"
+#include "modules/gps.inc"
 #include "modules/jobs/farm.inc"
 #include "modules/menu.inc"
 
@@ -77,6 +78,7 @@ public OnGameModeInit()
     Skin_CreateTextDraws();
     Hospital_Init();
     Minigame_Init();
+    Gps_Init();
     Farm_Init();
 
     SetTimer("Server_Tick", 1000, true);
@@ -130,6 +132,7 @@ public OnPlayerConnect(playerid)
 {
     Job_ResetPlayer(playerid);
     Farm_ResetPlayer(playerid);
+    Gps_ResetPlayer(playerid);
     Auth_OnPlayerConnect(playerid);
     return 1;
 }
@@ -200,6 +203,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Admin_OnDialogResponse(playerid, dialogid, response, inputtext)) return 1;
     if (Report_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Farm_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     return 0;
 }
 
@@ -211,8 +215,7 @@ public OnPlayerPickUpPickup(playerid, pickupid)
 
 public OnPlayerEnterCheckpoint(playerid)
 {
-    // GPS точка – махаме я, щом играчът стигне
-    DisablePlayerCheckpoint(playerid);
+    Gps_OnEnterCheckpoint(playerid);
     return 1;
 }
 

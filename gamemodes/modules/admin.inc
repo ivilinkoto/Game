@@ -353,7 +353,7 @@ stock Admin_ShowHelp(playerid, bool:fromMenu)
     strcat(body, C_GOLD "Хелпър (1)\n" C_WHITE "/a [текст] - админ чат\n/kick [ID] [причина]\n/goto [ID]   /gethere [ID]\n");
     strcat(body, C_WHITE "/reports - опашка   /ar [#] - поеми   /rr [#] [текст] - отговор\n/cr [#] - затвори   /fr [#] - фалшив репорт\n\n");
     if (lvl >= ADMIN_MODERATOR) strcat(body, C_GOLD "Модератор (2)\n" C_WHITE "/ban [ID] [дни, 0 = завинаги] [причина]\n/sethp [ID] [0-100]   /setskin [ID] [скин]\n/veh [модел] - временна кола   /dv - махни кола\n\n");
-    if (lvl >= ADMIN_ADMIN)     strcat(body, C_GOLD "Администратор (3)\n" C_WHITE "/unban [Име_Фамилия]\n/ann [текст] - обявление до всички\n\n");
+    if (lvl >= ADMIN_ADMIN)     strcat(body, C_GOLD "Администратор (3)\n" C_WHITE "/unban [Име_Фамилия]\n/ann [текст] - обявление до всички\n/gpsadd /gpslist /gpsdel - места в GPS\n/farmedit - точки и парцели на фермата\n\n");
     if (lvl >= ADMIN_HEAD)      strcat(body, C_GOLD "Главен администратор (4)\n" C_WHITE "/givemoney [ID] [сума]\n/rstats - статистика на админите по репорти\n\n");
     if (lvl >= ADMIN_OWNER)     strcat(body, C_GOLD "Собственик (5)\n" C_WHITE "/makeadmin [ID] [0-5]\n");
 

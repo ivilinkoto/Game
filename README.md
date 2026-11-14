@@ -25,6 +25,7 @@
 | `gamemodes/modules/jobs/farm.inc` | Работа: Фермер (`/farm`, админ: `/farmedit`) |
 | `gamemodes/modules/minigame.inc` | Мини-игра „натисни навреме“ за работите |
 | `gamemodes/modules/market.inc` | Пазар на суровини с динамични цени |
+| `gamemodes/modules/gps.inc` | GPS (`/gps`, админ: `/gpsadd`, `/gpslist`, `/gpsdel`) |
 | `gamemodes/modules/weather.inc` | Динамично време |
 | `gamemodes/modules/report.inc` | Репорт система (билети, опашка, оценки, статистика) |
 | `gamemodes/modules/hospital.inc` | Смърт, болница, вход/изход |

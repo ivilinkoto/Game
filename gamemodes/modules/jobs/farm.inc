@@ -796,8 +796,7 @@ stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
             if (!response) return 1;
             new Float:x, Float:y, Float:z, Float:a;
             if (!Job_GetPoint(JOB_FARM, "job", x, y, z, a)) return SendError(playerid, "Фермата още не е поставена на картата.");
-            SetPlayerCheckpoint(playerid, x, y, z, 3.0);
-            SendClientMessage(playerid, COLOR_GREEN, "[GPS] {FFFFFF}Фермата е маркирана на картата (червената точка).");
+            Gps_SetTarget(playerid, "Ферма", x, y, z);
             return 1;
         }
         case DIALOG_FARM_STATUS: {

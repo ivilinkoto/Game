@@ -3,6 +3,7 @@
 
 enum {
     MENU_ITEM_STATS,
+    MENU_ITEM_GPS,
     MENU_ITEM_HELP,
     MENU_ITEM_RP,
     MENU_ITEM_REPORT,
@@ -25,6 +26,7 @@ stock Menu_Show(playerid)
     new body[512];
     format(body, sizeof (body),
         C_BRAND "»" C_WHITE " Статистика\n" \
+        C_BRAND "»" C_WHITE " GPS - намери място\n" \
         C_BRAND "»" C_WHITE " Помощ и команди\n" \
         C_BRAND "»" C_WHITE " Как се играе RolePlay\n" \
         C_BRAND "»" C_WHITE " Изпрати репорт до администратор\n" \
@@ -43,6 +45,7 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem)
             if (!response) return 1;
             switch (listitem) {
                 case MENU_ITEM_STATS:       Menu_ShowStats(playerid);
+                case MENU_ITEM_GPS:         Gps_ShowMain(playerid);
                 case MENU_ITEM_HELP:        Menu_ShowHelp(playerid);
                 case MENU_ITEM_RP:          Menu_ShowRPGuide(playerid);
                 case MENU_ITEM_REPORT:      Report_Start(playerid);
@@ -112,7 +115,7 @@ stock Menu_ShowHelp(playerid)
     body[0] = EOS;
     strcat(body, C_BRAND "Основни\n");
     strcat(body, C_GOLD "Y" C_WHITE ", " C_GOLD "/menu" C_WHITE ", " C_GOLD "/mm" C_WHITE " или " C_GOLD "/mn" C_WHITE " - отваря това меню\n");
-    strcat(body, C_GOLD "/stats" C_WHITE " - твоята статистика\n");
+    strcat(body, C_GOLD "/stats" C_WHITE " - твоята статистика   " C_GOLD "/gps" C_WHITE " - GPS навигация\n");
     strcat(body, C_GOLD "/admins" C_WHITE " - администратори онлайн   " C_GOLD "/report" C_WHITE " - репорт до администратор\n");
     strcat(body, C_GOLD "/afk [причина]" C_WHITE " - отбелязваш, че отсъстваш   " C_GOLD "/afklist" C_WHITE " - кой е AFK\n\n");
 
