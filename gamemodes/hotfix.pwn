@@ -47,6 +47,7 @@
 #include "modules/gps.inc"
 #include "modules/jobs/farm.inc"
 #include "modules/npc.inc"
+#include "modules/map_editor.inc"
 #include "modules/menu.inc"
 
 new gTickCounter;
@@ -82,6 +83,7 @@ public OnGameModeInit()
     Gps_Init();
     Farm_Init();
     Npc_Init();
+    Map_Init();
 
     SetTimer("Server_Tick", 1000, true);
     return 1;
@@ -136,6 +138,7 @@ public OnPlayerConnect(playerid)
     Job_ResetPlayer(playerid);
     Farm_ResetPlayer(playerid);
     Gps_ResetPlayer(playerid);
+    Map_ResetPlayer(playerid);
     Auth_OnPlayerConnect(playerid);
     return 1;
 }
@@ -149,6 +152,7 @@ public OnPlayerDisconnect(playerid, reason)
     Afk_OnPlayerDisconnect(playerid);
     Farm_OnPlayerDisconnect(playerid);
     Minigame_OnPlayerDisconnect(playerid);
+    Map_OnPlayerDisconnect(playerid);
     Job_ResetPlayer(playerid);
     ResetPlayerData(playerid);
     return 1;
@@ -209,6 +213,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Farm_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Npc_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
+    if (Map_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     return 0;
 }
 
@@ -234,5 +239,6 @@ public OnPlayerClickTextDraw(playerid, Text:clickedid)
 {
     if (Skin_OnClickTextDraw(playerid, clickedid)) return 1;
     if (Minigame_OnClickTextDraw(playerid, clickedid)) return 1;
+    if (Map_OnClickTextDraw(playerid, clickedid)) return 1;
     return 0;
 }

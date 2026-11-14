@@ -57,6 +57,9 @@ enum {
     DIALOG_NPC_SKIN,
     DIALOG_NPC_ANIM,
 
+    // Mapping редактор
+    DIALOG_MAP_LIST,
+
     // Информационни
     DIALOG_INFO,
     DIALOG_INFO_KICK    // след затваряне играчът се изгонва
