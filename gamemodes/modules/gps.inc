@@ -27,20 +27,26 @@ static const GpsCategoryName[MAX_GPS_CATEGORIES][] = {
     "Забавления"
 };
 
-// Текстовото поле е първо – иначе Pawn 3.10 дава грешка при инициализацията.
-enum E_GPS_PLACE {
-    gpName[GPS_NAME_LEN],
-    gpCategory,
-    Float:gpX,
-    Float:gpY,
-    Float:gpZ
-}
+// Вградени места. Добавяй ред във всеки от трите списъка (на една и съща позиция).
+static const GpsBuiltInName[][] = {
+    "Гара Unity (начало)",
+    "Болница All Saints",
+    "Кметство на Los Santos",
+    "Полицейско управление (LSPD)"
+};
 
-static const GpsBuiltIn[][E_GPS_PLACE] = {
-    {"Гара Unity (начало)",          GPS_CAT_IMPORTANT, 1742.9, -1861.0, 13.58},
-    {"Болница All Saints",           GPS_CAT_IMPORTANT, 1176.0, -1323.5, 14.10},
-    {"Кметство на Los Santos",       GPS_CAT_IMPORTANT, 1481.0, -1772.3, 18.80},
-    {"Полицейско управление (LSPD)", GPS_CAT_IMPORTANT, 1554.9, -1675.6, 16.20}
+static const GpsBuiltInCategory[] = {
+    GPS_CAT_IMPORTANT,
+    GPS_CAT_IMPORTANT,
+    GPS_CAT_IMPORTANT,
+    GPS_CAT_IMPORTANT
+};
+
+static const Float:GpsBuiltInPos[][3] = {
+    {1742.9, -1861.0, 13.58},
+    {1176.0, -1323.5, 14.10},
+    {1481.0, -1772.3, 18.80},
+    {1554.9, -1675.6, 16.20}
 };
 
 // Списъкът, показан на играча в момента (за да знаем кое е избрал)
@@ -138,9 +144,9 @@ stock Gps_ShowCategory(playerid, category)
     }
 
     // 2. Вградени места
-    for (new i = 0; i < sizeof (GpsBuiltIn); i++) {
-        if (GpsBuiltIn[i][gpCategory] != category) continue;
-        Gps_AddToList(playerid, GpsBuiltIn[i][gpName], GpsBuiltIn[i][gpX], GpsBuiltIn[i][gpY], GpsBuiltIn[i][gpZ]);
+    for (new i = 0; i < sizeof (GpsBuiltInName); i++) {
+        if (GpsBuiltInCategory[i] != category) continue;
+        Gps_AddToList(playerid, GpsBuiltInName[i], GpsBuiltInPos[i][0], GpsBuiltInPos[i][1], GpsBuiltInPos[i][2]);
     }
 
     // 3. Места от админите
