@@ -35,6 +35,7 @@
 #include "modules/admin.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
+#include "modules/report.inc"
 #include "modules/menu.inc"
 
 new gTickCounter;
@@ -49,6 +50,7 @@ public OnGameModeInit()
     if (!Database_Init()) {
         return 0;
     }
+    Report_CreateTables();
 
     SetGameModeText("HOTFIX ONLINE");
     SetWeather(WORLD_WEATHER);
@@ -83,6 +85,7 @@ public Server_Tick()
     gTickCounter++;
 
     Money_OnTick();
+    Report_OnTick(gTickCounter);
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerConnected(i) && PlayerData[i][pLogged]) {
@@ -173,6 +176,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Auth_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, inputtext)) return 1;
+    if (Report_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }
 

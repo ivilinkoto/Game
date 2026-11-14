@@ -64,7 +64,17 @@ enum E_PLAYER_DATA {
     pAdminPass[65],
     pAdminSalt[17],
     bool:pAdminLogged,
-    pAdminLoginAttempts
+    pAdminLoginAttempts,
+
+    // Репорти (modules/report.inc)
+    pReportBlockedUntil,    // записва се в базата (report_block_until)
+    pLastReportTime,
+    pReportCategory,
+    pReportTarget[MAX_PLAYER_NAME + 1],
+    pReportViewID,
+    pRateReportID,
+    pReportList[20],        // = REPORT_LIST_MAX
+    pReportListCount
 }
 
 new PlayerData[MAX_PLAYERS][E_PLAYER_DATA];

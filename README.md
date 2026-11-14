@@ -21,6 +21,7 @@
 | `gamemodes/modules/money.inc` | Пари на сървъра (`Money_Give` / `Money_Set`) |
 | `gamemodes/modules/levels.inc` | Активно време, PayDay (опит), нива |
 | `gamemodes/modules/afk.inc` | AFK система |
+| `gamemodes/modules/report.inc` | Репорт система (билети, опашка, оценки, статистика) |
 | `gamemodes/modules/hospital.inc` | Смърт, болница, вход/изход |
 | `gamemodes/maps/` | Карти (обекти през Streamer) |
 | `scripts/install-streamer.sh` | Инсталира Streamer плъгина (deploy го пуска сам, ако липсва) |

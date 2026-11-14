@@ -5,6 +5,7 @@ enum {
     MENU_ITEM_STATS,
     MENU_ITEM_HELP,
     MENU_ITEM_RP,
+    MENU_ITEM_REPORT,
     MENU_ITEM_ADMINS,
     MENU_ITEM_ADMIN_PANEL   // само за админи – винаги последен
 }
@@ -24,6 +25,7 @@ stock Menu_Show(playerid)
         C_BRAND "»" C_WHITE " Статистика\n" \
         C_BRAND "»" C_WHITE " Помощ и команди\n" \
         C_BRAND "»" C_WHITE " Как се играе RolePlay\n" \
+        C_BRAND "»" C_WHITE " Изпрати репорт до администратор\n" \
         C_BRAND "»" C_WHITE " Администратори онлайн");
     if (PlayerData[playerid][pAdmin] > 0) {
         strcat(body, "\n" C_RED "»" C_WHITE " Админ панел");
@@ -41,6 +43,7 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem)
                 case MENU_ITEM_STATS:       Menu_ShowStats(playerid);
                 case MENU_ITEM_HELP:        Menu_ShowHelp(playerid);
                 case MENU_ITEM_RP:          Menu_ShowRPGuide(playerid);
+                case MENU_ITEM_REPORT:      Report_Start(playerid);
                 case MENU_ITEM_ADMINS:      Menu_ShowAdmins(playerid);
                 case MENU_ITEM_ADMIN_PANEL: {
                     if (PlayerData[playerid][pAdmin] > 0) {
@@ -104,7 +107,7 @@ stock Menu_ShowHelp(playerid)
     strcat(body, C_BRAND "Основни\n");
     strcat(body, C_GOLD "Y" C_WHITE ", " C_GOLD "/menu" C_WHITE ", " C_GOLD "/mm" C_WHITE " или " C_GOLD "/mn" C_WHITE " - отваря това меню\n");
     strcat(body, C_GOLD "/stats" C_WHITE " - твоята статистика\n");
-    strcat(body, C_GOLD "/admins" C_WHITE " - администратори онлайн\n");
+    strcat(body, C_GOLD "/admins" C_WHITE " - администратори онлайн   " C_GOLD "/report" C_WHITE " - репорт до администратор\n");
     strcat(body, C_GOLD "/afk [причина]" C_WHITE " - отбелязваш, че отсъстваш   " C_GOLD "/afklist" C_WHITE " - кой е AFK\n\n");
 
     strcat(body, C_BRAND "Чат\n");

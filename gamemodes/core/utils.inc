@@ -300,4 +300,5 @@ stock ProxMessage(playerid, Float:radius, colour, const msg[], bool:fade = true)
         }
         SendClientMessage(i, c, "%s", msg);
     }
+    Chat_Log(playerid, msg); // за контекста в репортите
 }

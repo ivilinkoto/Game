@@ -1,5 +1,58 @@
 // RP чат: говор наблизо, /me, /do, викане, тихо, OOC и лични съобщения.
 
+// ---------- Дневник на чата (за контекста в репортите) ----------
+
+#define CHAT_LOG_SIZE 60
+
+enum E_CHAT_LOG {
+    clTime,
+    Float:clX,
+    Float:clY,
+    Float:clZ,
+    clWorld,
+    clText[144]
+}
+static gChatLog[CHAT_LOG_SIZE][E_CHAT_LOG], gChatLogPos;
+
+stock Chat_Log(playerid, const text[])
+{
+    new Float:x, Float:y, Float:z;
+    GetPlayerPos(playerid, x, y, z);
+    gChatLog[gChatLogPos][clTime] = gettime();
+    gChatLog[gChatLogPos][clX] = x;
+    gChatLog[gChatLogPos][clY] = y;
+    gChatLog[gChatLogPos][clZ] = z;
+    gChatLog[gChatLogPos][clWorld] = GetPlayerVirtualWorld(playerid);
+    format(gChatLog[gChatLogPos][clText], 144, "%s", text);
+    gChatLogPos = (gChatLogPos + 1) % CHAT_LOG_SIZE;
+}
+
+// Добавя към dest последните maxLines съобщения, казани в радиус около играча.
+stock Chat_GetNearbyLog(playerid, dest[], size, Float:radius, seconds, maxLines)
+{
+    new found[CHAT_LOG_SIZE], count = 0, now = gettime(), vw = GetPlayerVirtualWorld(playerid);
+
+    // От най-новото към най-старото
+    for (new n = 1; n <= CHAT_LOG_SIZE && count < maxLines; n++) {
+        new idx = (gChatLogPos - n + CHAT_LOG_SIZE) % CHAT_LOG_SIZE;
+        if (gChatLog[idx][clTime] == 0 || now - gChatLog[idx][clTime] > seconds) continue;
+        if (gChatLog[idx][clWorld] != vw) continue;
+        if (GetPlayerDistanceFromPoint(playerid, gChatLog[idx][clX], gChatLog[idx][clY], gChatLog[idx][clZ]) > radius) continue;
+        found[count++] = idx;
+    }
+    if (count == 0) {
+        strcat(dest, "(няма)", size);
+        return;
+    }
+    // Записваме от най-старото към най-новото
+    new line[180];
+    for (new k = count - 1; k >= 0; k--) {
+        new idx = found[k];
+        format(line, sizeof (line), "[-%dс] %s\n", now - gChatLog[idx][clTime], gChatLog[idx][clText]);
+        strcat(dest, line, size);
+    }
+}
+
 stock Chat_OnPlayerText(playerid, const text[])
 {
     if (!PlayerData[playerid][pLogged]) return;

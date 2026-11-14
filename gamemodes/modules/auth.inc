@@ -660,6 +660,7 @@ stock Auth_LoadAccount(playerid)
     DB_GetFieldStringByName(result, "email", PlayerData[playerid][pEmail], 65);
     DB_GetFieldStringByName(result, "admin_password", PlayerData[playerid][pAdminPass], 65);
     DB_GetFieldStringByName(result, "admin_salt", PlayerData[playerid][pAdminSalt], 17);
+    PlayerData[playerid][pReportBlockedUntil] = DB_GetFieldIntByName(result, "report_block_until");
     DB_FreeResultSet(result);
 
     if (PlayerData[playerid][pPosX] == 0.0 && PlayerData[playerid][pPosY] == 0.0) {
