@@ -553,7 +553,7 @@ stock Farm_ShowJobMenu(playerid)
         }
     }
     strcat(body, C_BLUE "» " C_WHITE "Как работи фермата");
-    FarmMenuAction[playerid][count++] = FARM_JOB_INFO;
+    FarmMenuAction[playerid][count] = FARM_JOB_INFO;
 
     new title[64];
     format(title, sizeof (title), C_BRAND "Ферма " C_WHITE "| скил %d/%d", skill, Job_GetMaxSkill(JOB_FARM));
@@ -644,7 +644,7 @@ stock Farm_ShowPlotMenu(playerid, plot)
         }
     }
     strcat(body, C_GREY "» Главно меню");
-    FarmMenuAction[playerid][count++] = FARM_ACT_MAINMENU;
+    FarmMenuAction[playerid][count] = FARM_ACT_MAINMENU;
     ShowPlayerDialog(playerid, DIALOG_FARM_PLOT, DIALOG_STYLE_LIST, title, "%s", "Избери", "Затвори", body);
 }
 

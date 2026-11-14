@@ -30,7 +30,7 @@ static const ReportCategories[][] = {
 };
 
 // Зареден репорт (Report_Load)
-static gRepStatus, gRepReporterID, gRepCategory, gRepCreated, gRepRating;
+static gRepStatus, gRepReporterID, gRepCategory, gRepCreated;
 static gRepReporterName[MAX_PLAYER_NAME + 1], gRepAdmin[MAX_PLAYER_NAME + 1], gRepTarget[MAX_PLAYER_NAME + 1];
 static gRepText[160], gRepContext[1024];
 
@@ -88,7 +88,6 @@ stock bool:Report_Load(reportid)
     gRepReporterID = DB_GetFieldIntByName(result, "reporter_id");
     gRepCategory   = DB_GetFieldIntByName(result, "category");
     gRepCreated    = DB_GetFieldIntByName(result, "created_at");
-    gRepRating     = DB_GetFieldIntByName(result, "rating");
     DB_GetFieldStringByName(result, "reporter_name", gRepReporterName);
     DB_GetFieldStringByName(result, "admin_name", gRepAdmin);
     DB_GetFieldStringByName(result, "target", gRepTarget);

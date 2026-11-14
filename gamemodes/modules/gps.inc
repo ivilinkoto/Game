@@ -27,19 +27,20 @@ static const GpsCategoryName[MAX_GPS_CATEGORIES][] = {
     "Забавления"
 };
 
+// Текстовото поле е първо – иначе Pawn 3.10 дава грешка при инициализацията.
 enum E_GPS_PLACE {
-    gpCategory,
     gpName[GPS_NAME_LEN],
+    gpCategory,
     Float:gpX,
     Float:gpY,
     Float:gpZ
 }
 
 static const GpsBuiltIn[][E_GPS_PLACE] = {
-    {GPS_CAT_IMPORTANT, "Гара Unity (начало)",             1742.9, -1861.0, 13.58},
-    {GPS_CAT_IMPORTANT, "Болница All Saints",              1176.0, -1323.5, 14.10},
-    {GPS_CAT_IMPORTANT, "Кметство на Los Santos",          1481.0, -1772.3, 18.80},
-    {GPS_CAT_IMPORTANT, "Полицейско управление (LSPD)",    1554.9, -1675.6, 16.20}
+    {"Гара Unity (начало)",          GPS_CAT_IMPORTANT, 1742.9, -1861.0, 13.58},
+    {"Болница All Saints",           GPS_CAT_IMPORTANT, 1176.0, -1323.5, 14.10},
+    {"Кметство на Los Santos",       GPS_CAT_IMPORTANT, 1481.0, -1772.3, 18.80},
+    {"Полицейско управление (LSPD)", GPS_CAT_IMPORTANT, 1554.9, -1675.6, 16.20}
 };
 
 // Списъкът, показан на играча в момента (за да знаем кое е избрал)
