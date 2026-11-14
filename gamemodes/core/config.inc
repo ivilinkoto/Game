@@ -42,12 +42,13 @@
 #define HOSPITAL_WORLD          0
 
 // Вход/изход на болницата (пикапи до главния вход)
-#define HOSPITAL_DOOR_OUT_X     1176.0      // отвън, на тротоара
-#define HOSPITAL_DOOR_OUT_Y     -1323.5
-#define HOSPITAL_DOOR_OUT_Z     14.1
-#define HOSPITAL_DOOR_IN_X      1169.6      // отвътре, до стъклените врати
-#define HOSPITAL_DOOR_IN_Y      -1323.5
-#define HOSPITAL_DOOR_IN_Z      15.4
+#define HOSPITAL_DOOR_OUT_X     1172.0795   // отвън, пред стъклените врати
+#define HOSPITAL_DOOR_OUT_Y     -1323.3483
+#define HOSPITAL_DOOR_OUT_Z     15.4014
+#define HOSPITAL_DOOR_IN_X      1171.0427   // отвътре, до стъклените врати
+#define HOSPITAL_DOOR_IN_Y      -1322.4243
+#define HOSPITAL_DOOR_IN_Z      15.4723
+#define HOSPITAL_DOOR_STEP      2.5         // с колко метра навътре/навън пренася (да не стъпиш на другия пикап)
 
 // --- PayDay и нива ---
 #define PAYDAY_MINUTES          60      // активни минути до PayDay

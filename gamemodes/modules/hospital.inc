@@ -26,11 +26,12 @@ stock bool:Hospital_OnPickUp(playerid, pickupid)
     if (now - PlayerData[playerid][pLastTeleportTick] < 3000) return true;
     PlayerData[playerid][pLastTeleportTick] = now;
 
+    // Входът е на изток: навътре = към по-малко X, навън = към по-голямо X.
     if (pickupid == gHospitalPickupOut) {
-        SetPlayerPos(playerid, HOSPITAL_DOOR_IN_X - 2.0, HOSPITAL_DOOR_IN_Y, HOSPITAL_DOOR_IN_Z);
+        SetPlayerPos(playerid, HOSPITAL_DOOR_IN_X - HOSPITAL_DOOR_STEP, HOSPITAL_DOOR_IN_Y, HOSPITAL_DOOR_IN_Z);
         SetPlayerFacingAngle(playerid, 90.0);
     } else {
-        SetPlayerPos(playerid, HOSPITAL_DOOR_OUT_X + 2.0, HOSPITAL_DOOR_OUT_Y, HOSPITAL_DOOR_OUT_Z);
+        SetPlayerPos(playerid, HOSPITAL_DOOR_OUT_X + HOSPITAL_DOOR_STEP, HOSPITAL_DOOR_OUT_Y, HOSPITAL_DOOR_OUT_Z);
         SetPlayerFacingAngle(playerid, 270.0);
     }
     SetPlayerInterior(playerid, HOSPITAL_INTERIOR);
