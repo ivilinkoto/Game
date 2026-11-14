@@ -15,7 +15,7 @@
 // Продукцията (домати, мед, пшеница) отива на пазара – суровина за бъдещите бизнеси.
 //
 // Всички места са отместване (в метри) от точката на Иван ("job").
-// /farmedit center – мести цялата ферма (Иван, местата и картата "ferma") там, където стоиш.
+// /farmedit – меню за админи: застани на мястото и избери кое е (Иван, поле, камион, ограда...).
 
 // ------------------------------------------------------------
 //  Начално място – полето западно от Blueberry (Red County)
@@ -72,6 +72,15 @@ static const FarmSpotName[FSPOT_COUNT][] = {
     "Техника", "Поле с домати", "Камион", "Ограда", "Ограда", "Ограда",
     "Оранжерия", "Оранжерия", "Оранжерия", "Кошер", "Кошер", "Кошер",
     "Склад за мед", "Купа сено", "Обор", "Мелница"
+};
+
+// Имена в /farmedit
+static const FarmSpotEditName[FSPOT_COUNT][] = {
+    "Място за техниката (паркинг)", "Поле с домати (щайгите)", "Камион (оставяне на щайги)",
+    "Ограда 1", "Ограда 2", "Ограда 3",
+    "Оранжерия 1", "Оранжерия 2", "Оранжерия 3",
+    "Кошер 1", "Кошер 2", "Кошер 3",
+    "Склад за мед", "Купа сено", "Обор", "Мелница / силоз"
 };
 
 // Маршрут за оран и жътва (змийка из полето)
@@ -154,6 +163,8 @@ static const FarmRankBonus[]  = {0, 5, 10, 15, 20};   // % към заплаща
 
 static Float:gFarmX, Float:gFarmY, Float:gFarmZ;      // точката на Иван
 static STREAMER_TAG_3D_TEXT_LABEL:gFarmSpotLabel[FSPOT_COUNT];
+// Места, поставени от админ с /farmedit (иначе се ползва отместването от Иван)
+static Float:gSpotX[FSPOT_COUNT], Float:gSpotY[FSPOT_COUNT], Float:gSpotZ[FSPOT_COUNT], bool:gSpotSet[FSPOT_COUNT];
 static bool:gFarmLabelsCreated;
 
 static FarmTask[MAX_PLAYERS],
@@ -163,6 +174,7 @@ static FarmTask[MAX_PLAYERS],
     bool:FarmStepVehicle[MAX_PLAYERS][FARM_MAX_STEPS],
     Float:FarmStepX[MAX_PLAYERS][FARM_MAX_STEPS],
     Float:FarmStepY[MAX_PLAYERS][FARM_MAX_STEPS],
+    Float:FarmStepZ[MAX_PLAYERS][FARM_MAX_STEPS],
     FarmVehicle[MAX_PLAYERS],
     FarmStartTime[MAX_PLAYERS],
     FarmLastTask[MAX_PLAYERS],
@@ -189,11 +201,27 @@ stock Farm_Init()
         gFarmZ = FARM_DEFAULT_Z;
         Job_SetPoint(JOB_FARM, "job", gFarmX, gFarmY, gFarmZ, 0.0);
     }
+    Farm_LoadSpots();
     Farm_CreateLabels();
+}
+
+stock Farm_LoadSpots()
+{
+    new name[16], Float:a;
+    for (new s = 0; s < FSPOT_COUNT; s++) {
+        format(name, sizeof (name), "spot%d", s);
+        gSpotSet[s] = Job_GetPoint(JOB_FARM, name, gSpotX[s], gSpotY[s], gSpotZ[s], a);
+    }
 }
 
 stock Farm_GetSpot(spot, &Float:x, &Float:y, &Float:z)
 {
+    if (gSpotSet[spot]) {
+        x = gSpotX[spot];
+        y = gSpotY[spot];
+        z = gSpotZ[spot];
+        return;
+    }
     x = gFarmX + FarmSpotOffset[spot][0];
     y = gFarmY + FarmSpotOffset[spot][1];
     z = gFarmZ;
@@ -213,46 +241,43 @@ stock Farm_CreateLabels()
     gFarmLabelsCreated = true;
 }
 
-// Mapping на фермата – създава се веднъж в картата "ferma" (редактира се с /maps, /msel, /medit).
+// Mapping на фермата – картата "ferma" (редактира се с /maps, /msel, /medit).
+// Създава се при първо пускане; /farmedit -> "Построй обектите наново" я прави отначало
+// според поставените места.
 stock Farm_SeedMap()
 {
     if (Map_GetID("ferma") != 0) return;
     new mapid = Map_CreateMap("ferma", "HOTFIX");
-    if (mapid == 0) return;
+    if (mapid != 0) Farm_BuildProps(mapid);
+}
 
+stock Farm_BuildProps(mapid)
+{
     new Float:x, Float:y, Float:z, obj;
-    new Float:gz = gFarmZ - 1.0; // земята
 
     // Табела до Иван
-    obj = Map_CreateObject(mapid, 19353, gFarmX + 2.5, gFarmY + 1.5, gz + 1.8, 0.0, 0.0, 90.0, 0, 0);
+    obj = Map_CreateObject(mapid, 19353, gFarmX + 2.5, gFarmY + 1.5, gFarmZ + 0.8, 0.0, 0.0, 90.0, 0, 0);
     if (obj != -1) Map_SetText(obj, 0, "{FF6A00}ФЕРМА\n{FFFFFF}HOTFIX", 40);
 
     // Щайги на полето и при камиона
     Farm_GetSpot(FSPOT_FIELD, x, y, z);
-    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y, gz + 0.5, 0.0, 0.0, 0.0, 0, 0);
-    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y + 1.2, gz + 0.5, 0.0, 0.0, 15.0, 0, 0);
-    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y + 0.6, gz + 1.5, 0.0, 0.0, 5.0, 0, 0);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y, z - 0.5, 0.0, 0.0, 0.0, 0, 0);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y + 1.2, z - 0.5, 0.0, 0.0, 15.0, 0, 0);
     Farm_GetSpot(FSPOT_TRUCK, x, y, z);
-    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 2.0, y, gz + 0.5, 0.0, 0.0, 0.0, 0, 0);
+    Map_CreateObject(mapid, FARM_CRATE_MODEL, x + 1.5, y, z - 0.5, 0.0, 0.0, 0.0, 0, 0);
 
-    // Сено
-    Farm_GetSpot(FSPOT_HAY, x, y, z);
-    Map_CreateObject(mapid, 3374, x + 3.0, y, gz + 1.0, 0.0, 0.0, 0.0, 0, 0);
-    Map_CreateObject(mapid, 3374, x + 3.0, y + 4.0, gz + 1.0, 0.0, 0.0, 0.0, 0, 0);
-
-    // Кошери (засега от щайги – mapper може да ги смени)
+    // Кошери (от щайги – mapper може да ги смени)
     for (new s = FSPOT_HIVE1; s <= FSPOT_HIVE3; s++) {
         Farm_GetSpot(s, x, y, z);
-        Map_CreateObject(mapid, FARM_CRATE_MODEL, x, y + 1.2, gz + 0.5, 0.0, 0.0, 0.0, 0, 0);
+        Map_CreateObject(mapid, FARM_CRATE_MODEL, x, y + 1.2, z - 0.5, 0.0, 0.0, 0.0, 0, 0);
     }
 
     // Оранжерия – саксии с разсад
     for (new s = FSPOT_GREEN1; s <= FSPOT_GREEN3; s++) {
         Farm_GetSpot(s, x, y, z);
-        Map_CreateObject(mapid, 2245, x, y + 1.0, gz + 0.1, 0.0, 0.0, 0.0, 0, 0);
-        Map_CreateObject(mapid, 2245, x, y + 2.0, gz + 0.1, 0.0, 0.0, 0.0, 0, 0);
+        Map_CreateObject(mapid, 2245, x, y + 1.0, z - 0.95, 0.0, 0.0, 0.0, 0, 0);
     }
-    print("[FARM] Farm map \"ferma\" created. Adjust with /maps, /msel, /medit.");
+    print("[FARM] Farm props built in map \"ferma\".");
 }
 
 stock Farm_LoadRep(playerid)
@@ -420,12 +445,13 @@ stock Farm_ShowHelp(playerid)
 //  Задачата – стъпки
 // ============================================================
 
-static stock Farm_AddStep(playerid, Float:x, Float:y, action, bool:vehicle)
+static stock Farm_AddStep(playerid, Float:x, Float:y, Float:z, action, bool:vehicle)
 {
     new s = FarmStepCount[playerid];
     if (s >= FARM_MAX_STEPS) return;
     FarmStepX[playerid][s] = x;
     FarmStepY[playerid][s] = y;
+    FarmStepZ[playerid][s] = z;
     FarmStepAction[playerid][s] = action;
     FarmStepVehicle[playerid][s] = vehicle;
     FarmStepCount[playerid]++;
@@ -435,7 +461,7 @@ static stock Farm_AddSpotStep(playerid, spot, action, bool:vehicle)
 {
     new Float:x, Float:y, Float:z;
     Farm_GetSpot(spot, x, y, z);
-    Farm_AddStep(playerid, x, y, action, vehicle);
+    Farm_AddStep(playerid, x, y, z, action, vehicle);
 }
 
 stock Farm_StartTask(playerid, task)
@@ -455,7 +481,7 @@ stock Farm_StartTask(playerid, task)
             new Float:x, Float:y, Float:z;
             Farm_GetSpot(FSPOT_FIELD, x, y, z);
             for (new c = 0; c < 4; c++) {
-                Farm_AddStep(playerid, x - float(random(8)), y + float(random(8)), FSTEP_PICK_CRATE, false);
+                Farm_AddStep(playerid, x + float(random(5) - 2), y + float(random(5) - 2), z, FSTEP_PICK_CRATE, false);
                 Farm_AddSpotStep(playerid, FSPOT_TRUCK, FSTEP_DROP_CRATE, false);
             }
         }
@@ -484,8 +510,11 @@ stock Farm_StartTask(playerid, task)
         }
         case FTASK_PLOW, FTASK_HARVEST: {
             vehicleModel = (task == FTASK_PLOW) ? FARM_TRACTOR_MODEL : FARM_COMBINE_MODEL;
+            // Маршрутът е около мястото "Поле с домати"
+            new Float:fx, Float:fy, Float:fz;
+            Farm_GetSpot(FSPOT_FIELD, fx, fy, fz);
             for (new r = 0; r < sizeof (FarmRouteOffset); r++) {
-                Farm_AddStep(playerid, gFarmX + FarmRouteOffset[r][0], gFarmY + FarmRouteOffset[r][1], FSTEP_REACH, true);
+                Farm_AddStep(playerid, fx + FarmRouteOffset[r][0] + 20.0, fy + FarmRouteOffset[r][1] - 20.0, fz, FSTEP_REACH, true);
             }
         }
         case FTASK_GRAIN: {
@@ -517,19 +546,20 @@ stock Farm_StartTask(playerid, task)
 stock Farm_ShowStep(playerid)
 {
     new s = FarmStep[playerid];
-    new Float:x = FarmStepX[playerid][s], Float:y = FarmStepY[playerid][s], Float:z = gFarmZ;
+    new Float:x = FarmStepX[playerid][s], Float:y = FarmStepY[playerid][s], Float:z = FarmStepZ[playerid][s];
 
     DisablePlayerCheckpoint(playerid);
     DisablePlayerRaceCheckpoint(playerid);
 
     if (FarmStepVehicle[playerid][s]) {
-        new Float:nx = x, Float:ny = y;
+        new Float:nx = x, Float:ny = y, Float:nz = z;
         new bool:last = (s + 1 >= FarmStepCount[playerid]);
         if (!last) {
             nx = FarmStepX[playerid][s + 1];
             ny = FarmStepY[playerid][s + 1];
+            nz = FarmStepZ[playerid][s + 1];
         }
-        SetPlayerRaceCheckpoint(playerid, last ? CP_TYPE_GROUND_FINISH : CP_TYPE_GROUND_NORMAL, x, y, z, nx, ny, z, 5.0);
+        SetPlayerRaceCheckpoint(playerid, last ? CP_TYPE_GROUND_FINISH : CP_TYPE_GROUND_NORMAL, x, y, z, nx, ny, nz, 5.0);
     } else {
         SetPlayerCheckpoint(playerid, x, y, z, 1.5);
     }
@@ -638,7 +668,7 @@ forward Farm_RetryStep(playerid, step);
 public Farm_RetryStep(playerid, step)
 {
     if (!IsPlayerConnected(playerid) || FarmTask[playerid] == FTASK_NONE || FarmStep[playerid] != step) return 0;
-    if (GetPlayerDistanceFromPoint(playerid, FarmStepX[playerid][step], FarmStepY[playerid][step], gFarmZ) > 4.0) {
+    if (GetPlayerDistanceFromPoint(playerid, FarmStepX[playerid][step], FarmStepY[playerid][step], FarmStepZ[playerid][step]) > 4.0) {
         Farm_ShowStep(playerid); // отдалечил се е – пак маркираме точката
         return 0;
     }
@@ -808,6 +838,10 @@ stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
             Farm_OnNpcInteract(playerid);
             return 1;
         }
+        case DIALOG_FARM_EDIT: {
+            if (response) Farm_OnEditSelect(playerid, listitem);
+            return 1;
+        }
     }
     return 0;
 }
@@ -816,31 +850,61 @@ stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
 //  Админ
 // ============================================================
 
+// /farmedit – меню: премести Иван или поставяй местата там, където стоиш.
 CMD:farmedit(playerid, params[])
 {
+    #pragma unused params
     if (!Admin_Check(playerid, ADMIN_ADMIN)) return 1;
-    new sub[16];
-    if (!GetParam(params, 0, sub) || strcmp(sub, "center", true) != 0) {
-        SendUsage(playerid, "/farmedit center - мести цялата ферма (Иван, местата и картата \"ferma\") тук");
-        return 1;
-    }
+    Farm_ShowEditMenu(playerid);
+    return 1;
+}
 
+stock Farm_ShowEditMenu(playerid)
+{
+    new body[2048], line[96];
+    format(body, sizeof (body), C_BRAND "» " C_WHITE "Иван (премести целия център тук)\n");
+    for (new s = 0; s < FSPOT_COUNT; s++) {
+        if (gSpotSet[s]) format(line, sizeof (line), C_GREEN "» " C_WHITE "%s " C_GREEN "(поставено)\n", FarmSpotEditName[s]);
+        else format(line, sizeof (line), C_GREY "» " C_WHITE "%s " C_GREY "(не е поставено)\n", FarmSpotEditName[s]);
+        strcat(body, line);
+    }
+    strcat(body, C_RED "» " C_WHITE "Построй обектите наново (по поставените места)");
+    ShowPlayerDialog(playerid, DIALOG_FARM_EDIT, DIALOG_STYLE_LIST, C_RED "Ферма " C_WHITE "| Застани на мястото и избери",
+        "%s", "Постави тук", "Затвори", body);
+}
+
+stock Farm_OnEditSelect(playerid, item)
+{
     new Float:x, Float:y, Float:z, Float:a;
     GetPlayerPos(playerid, x, y, z);
     GetPlayerFacingAngle(playerid, a);
-    new Float:dx = x - gFarmX, Float:dy = y - gFarmY, Float:dz = z - gFarmZ;
 
-    gFarmX = x;
-    gFarmY = y;
-    gFarmZ = z;
-    Job_SetPoint(JOB_FARM, "job", x, y, z, a);
-    Farm_CreateLabels();
-    Npc_MoveRole(NPC_ROLE_FARM, x, y, z, a);
-    new moved = Map_ShiftMap("ferma", dx, dy, dz);
-
-    SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Фермата е преместена тук (%d обекта от картата \"ferma\" също).", moved);
-    Log_Add("farmedit", PlayerData[playerid][pName], "center", "");
-    return 1;
+    if (item == 0) {
+        gFarmX = x;
+        gFarmY = y;
+        gFarmZ = z;
+        Job_SetPoint(JOB_FARM, "job", x, y, z, a);
+        Npc_MoveRole(NPC_ROLE_FARM, x, y, z, a);
+        Farm_CreateLabels();
+        SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Иван е преместен тук.");
+    } else if (item >= 1 && item <= FSPOT_COUNT) {
+        new spot = item - 1, name[16];
+        format(name, sizeof (name), "spot%d", spot);
+        Job_SetPoint(JOB_FARM, name, x, y, z, a);
+        gSpotX[spot] = x;
+        gSpotY[spot] = y;
+        gSpotZ[spot] = z;
+        gSpotSet[spot] = true;
+        Farm_CreateLabels();
+        SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] \"%s\" е поставено тук.", FarmSpotEditName[spot]);
+    } else if (item == FSPOT_COUNT + 1) {
+        new removed = Map_ClearMap("ferma"), mapid = Map_CreateMap("ferma", "HOTFIX");
+        if (mapid != 0) Farm_BuildProps(mapid);
+        SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Обектите са построени наново (премахнати стари: %d).", removed);
+        return;
+    }
+    Log_Add("farmedit", PlayerData[playerid][pName], "", "");
+    Farm_ShowEditMenu(playerid);
 }
 
 CMD:farm(playerid, params[])

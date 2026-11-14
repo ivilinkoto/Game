@@ -248,6 +248,25 @@ stock Map_SetText(obj, idx, const text[], fontsize)
     Map_ApplyMaterial(obj, idx, 1, 0, "", "", text, fontsize);
 }
 
+// Изтрива всички обекти на карта (картата остава). Връща броя изтрити.
+stock Map_ClearMap(const name[])
+{
+    new mapid = Map_GetID(name), count = 0;
+    if (mapid == 0) return 0;
+    for (new i = 0; i < MAP_MAX_OBJECTS; i++) {
+        if (MapObj[i][moExists] && MapObj[i][moMap] == mapid) {
+            Map_DestroyObject(i);
+            count++;
+        }
+    }
+    new q[160];
+    format(q, sizeof (q), "DELETE FROM map_materials WHERE object_id IN (SELECT id FROM map_objects WHERE map_id = %d)", mapid);
+    Database_Exec(q);
+    format(q, sizeof (q), "DELETE FROM map_objects WHERE map_id = %d", mapid);
+    Database_Exec(q);
+    return count;
+}
+
 // Мести всички обекти на карта с (dx, dy, dz). Връща броя преместени.
 stock Map_ShiftMap(const name[], Float:dx, Float:dy, Float:dz)
 {
