@@ -233,9 +233,9 @@ stock Minigame_Finish(playerid, result)
         default:                GameTextForPlayer(playerid, "~r~MISS", 1500, 3);
     }
 
-    switch (owner) {
-        case MG_OWNER_FARM: Farm_OnMinigameResult(playerid, purpose, data, result);
-    }
+    // Тук се добавя модулът, който е пуснал играта, напр.:
+    //   case MG_OWNER_FARM: Farm_OnMinigameResult(playerid, purpose, data, result);
+    #pragma unused owner, purpose, data
 }
 
 stock Minigame_OnPlayerDisconnect(playerid)

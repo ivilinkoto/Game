@@ -432,6 +432,8 @@ stock Map_OnPlayerDisconnect(playerid)
 //  Команди
 // ============================================================
 
+forward bool:Map_SetCurrent(playerid, const name[]);
+
 CMD:mapnew(playerid, params[])
 {
     if (!Admin_Check(playerid, ADMIN_ADMIN)) return 1;

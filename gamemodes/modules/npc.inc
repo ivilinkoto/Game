@@ -12,7 +12,7 @@
 //   1. добави константа NPC_ROLE_... и име в NpcRoleName
 //   2. добави case в Npc_OnInteract, който извиква менюто на системата ти
 
-#define MAX_NPCS            100
+#define NPC_MAX_COUNT            100
 #define NPC_INTERACT_RANGE  2.2
 #define NPC_NAME_LEN        32
 
@@ -75,7 +75,7 @@ enum E_NPC {
     npcAnim,
     Text3D:npcLabel
 }
-static NpcData[MAX_NPCS][E_NPC];
+static NpcData[NPC_MAX_COUNT][E_NPC];
 
 // Временни данни за /npcadd
 static NpcEditName[MAX_PLAYERS][NPC_NAME_LEN],
@@ -91,7 +91,7 @@ stock Npc_Init()
 {
     Database_Exec("CREATE TABLE IF NOT EXISTS npcs (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role INTEGER NOT NULL DEFAULT 0, skin INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, a REAL NOT NULL, world INTEGER NOT NULL DEFAULT 0, anim INTEGER NOT NULL DEFAULT 0)");
 
-    for (new i = 0; i < MAX_NPCS; i++) NpcData[i][npcExists] = false;
+    for (new i = 0; i < NPC_MAX_COUNT; i++) NpcData[i][npcExists] = false;
 
     new DBResult:result = Database_Query("SELECT * FROM npcs ORDER BY id");
     new count = 0;
@@ -146,7 +146,7 @@ stock Npc_Create(const name[], role, skin, Float:x, Float:y, Float:z, Float:a, w
 stock Npc_Spawn(dbid, const name[], role, skin, Float:x, Float:y, Float:z, Float:a, world, anim)
 {
     new i = -1;
-    for (new n = 0; n < MAX_NPCS; n++) {
+    for (new n = 0; n < NPC_MAX_COUNT; n++) {
         if (!NpcData[n][npcExists]) {
             i = n;
             break;
@@ -209,7 +209,7 @@ stock Npc_Destroy(i)
 // Мести първото NPC с дадена роля (напр. когато фермата се премести).
 stock Npc_MoveRole(role, Float:x, Float:y, Float:z, Float:a)
 {
-    for (new i = 0; i < MAX_NPCS; i++) {
+    for (new i = 0; i < NPC_MAX_COUNT; i++) {
         if (!NpcData[i][npcExists] || NpcData[i][npcRole] != role) continue;
 
         new q[256], name[NPC_NAME_LEN], dbid = NpcData[i][npcDBID], skin = NpcData[i][npcSkin];
@@ -229,7 +229,7 @@ stock Npc_MoveRole(role, Float:x, Float:y, Float:z, Float:a)
 stock Npc_OnTick(tick)
 {
     if (tick % 30 != 0) return;
-    for (new i = 0; i < MAX_NPCS; i++) {
+    for (new i = 0; i < NPC_MAX_COUNT; i++) {
         if (NpcData[i][npcExists] && NpcData[i][npcAnim] != 0) Npc_ApplyAnim(i);
     }
 }
@@ -242,7 +242,7 @@ stock Npc_OnTick(tick)
 stock Npc_GetNearest(playerid, Float:range)
 {
     new best = -1, Float:bestDist = range, world = GetPlayerVirtualWorld(playerid);
-    for (new i = 0; i < MAX_NPCS; i++) {
+    for (new i = 0; i < NPC_MAX_COUNT; i++) {
         if (!NpcData[i][npcExists] || NpcData[i][npcWorld] != world) continue;
         new Float:d = GetPlayerDistanceFromPoint(playerid, NpcData[i][npcX], NpcData[i][npcY], NpcData[i][npcZ]);
         if (d <= bestDist) {
@@ -316,7 +316,7 @@ CMD:npclist(playerid, params[])
     if (!Admin_Check(playerid, ADMIN_ADMIN)) return 1;
     new count = 0;
     SendClientMessage(playerid, COLOR_ADMIN, "______ NPC ______");
-    for (new i = 0; i < MAX_NPCS; i++) {
+    for (new i = 0; i < NPC_MAX_COUNT; i++) {
         if (!NpcData[i][npcExists]) continue;
         new Float:d = GetPlayerDistanceFromPoint(playerid, NpcData[i][npcX], NpcData[i][npcY], NpcData[i][npcZ]);
         SendClientMessage(playerid, COLOR_WHITE, "%s {A0A0A0}- %s, скин %d, %.0f м от теб",
