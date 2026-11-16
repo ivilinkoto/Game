@@ -661,6 +661,11 @@ stock Delivery_Tick()
     }
 }
 
+stock Delivery_GetJobVehicle(playerid)
+{
+    return Job[playerid][jbVehicle];
+}
+
 stock bool:Delivery_HasJob(playerid)
 {
     return (Job[playerid][jbStage] != JOB_NONE);

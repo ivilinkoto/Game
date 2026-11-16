@@ -234,12 +234,16 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
                 ShowPlayerDialog(playerid, DIALOG_GARAGE_TRUCK, DIALOG_STYLE_MSGBOX, C_BRAND "Моят гараж",
                     C_WHITE "%s е в гаража, място %d.\n" \
                     "Товароносимост: " C_BRAND "%s" C_WHITE " · Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "H" C_WHITE " до вратата, за да излезеш.\n" \
-                    C_GREY "Тунинг – скоро.", "Добре", "", name, listitem + 1, payload, cargo);
+                    C_GREY "Тунинг – скоро.", "Продай", "Назад", name, listitem + 1, payload, cargo);
             }
             return 1;
         }
         case DIALOG_GARAGE_TRUCK: {
             new slot = GarageMenuSlot[playerid];
+            if (response && slot >= 0 && slot < GARAGE_SLOTS && !Veh_IsOut(playerid, slot)) {
+                Dealer_AskSell(playerid, slot);
+                return 1;
+            }
             if (response && slot >= 0 && slot < GARAGE_SLOTS && Veh_IsOut(playerid, slot)) {
                 if (Veh_ReturnToGarage(playerid, slot)) {
                     SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Камионът е върнат в гаража.");

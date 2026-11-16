@@ -144,6 +144,75 @@ stock Veh_GiveStarter(playerid)
     SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Получаваш безплатен бус " C_BRAND "Rumpo" C_WHITE " (1.5 т, пратки) – чака те в гаража.");
 }
 
+stock Veh_FindFreeSlot(playerid)
+{
+    for (new s = 0; s < GARAGE_SLOTS; s++) {
+        if (PlayerVeh[playerid][s][pvID] == 0) return s;
+    }
+    return -1;
+}
+
+stock Veh_Count(playerid)
+{
+    new n = 0;
+    for (new s = 0; s < GARAGE_SLOTS; s++) {
+        if (PlayerVeh[playerid][s][pvID] != 0) n++;
+    }
+    return n;
+}
+
+// Ново превозно средство в първото свободно място (покупка). Връща мястото или -1.
+stock Veh_Add(playerid, model, color1, color2)
+{
+    new slot = Veh_FindFreeSlot(playerid);
+    if (slot == -1) return -1;
+
+    new q[256];
+    format(q, sizeof (q), "INSERT INTO player_vehicles (owner_id, slot, model, color1, color2, health, created_at) VALUES (%d, %d, %d, %d, %d, 1000, %d)",
+        PlayerData[playerid][pID], slot, model, color1, color2, gettime());
+    Database_Exec(q);
+
+    new id = 0;
+    new DBResult:r = Database_Query("SELECT last_insert_rowid() AS id");
+    if (r != DBResult:0) {
+        if (DB_GetRowCount(r) > 0) id = DB_GetFieldIntByName(r, "id");
+        DB_FreeResultSet(r);
+    }
+    if (id <= 0) return -1;
+
+    PlayerVeh[playerid][slot][pvID] = id;
+    PlayerVeh[playerid][slot][pvModel] = model;
+    PlayerVeh[playerid][slot][pvColor1] = color1;
+    PlayerVeh[playerid][slot][pvColor2] = color2;
+    PlayerVeh[playerid][slot][pvHealth] = 1000.0;
+    PlayerVeh[playerid][slot][pvVehicle] = INVALID_VEHICLE_ID;
+    PlayerVeh[playerid][slot][pvOut] = false;
+    Veh_ParkInGarage(playerid, slot);
+    return slot;
+}
+
+// Маха превозното средство (продажба). Не става, ако някой е вътре.
+stock bool:Veh_Remove(playerid, slot)
+{
+    if (slot < 0 || slot >= GARAGE_SLOTS || PlayerVeh[playerid][slot][pvID] == 0) return false;
+    new vehicleid = PlayerVeh[playerid][slot][pvVehicle];
+    if (vehicleid != INVALID_VEHICLE_ID) {
+        for (new i = 0; i < MAX_PLAYERS; i++) {
+            if (IsPlayerConnected(i) && GetPlayerVehicleID(i) == vehicleid) return false;
+        }
+        VehOwner[vehicleid] = INVALID_PLAYER_ID;
+        DestroyVehicle(vehicleid);
+    }
+    new q[96];
+    format(q, sizeof (q), "DELETE FROM player_vehicles WHERE id = %d", PlayerVeh[playerid][slot][pvID]);
+    Database_Exec(q);
+    PlayerVeh[playerid][slot][pvID] = 0;
+    PlayerVeh[playerid][slot][pvModel] = 0;
+    PlayerVeh[playerid][slot][pvVehicle] = INVALID_VEHICLE_ID;
+    PlayerVeh[playerid][slot][pvOut] = false;
+    return true;
+}
+
 static stock Veh_Save(playerid, slot)
 {
     if (PlayerVeh[playerid][slot][pvID] == 0) return;

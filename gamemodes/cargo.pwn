@@ -36,6 +36,7 @@ forward bool:Veh_ReturnToGarage(playerid, slot);
 forward bool:Garage_IsInside(playerid);
 forward bool:Delivery_HasJob(playerid);
 forward bool:Engine_IsOn(vehicleid);
+forward bool:Veh_Remove(playerid, slot);
 
 #include "maps/garage.inc"
 
@@ -51,6 +52,7 @@ forward bool:Engine_IsOn(vehicleid);
 #include "modules/garage.inc"
 #include "modules/companies.inc"
 #include "modules/delivery.inc"
+#include "modules/dealer.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -89,6 +91,7 @@ public OnGameModeInit()
     Veh_Init();
     Company_Init();
     Engine_Init();
+    Dealer_Init();
     Logo_Init();
     Contracts_Init();
 
@@ -134,6 +137,7 @@ public OnPlayerConnect(playerid)
     Veh_OnPlayerConnect(playerid);
     Garage_OnPlayerConnect(playerid);
     Delivery_OnPlayerConnect(playerid);
+    Dealer_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
     SetPlayerColor(playerid, 0xF5A623FF);
@@ -172,6 +176,7 @@ public OnPlayerSpawn(playerid)
     Hud_Show(playerid);
     Logo_Show(playerid);
     Company_UpdateIcons(playerid);
+    Dealer_ShowIcons(playerid);
     return 1;
 }
 
@@ -187,6 +192,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Engine_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -210,6 +216,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Garage_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Delivery_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Dealer_OnDialogResponse(playerid, dialogid, response)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }
@@ -244,12 +251,14 @@ public OnVehicleSpawn(vehicleid)
 public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 {
     if (SkinSelect_OnClickPlayerTD(playerid, playertextid)) return 1;
+    if (Dealer_OnClickPlayerTD(playerid, playertextid)) return 1;
     return 0;
 }
 
 public OnPlayerClickTextDraw(playerid, Text:clickedid)
 {
     if (SkinSelect_OnClickTD(playerid, clickedid)) return 1;
+    if (Dealer_OnClickTD(playerid, clickedid)) return 1;
     return 0;
 }
 

@@ -60,6 +60,14 @@ stock Catalog_FormatPayload(model, dest[], size = sizeof (dest))
     else format(dest, size, "%d.%d т", kg / 1000, (kg % 1000) / 100);
 }
 
+// "1.5 T" – за TextDraw
+stock Catalog_FormatPayloadLatin(model, dest[], size = sizeof (dest))
+{
+    new kg = Catalog_GetPayload(model);
+    if (kg % 1000 == 0) format(dest, size, "%d T", kg / 1000);
+    else format(dest, size, "%d.%d T", kg / 1000, (kg % 1000) / 100);
+}
+
 // "пратки, кутии"
 stock Catalog_FormatCargo(model, dest[], size = sizeof (dest))
 {
