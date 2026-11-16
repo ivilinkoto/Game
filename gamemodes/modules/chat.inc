@@ -66,7 +66,7 @@ CMD:r(playerid, params[])
 
 stock CB_Send(playerid, const text[])
 {
-    if (!PlayerData[playerid][pCBOn]) return SendError(playerid, "CB радиото ти е изключено. Включи го: Меню → Настройки.");
+    if (!PlayerData[playerid][pCBOn]) return SendError(playerid, "CB радиото ти е изключено. Включи го: Меню > Настройки.");
     if (!Chat_CheckSpam(playerid)) return 1;
 
     new channel = PlayerData[playerid][pCBChannel];
