@@ -1,0 +1,55 @@
+name: Gamemode build
+
+# Компилира gamemode-а при всяка промяна в gamemodes/ или scripts/.
+# Целта: до сървъра да стига само код, който се компилира.
+
+on:
+  push:
+    paths:
+      - 'gamemodes/**'
+      - 'scripts/**'
+      - '.github/workflows/gamemode.yml'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install 32-bit libraries (pawncc is 32-bit)
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libc6:i386 libstdc++6:i386 libatomic1:i386 unzip
+
+      - name: Download open.mp (compiler + includes)
+        run: |
+          mkdir -p "$RUNNER_TEMP/omp"
+          curl -fsSL -o "$RUNNER_TEMP/omp.tar.gz" https://github.com/openmultiplayer/open.mp/releases/latest/download/open.mp-linux-x86.tar.gz
+          tar -xzf "$RUNNER_TEMP/omp.tar.gz" -C "$RUNNER_TEMP/omp"
+          ls "$RUNNER_TEMP/omp/Server/qawno"
+
+      - name: Download Streamer include
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          URL=$(gh api repos/samp-incognito/samp-streamer-plugin/releases/latest --jq '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -1)
+          curl -fsSL -o "$RUNNER_TEMP/streamer.zip" "$URL"
+          unzip -q "$RUNNER_TEMP/streamer.zip" -d "$RUNNER_TEMP/streamer"
+          cp "$(find "$RUNNER_TEMP/streamer" -name streamer.inc | head -1)" "$RUNNER_TEMP/omp/Server/qawno/include/"
+
+      - name: Compile
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/omp/Server/gamemodes"
+          SERVER_DIR="$RUNNER_TEMP/omp/Server" bash scripts/build.sh 2>&1 | tee build.log
+          # Предупрежденията също трябва да се оправят – показваме ги отделно
+          echo "----- warnings -----"
+          grep -i "warning" build.log || echo "no warnings"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log

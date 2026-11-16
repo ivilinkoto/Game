@@ -1,0 +1,31 @@
+// ID-та на всички диалози на едно място, за да не се застъпват.
+
+enum {
+    DIALOG_NONE,
+
+    // Вход и регистрация
+    DIALOG_KICK_INFO,
+    DIALOG_LOGIN,
+    DIALOG_REG_WELCOME,
+    DIALOG_REG_PASSWORD,
+    DIALOG_REG_CONFIRM,
+    DIALOG_REG_GENDER,
+    DIALOG_REG_SKIN,
+    DIALOG_WELCOME,
+
+    // Меню
+    DIALOG_MENU,
+    DIALOG_MENU_PROFILE,
+    DIALOG_MENU_HELP,
+    DIALOG_MENU_SETTINGS,
+    DIALOG_MENU_CB_CHANNEL,
+    DIALOG_MENU_INFO,
+
+    // GPS
+    DIALOG_GPS_CATEGORY,
+    DIALOG_GPS_POINTS,
+
+    // Админ
+    DIALOG_ADMIN_LOGIN,
+    DIALOG_ADMIN_CREATE
+}
