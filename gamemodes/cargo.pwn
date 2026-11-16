@@ -27,6 +27,10 @@
 #include "core/passwords.inc"
 #include "core/commands.inc"
 
+// Функции с таг (bool:), които се ползват преди дефиницията си
+forward bool:Admin_Check(playerid, level);
+forward bool:Admin_CheckBan(playerid);
+
 #include "modules/money.inc"
 #include "modules/levels.inc"
 #include "modules/hud.inc"

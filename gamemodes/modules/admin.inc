@@ -135,7 +135,7 @@ stock bool:Admin_CheckBan(playerid)
             format(until, sizeof (until), "още %d дни и %d часа", left / 86400, (left % 86400) / 3600);
         }
         ShowPlayerDialog(playerid, DIALOG_KICK_INFO, DIALOG_STYLE_MSGBOX, C_RED "Баннат си",
-            C_WHITE "Акаунтът " C_BRAND "%s" C_WHITE " е баннат.\n\n"
+            C_WHITE "Акаунтът " C_BRAND "%s" C_WHITE " е баннат.\n\n" \
             "Причина: %s\nАдмин: %s\nСрок: %s",
             "Изход", "", PlayerData[playerid][pName], reason, admin, until);
         KickEx(playerid);

@@ -53,8 +53,8 @@ public Auth_Start(playerid, seq)
 
     if (!IsValidNickname(PlayerData[playerid][pName])) {
         ShowPlayerDialog(playerid, DIALOG_KICK_INFO, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Невалиден ник",
-            C_WHITE "Никът ти " C_RED "%s" C_WHITE " не е позволен.\n\n"
-            "Разрешено: 3–20 символа – латински букви, цифри, " C_BRAND "_" C_WHITE " и " C_BRAND "." C_WHITE "\n"
+            C_WHITE "Никът ти " C_RED "%s" C_WHITE " не е позволен.\n\n" \
+            "Разрешено: 3–20 символа – латински букви, цифри, " C_BRAND "_" C_WHITE " и " C_BRAND "." C_WHITE "\n" \
             "Смени ника си в лаунчера и влез отново.",
             "Разбрах", "", PlayerData[playerid][pName]);
         KickEx(playerid);
@@ -160,10 +160,10 @@ stock Auth_LoadAccount(playerid)
 stock Auth_ShowWelcome(playerid)
 {
     ShowPlayerDialog(playerid, DIALOG_REG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Добре дошъл",
-        C_WHITE "Здравей, " C_BRAND "%s" C_WHITE "!\n\n"
-        C_BRAND SERVER_NAME C_WHITE " е truck simulator в целия San Andreas.\n"
-        "Возиш товари между индустриите, трупаш опит, отключваш\n"
-        "по-големи камиони и печелиш пари.\n\n"
+        C_WHITE "Здравей, " C_BRAND "%s" C_WHITE "!\n\n" \
+        C_BRAND SERVER_NAME C_WHITE " е truck simulator в целия San Andreas.\n" \
+        "Возиш товари между индустриите, трупаш опит, отключваш\n" \
+        "по-големи камиони и печелиш пари.\n\n" \
         "Регистрацията отнема по-малко от минута.",
         "Напред", "Изход", PlayerData[playerid][pName]);
 }
@@ -217,7 +217,7 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     new ip[16], q[400];
     GetPlayerIp(playerid, ip, sizeof (ip));
     format(q, sizeof (q),
-        "INSERT INTO accounts (name, password, gender, skin, money, register_ip, last_ip, registered_at, last_login) "
+        "INSERT INTO accounts (name, password, gender, skin, money, register_ip, last_ip, registered_at, last_login) " \
         "VALUES ('%s', '%s', %d, %d, %d, '%s', '%s', %d, %d)",
         PlayerData[playerid][pName], hash, PlayerData[playerid][pGender], PlayerData[playerid][pSkin],
         START_MONEY, ip, ip, gettime(), gettime());
@@ -251,10 +251,10 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     new money[16];
     FormatMoney(START_MONEY, money);
     ShowPlayerDialog(playerid, DIALOG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Готово!",
-        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " начален капитал.\n\n"
-        C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – главното меню (работа, GPS, профил, настройки)\n"
-        C_BRAND "/cb [текст]" C_WHITE " – CB радио за шофьорите (канал 19)\n"
-        C_BRAND "/pm [ID] [текст]" C_WHITE " – лично съобщение\n\n"
+        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " начален капитал.\n\n" \
+        C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – главното меню (работа, GPS, профил, настройки)\n" \
+        C_BRAND "/cb [текст]" C_WHITE " – CB радио за шофьорите (канал 19)\n" \
+        C_BRAND "/pm [ID] [текст]" C_WHITE " – лично съобщение\n\n" \
         "Приятен път!",
         "Да карам!", "", money);
 }
@@ -312,8 +312,8 @@ stock Auth_SaveAccount(playerid)
 
     new q[512];
     format(q, sizeof (q),
-        "UPDATE accounts SET skin = %d, money = %d, exp = %d, level = %d, playtime = %d, "
-        "pos_x = %f, pos_y = %f, pos_z = %f, pos_a = %f, has_pos = %d, "
+        "UPDATE accounts SET skin = %d, money = %d, exp = %d, level = %d, playtime = %d, " \
+        "pos_x = %f, pos_y = %f, pos_z = %f, pos_a = %f, has_pos = %d, " \
         "cb_channel = %d, cb_on = %d, hud_on = %d WHERE id = %d",
         PlayerData[playerid][pSkin], PlayerData[playerid][pMoney], PlayerData[playerid][pExp],
         PlayerData[playerid][pLevel], PlayerData[playerid][pPlayTime],

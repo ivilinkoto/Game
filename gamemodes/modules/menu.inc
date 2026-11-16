@@ -31,11 +31,11 @@ stock Menu_ShowProfile(playerid)
     else format(toNext, sizeof (toNext), "максимално ниво");
 
     ShowPlayerDialog(playerid, DIALOG_MENU_PROFILE, DIALOG_STYLE_MSGBOX, C_BRAND "Моят профил",
-        C_WHITE "Ник: " C_BRAND "%s\n"
-        C_WHITE "Пари: " C_GREEN "$%s\n"
-        C_WHITE "Ниво: " C_BRAND "%d" C_WHITE " / %d\n"
-        C_WHITE "Опит: %d " C_GREY "(%s)\n"
-        C_WHITE "Изиграно време: %d ч. %d мин.\n"
+        C_WHITE "Ник: " C_BRAND "%s\n" \
+        C_WHITE "Пари: " C_GREEN "$%s\n" \
+        C_WHITE "Ниво: " C_BRAND "%d" C_WHITE " / %d\n" \
+        C_WHITE "Опит: %d " C_GREY "(%s)\n" \
+        C_WHITE "Изиграно време: %d ч. %d мин.\n" \
         C_WHITE "CB канал: %d",
         "Назад", "", PlayerData[playerid][pName], money, PlayerData[playerid][pLevel], MAX_LEVEL,
         PlayerData[playerid][pExp], toNext, hours, minutes, PlayerData[playerid][pCBChannel]);
@@ -54,7 +54,7 @@ stock Menu_ShowSettings(playerid)
 stock Menu_ShowCBChannel(playerid)
 {
     ShowPlayerDialog(playerid, DIALOG_MENU_CB_CHANNEL, DIALOG_STYLE_INPUT, C_BRAND "CB радио" C_WHITE " | Канал",
-        C_WHITE "Сега си на канал " C_CB "%d" C_WHITE ".\n\nВъведи канал от 1 до %d.\n"
+        C_WHITE "Сега си на канал " C_CB "%d" C_WHITE ".\n\nВъведи канал от 1 до %d.\n" \
         C_GREY "Канал %d е общият канал на шофьорите.",
         "Смени", "Назад", PlayerData[playerid][pCBChannel], CB_MAX_CHANNEL, CB_DEFAULT_CHANNEL);
 }
@@ -62,12 +62,12 @@ stock Menu_ShowCBChannel(playerid)
 stock Menu_ShowHelp(playerid)
 {
     ShowPlayerDialog(playerid, DIALOG_MENU_HELP, DIALOG_STYLE_MSGBOX, C_BRAND "Помощ",
-        C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – това меню\n"
-        C_BRAND "/gps" C_WHITE " – навигация до индустрии, бензиностанции и депа\n"
-        C_BRAND "/cb [текст]" C_WHITE " – CB радио (чуват те всички на твоя канал)\n"
-        C_BRAND "/cbch [канал]" C_WHITE " – смяна на CB канала\n"
-        C_BRAND "/pm [ID] [текст]" C_WHITE " – лично съобщение, " C_BRAND "/r" C_WHITE " – отговор\n"
-        C_BRAND "/admins" C_WHITE " – администраторите онлайн\n\n"
+        C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – това меню\n" \
+        C_BRAND "/gps" C_WHITE " – навигация до индустрии, бензиностанции и депа\n" \
+        C_BRAND "/cb [текст]" C_WHITE " – CB радио (чуват те всички на твоя канал)\n" \
+        C_BRAND "/cbch [канал]" C_WHITE " – смяна на CB канала\n" \
+        C_BRAND "/pm [ID] [текст]" C_WHITE " – лично съобщение, " C_BRAND "/r" C_WHITE " – отговор\n" \
+        C_BRAND "/admins" C_WHITE " – администраторите онлайн\n\n" \
         C_GREY "Превозите идват в следващата версия.",
         "Назад", "");
 }

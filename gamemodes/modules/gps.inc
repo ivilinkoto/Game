@@ -41,7 +41,7 @@ static stock Gps_ShowPoints(playerid, category)
     // SQLite подрежда по разстояние (квадрат на разстоянието е достатъчен за реда).
     new q[256];
     format(q, sizeof (q),
-        "SELECT id, name, x, y, z FROM gps_points WHERE category = %d "
+        "SELECT id, name, x, y, z FROM gps_points WHERE category = %d " \
         "ORDER BY ((x - %f) * (x - %f) + (y - %f) * (y - %f)) LIMIT %d",
         category, px, px, py, py, GPS_MAX_LIST);
     new DBResult:r = Database_Query(q);
