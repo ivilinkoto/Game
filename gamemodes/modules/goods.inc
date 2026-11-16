@@ -21,7 +21,7 @@ enum {
 #define GOOD_BIT(%0)    (1 << (%0))
 
 enum E_GOOD {
-    gdName[24],
+    gdName[48],
     gdNameEN[16],
     gdCargo,            // CARGO_* (вид)
     gdRate,             // $ за тон и км
