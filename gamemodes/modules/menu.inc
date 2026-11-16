@@ -70,7 +70,7 @@ stock Menu_ShowHelp(playerid)
     ShowPlayerDialog(playerid, DIALOG_MENU_HELP, DIALOG_STYLE_MSGBOX, C_BRAND "Помощ",
         C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – това меню\n" \
         C_BRAND "N" C_WHITE " или " C_BRAND "/work" C_WHITE " – работа: поръчки, текущ курс, отказ\n" \
-        C_BRAND "2" C_WHITE " или " C_BRAND "/engine" C_WHITE " – двигател (пали/гаси)\n" \
+        C_BRAND "CTRL" C_WHITE " или " C_BRAND "/engine" C_WHITE " – двигател (пали/гаси)\n" \
         C_BRAND "ALT" C_WHITE " пеша / " C_BRAND "H" C_WHITE " с превозно средство – вход и изход (гараж)\n" \
         C_BRAND "/gps" C_WHITE " – навигация\n" \
         C_BRAND "/cb [текст]" C_WHITE " – CB радио (чуват те всички на твоя канал)\n" \

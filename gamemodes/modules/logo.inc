@@ -22,12 +22,13 @@ stock Logo_Init()
     TextDrawSetProportional(LogoTitle, true);
 
     // Оранжева линия под надписа
-    LogoLine = TextDrawCreate(LOGO_RIGHT, LOGO_Y + 14.5, "_");
+    // (подравнена вляво: X е левият край, TextSize X – десният)
+    LogoLine = TextDrawCreate(LOGO_RIGHT - 82.0, LOGO_Y + 14.5, "_");
     TextDrawUseBox(LogoLine, true);
     TextDrawBoxColour(LogoLine, 0xF5A623FF);
     TextDrawLetterSize(LogoLine, 0.0, -0.35);
-    TextDrawTextSize(LogoLine, LOGO_RIGHT - 82.0, 0.0);
-    TextDrawAlignment(LogoLine, TEXT_DRAW_ALIGN_RIGHT);
+    TextDrawTextSize(LogoLine, LOGO_RIGHT, 0.0);
+    TextDrawAlignment(LogoLine, TEXT_DRAW_ALIGN_LEFT);
 
     // Подзаглавие
     LogoSub = TextDrawCreate(LOGO_RIGHT, LOGO_Y + 16.0, "TRUCK SIMULATOR");

@@ -1,4 +1,4 @@
-// Двигател: пали се и гаси с бутон 2 (KEY_SUBMISSION) или /engine.
+// Двигател: пали се и гаси с CTRL (в превозно средство това е KEY_ACTION) или /engine.
 // Светлините вървят заедно с двигателя.
 
 #define ENGINE_MIN_HEALTH   300.0       // под това двигателят не пали
@@ -43,7 +43,8 @@ stock Engine_Toggle(playerid)
 
 stock Engine_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
-    if (!((newkeys & KEY_SUBMISSION) && !(oldkeys & KEY_SUBMISSION))) return 0;
+    if (GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return 0;
+    if (!((newkeys & KEY_ACTION) && !(oldkeys & KEY_ACTION))) return 0;
     return Engine_Toggle(playerid);
 }
 
@@ -53,7 +54,7 @@ stock Engine_OnPlayerStateChange(playerid, PLAYER_STATE:newstate)
     if (newstate != PLAYER_STATE_DRIVER) return;
     new vehicleid = GetPlayerVehicleID(playerid);
     if (!Engine_IsOn(vehicleid)) {
-        GameTextForPlayer(playerid, "~w~PRESS ~y~2 ~w~TO START ENGINE", 3000, 4);
+        GameTextForPlayer(playerid, "~w~PRESS ~y~CTRL ~w~TO START ENGINE", 3000, 4);
     }
 }
 
