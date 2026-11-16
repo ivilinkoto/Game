@@ -5,7 +5,7 @@
 // При изход от сървъра всички се записват и махат; при следващ вход са отново в гаража.
 
 #define GARAGE_SLOTS        2
-#define STARTER_MODEL       456         // Yankee
+#define STARTER_MODEL       440         // Rumpo – бус
 #define GARAGE_VW_BASE      10000       // свят на гаража = база + ID на акаунта
 
 enum E_PLAYER_VEH {
@@ -31,16 +31,21 @@ stock Garage_GetWorld(playerid)
 
 stock Veh_GetModelName(model, dest[], size = sizeof (dest))
 {
-    switch (model) {
-        case 456: format(dest, size, "Yankee");
-        case 499: format(dest, size, "Benson");
-        case 414: format(dest, size, "Mule");
-        case 403: format(dest, size, "Linerunner");
-        case 514: format(dest, size, "Tanker");
-        case 515: format(dest, size, "Roadtrain");
-        case 455: format(dest, size, "Flatbed");
-        case 578: format(dest, size, "DFT-30");
-        default:  format(dest, size, "Камион (%d)", model);
+    new i = Catalog_Find(model);
+    if (i != -1) format(dest, size, "%s", VehCatalog[i][vcName]);
+    else format(dest, size, "Превозно средство (%d)", model);
+}
+
+// Еднократни промени по базата
+stock Veh_Init()
+{
+    // Стартовото превозно средство стана бус (Rumpo) вместо Yankee.
+    if (!Database_GetMeta("starter_van")) {
+        new q[128];
+        format(q, sizeof (q), "UPDATE player_vehicles SET model = %d WHERE model = 456", STARTER_MODEL);
+        Database_Exec(q);
+        Database_SetMeta("starter_van", 1);
+        print("[VEH] Starter Yankees replaced with Rumpo vans.");
     }
 }
 
@@ -112,7 +117,7 @@ stock Veh_Load(playerid)
     DB_FreeResultSet(r);
 }
 
-// Дава безплатния Yankee (веднъж на акаунт).
+// Дава безплатния бус (веднъж на акаунт).
 stock Veh_GiveStarter(playerid)
 {
     if (PlayerData[playerid][pStarterGiven]) return;
@@ -136,7 +141,7 @@ stock Veh_GiveStarter(playerid)
     PlayerData[playerid][pStarterGiven] = true;
 
     Veh_Load(playerid);
-    SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Получаваш безплатен " C_BRAND "Yankee" C_WHITE " – чака те в гаража.");
+    SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Получаваш безплатен бус " C_BRAND "Rumpo" C_WHITE " (1.5 т, пратки) – чака те в гаража.");
 }
 
 static stock Veh_Save(playerid, slot)

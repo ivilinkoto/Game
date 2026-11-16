@@ -172,11 +172,11 @@ stock Garage_OnPlayerConnect(playerid)
 
 stock Garage_ShowMenu(playerid)
 {
-    new body[512], line[128], name[24], status[48];
-    format(body, sizeof (body), "Място\tКамион\tСъстояние\n");
+    new body[640], line[160], name[24], status[48], payload[16];
+    format(body, sizeof (body), "Място\tПревозно средство\tТовароносимост\tСъстояние\n");
     for (new s = 0; s < GARAGE_SLOTS; s++) {
         if (!Veh_HasInSlot(playerid, s)) {
-            format(line, sizeof (line), "%d\t" C_GREY "празно\t-\n", s + 1);
+            format(line, sizeof (line), "%d\t" C_GREY "празно\t-\t-\n", s + 1);
         } else {
             Veh_GetModelName(Veh_GetModel(playerid, s), name);
             new vehicleid = Veh_GetVehicle(playerid, s), Float:hp = 1000.0;
@@ -186,11 +186,12 @@ stock Garage_ShowMenu(playerid)
             if (percent > 100) percent = 100;
             if (Veh_IsOut(playerid, s)) format(status, sizeof (status), C_BRAND "навън" C_WHITE ", %d%%", percent);
             else format(status, sizeof (status), C_GREEN "в гаража" C_WHITE ", %d%%", percent);
-            format(line, sizeof (line), "%d\t%s\t%s\n", s + 1, name, status);
+            Catalog_FormatPayload(Veh_GetModel(playerid, s), payload);
+            format(line, sizeof (line), "%d\t%s\t%s\t%s\n", s + 1, name, payload, status);
         }
         strcat(body, line);
     }
-    format(line, sizeof (line), C_BRAND "GPS до гаража\t" C_WHITE "%s\t\n", CityNames[PlayerData[playerid][pGarageCity]]);
+    format(line, sizeof (line), C_BRAND "GPS до гаража\t" C_WHITE "%s\t\t\n", CityNames[PlayerData[playerid][pGarageCity]]);
     strcat(body, line);
 
     ShowPlayerDialog(playerid, DIALOG_GARAGE_MENU, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Моят гараж", "%s", "Избери", "Назад", body);
@@ -223,15 +224,18 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
                 return 1;
             }
             GarageMenuSlot[playerid] = listitem;
-            new name[24];
-            Veh_GetModelName(Veh_GetModel(playerid, listitem), name);
+            new name[24], payload[16], cargo[48], model = Veh_GetModel(playerid, listitem);
+            Veh_GetModelName(model, name);
+            Catalog_FormatPayload(model, payload);
+            Catalog_FormatCargo(model, cargo);
             if (Veh_IsOut(playerid, listitem)) {
                 ShowPlayerDialog(playerid, DIALOG_GARAGE_TRUCK, DIALOG_STYLE_MSGBOX, C_BRAND "Моят гараж",
                     C_WHITE "%s е навън.\n\nДа го върна ли на мястото му в гаража?", "Върни", "Назад", name);
             } else {
                 ShowPlayerDialog(playerid, DIALOG_GARAGE_TRUCK, DIALOG_STYLE_MSGBOX, C_BRAND "Моят гараж",
-                    C_WHITE "%s е в гаража, място %d.\n\nВлез в гаража, качи се в него и натисни " C_BRAND "Y" C_WHITE " до вратата, за да излезеш.\n" \
-                    C_GREY "Тунинг – скоро.", "Добре", "", name, listitem + 1);
+                    C_WHITE "%s е в гаража, място %d.\n" \
+                    "Товароносимост: " C_BRAND "%s" C_WHITE " · Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "Y" C_WHITE " до вратата, за да излезеш.\n" \
+                    C_GREY "Тунинг – скоро.", "Добре", "", name, listitem + 1, payload, cargo);
             }
             return 1;
         }

@@ -40,6 +40,7 @@ forward bool:Garage_IsInside(playerid);
 #include "modules/money.inc"
 #include "modules/levels.inc"
 #include "modules/hud.inc"
+#include "modules/catalog.inc"
 #include "modules/cities.inc"
 #include "modules/vehicles.inc"
 #include "modules/garage.inc"
@@ -78,6 +79,7 @@ public OnGameModeInit()
 
     Garage_CreateMap();
     City_Init();
+    Veh_Init();
 
     gTickTimer = SetTimer("Server_Tick", 1000, true);
     gHudTimer = SetTimer("Hud_Tick", 300, true);

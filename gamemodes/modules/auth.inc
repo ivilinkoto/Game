@@ -270,7 +270,7 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     new money[16];
     FormatMoney(START_MONEY, money);
     ShowPlayerDialog(playerid, DIALOG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Готово!",
-        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " и безплатен " C_BRAND "Yankee" C_WHITE ".\n" \
+        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " и безплатен бус " C_BRAND "Rumpo" C_WHITE ".\n" \
         "Намираш се в своя гараж в " C_BRAND "%s" C_WHITE ". Качи се в камиона и натисни " C_BRAND "Y" C_WHITE " до вратата.\n\n" \
         C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – главното меню (работа, GPS, профил, настройки)\n" \
         C_BRAND "/cb [текст]" C_WHITE " – CB радио за шофьорите (канал 19)\n" \

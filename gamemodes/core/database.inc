@@ -37,6 +37,26 @@ stock Database_AddColumn(const table[], const column[], const definition[])
     }
 }
 
+// Служебни стойности (еднократни миграции и т.н.)
+stock Database_GetMeta(const key[])
+{
+    new q[128], value = 0;
+    format(q, sizeof (q), "SELECT value FROM server_meta WHERE key = '%s'", key);
+    new DBResult:r = DB_ExecuteQuery(gDatabase, "%s", q);
+    if (r != DBResult:0) {
+        if (DB_GetRowCount(r) > 0) value = DB_GetFieldIntByName(r, "value");
+        DB_FreeResultSet(r);
+    }
+    return value;
+}
+
+stock Database_SetMeta(const key[], value)
+{
+    new q[160];
+    format(q, sizeof (q), "INSERT OR REPLACE INTO server_meta (key, value) VALUES ('%s', %d)", key, value);
+    Database_Exec(q);
+}
+
 // Заявка с резултат. Извикващият трябва да извика DB_FreeResultSet!
 stock DBResult:Database_Query(const query[])
 {
@@ -122,6 +142,8 @@ stock bool:Database_Init()
     strcat(q, "created_at INTEGER NOT NULL DEFAULT 0)");
     Database_Exec(q);
     Database_Exec("CREATE INDEX IF NOT EXISTS idx_pveh_owner ON player_vehicles(owner_id)");
+
+    Database_Exec("CREATE TABLE IF NOT EXISTS server_meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)");
 
     // --- Входове на гаражите (по град) ---
     Database_Exec("CREATE TABLE IF NOT EXISTS garage_entrances (city INTEGER PRIMARY KEY, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, a REAL NOT NULL)");
