@@ -311,6 +311,18 @@ stock Dealer_ShowIcons(playerid)
     }
 }
 
+// Стъпване на пикапа на автокъщата (удобно на таблет – без бутон)
+stock Dealer_OnPickUp(playerid, pickupid)
+{
+    for (new c = 0; c < MAX_CITIES; c++) {
+        if (DealerPickup[c] == pickupid) {
+            if (!IsPlayerInAnyVehicle(playerid) && !DlActive[playerid]) Dealer_ShowShowroom(playerid);
+            return 1;
+        }
+    }
+    return 0;
+}
+
 stock Dealer_Open(playerid)
 {
     if (Dealer_GetNear(playerid) == -1) return 0;

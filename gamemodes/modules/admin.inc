@@ -6,7 +6,7 @@
 static const AdminLevelNames[][] = {"Играч", "Хелпър", "Модератор", "Администратор", "Гл. администратор", "Собственик"};
 
 // ---------- Админ панел (диалог) ----------
-// /ahelp или Меню > Админ панел. Показва само командите, до които играчът има достъп.
+// /apanel или Меню > Админ панел. Показва само командите, до които играчът има достъп.
 // Избираш команда -> въвеждаш параметрите (ако има) -> изпълнява се.
 
 #define ADMIN_PANEL_MAX     24
@@ -38,6 +38,7 @@ static const AdminCmds[][E_ADMIN_CMD] = {
     {"compos",    5, "[номер на компания]",                 "Премести базата на компания тук"},
     {"dealerpos", 5, "[0 LS | 1 SF | 2 LV]",                "Премести автокъщата тук"},
     {"garagepos", 5, "[0 LS | 1 SF | 2 LV]",                "Премести входа на гаражите тук"},
+    {"setlevel",  4, "[ID] [ниво 1-5]",                     "Задай нивото на играч"},
     {"makeadmin", 5, "[ID] [ниво 0-5]",                     "Смени админ нивото на играч"}
 };
 
@@ -95,7 +96,7 @@ stock Admin_OnLoginResult(playerid, bool:success)
     PlayerData[playerid][pAdminAuthed] = true;
     new lvl[24];
     Admin_GetLevelName(PlayerData[playerid][pAdmin], lvl);
-    SendClientMessage(playerid, COLOR_ADMIN, "[A] Влезе като %s. Админ панел: /ahelp или Меню > Админ панел", lvl);
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Влезе като %s. Команди: /ahelp · панел: /apanel или Меню > Админ панел", lvl);
     Admin_ShowPanel(playerid);
 }
 
@@ -107,7 +108,7 @@ stock Admin_OnPassHashed(playerid, const hash[])
     format(q, sizeof (q), "UPDATE accounts SET admin_password = '%s' WHERE id = %d", hash, PlayerData[playerid][pID]);
     Database_Exec(q);
     PlayerData[playerid][pAdminAuthed] = true;
-    SendClientMessage(playerid, COLOR_ADMIN, "[A] Админ паролата е създадена и си влязъл. Админ панел: /ahelp");
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Админ паролата е създадена и си влязъл. Команди: /ahelp · панел: /apanel");
     Admin_ShowPanel(playerid);
 }
 
@@ -256,10 +257,59 @@ static stock Admin_RunCommand(playerid, idx, const params[])
     }
 }
 
+// Информационен прозорец: всички команди за твоето ниво с описание (само за четене).
+// За изпълнение от прозорец – /apanel или Меню > Админ панел.
 CMD:ahelp(playerid, params[])
 {
     #pragma unused params
+    if (!Admin_Check(playerid, 1)) return 1;
+
+    new body[3000], line[192], lvl[24];
+    for (new level = 1; level <= PlayerData[playerid][pAdmin]; level++) {
+        Admin_GetLevelName(level, lvl);
+        if (level > 1) strcat(body, "\n");
+        format(line, sizeof (line), C_ADMIN "%s (ниво %d)\n", lvl, level);
+        strcat(body, line);
+        for (new i = 0; i < sizeof (AdminCmds); i++) {
+            if (AdminCmds[i][acLevel] != level) continue;
+            format(line, sizeof (line), C_BRAND "/%s %s" C_WHITE " – %s\n", AdminCmds[i][acName], AdminCmds[i][acUsage], AdminCmds[i][acDesc]);
+            strcat(body, line);
+        }
+    }
+    strcat(body, "\n" C_GREY "Изпълнение от прозорец: /apanel или Меню (Y) > Админ панел");
+    ShowPlayerDialog(playerid, DIALOG_ADMIN_HELP, DIALOG_STYLE_MSGBOX, C_BRAND "Админ команди", "%s", "Затвори", "", body);
+    return 1;
+}
+
+CMD:apanel(playerid, params[])
+{
+    #pragma unused params
     return Admin_ShowPanel(playerid);
+}
+
+CMD:setlevel(playerid, params[])
+{
+    if (!Admin_Check(playerid, 4)) return 1;
+    new target[24], levelStr[4];
+    if (!GetParam(params, 0, target) || !GetParam(params, 1, levelStr) || !IsNumeric(levelStr)) {
+        return SendUsage(playerid, "/setlevel [ID] [1-5]");
+    }
+    new targetid = FindPlayer(target), level = strval(levelStr);
+    if (targetid == INVALID_PLAYER_ID) return SendError(playerid, "Няма такъв играч.");
+    if (level < 1 || level > MAX_LEVEL) return SendError(playerid, "Нивото е от 1 до 5.");
+
+    PlayerData[targetid][pLevel] = level;
+    PlayerData[targetid][pExp] = LevelExp[level - 1];
+    SetPlayerScore(targetid, level);
+    new q[128];
+    format(q, sizeof (q), "UPDATE accounts SET level = %d, exp = %d WHERE id = %d", level, PlayerData[targetid][pExp], PlayerData[targetid][pID]);
+    Database_Exec(q);
+
+    new msg[96];
+    format(msg, sizeof (msg), "%s смени нивото на %s на %d.", PlayerData[playerid][pName], PlayerData[targetid][pName], level);
+    Admin_Broadcast(4, msg);
+    if (targetid != playerid) SendClientMessage(targetid, COLOR_BRAND, "[CARGO] " C_WHITE "Администратор смени нивото ти на " C_BRAND "%d" C_WHITE ".", level);
+    return 1;
 }
 
 CMD:a(playerid, params[])

@@ -236,6 +236,13 @@ public OnVehicleDeath(vehicleid, killerid)
     return 1;
 }
 
+public OnPlayerPickUpDynamicPickup(playerid, STREAMER_TAG_PICKUP:pickupid)
+{
+    if (Garage_OnPickUp(playerid, _:pickupid)) return 1;
+    if (Dealer_OnPickUp(playerid, _:pickupid)) return 1;
+    return 1;
+}
+
 public OnPlayerEnterRaceCheckpoint(playerid)
 {
     Delivery_OnEnterRaceCP(playerid);

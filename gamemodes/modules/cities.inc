@@ -82,6 +82,15 @@ stock City_GetExitPoint(city, Float:dist, &Float:x, &Float:y, &Float:z, &Float:a
     y += dist * floatcos(-a, degrees);
 }
 
+// Град, чийто пикап е този (или -1)
+stock City_GetByPickup(pickupid)
+{
+    for (new c = 0; c < MAX_CITIES; c++) {
+        if (CityPickup[c] == pickupid) return c;
+    }
+    return -1;
+}
+
 // Град, чийто вход е до играча (или -1).
 stock City_GetEntranceNear(playerid, Float:range)
 {

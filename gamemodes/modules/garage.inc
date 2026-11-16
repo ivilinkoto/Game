@@ -69,7 +69,7 @@ static stock Garage_ExitOnFoot(playerid)
 {
     new city = PlayerData[playerid][pGarageCity];
     new Float:x, Float:y, Float:z, Float:a;
-    City_GetExitPoint(city, 1.5, x, y, z, a);
+    City_GetExitPoint(city, 3.5, x, y, z, a);
 
     PlayerData[playerid][pInGarage] = false;
     SetPlayerVirtualWorld(playerid, 0);
@@ -154,6 +154,31 @@ stock Garage_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     return 1;
 }
 
+// ---------- Пикапи (вход/изход без бутон – за таблет) ----------
+
+stock Garage_OnPickUp(playerid, pickupid)
+{
+    if (IsPlayerInAnyVehicle(playerid) || !PlayerData[playerid][pLogged]) return 0;
+
+    if (pickupid == GarageExitPickup) {
+        if (!PlayerData[playerid][pInGarage]) return 1;
+        ShowPlayerDialog(playerid, DIALOG_GARAGE_DOOR, DIALOG_STYLE_MSGBOX, C_BRAND "Гараж",
+            C_WHITE "Да излезеш ли от гаража?", "Излез", "Остани");
+        return 1;
+    }
+    new city = City_GetByPickup(pickupid);
+    if (city == -1) return 0;
+    if (city != PlayerData[playerid][pGarageCity]) {
+        new msg[128];
+        format(msg, sizeof (msg), "Твоят гараж е в %s. Тук нямаш гараж.", CityNames[PlayerData[playerid][pGarageCity]]);
+        SendError(playerid, msg);
+        return 1;
+    }
+    ShowPlayerDialog(playerid, DIALOG_GARAGE_DOOR, DIALOG_STYLE_MSGBOX, C_BRAND "Гараж",
+        C_WHITE "Да влезеш ли в гаража си?", "Влез", "Отказ");
+    return 1;
+}
+
 // ---------- Спаун ----------
 
 stock Garage_OnPlayerSpawn(playerid)
@@ -235,6 +260,16 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
                     C_WHITE "%s е в гаража, място %d.\n" \
                     "Товароносимост: " C_BRAND "%s" C_WHITE " · Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "H" C_WHITE " до вратата, за да излезеш.\n" \
                     C_GREY "Тунинг – скоро.", "Продай", "Назад", name, listitem + 1, payload, cargo);
+            }
+            return 1;
+        }
+        case DIALOG_GARAGE_DOOR: {
+            if (!response || IsPlayerInAnyVehicle(playerid)) return 1;
+            if (PlayerData[playerid][pInGarage]) {
+                if (IsPlayerInRangeOfPoint(playerid, 5.0, GARAGE_X, GARAGE_Y - 13.5, GARAGE_Z + 1.0)) Garage_ExitOnFoot(playerid);
+            } else {
+                new city = City_GetEntranceNear(playerid, 5.0);
+                if (city != -1 && city == PlayerData[playerid][pGarageCity]) Garage_PutPlayerInside(playerid);
             }
             return 1;
         }
