@@ -56,12 +56,8 @@ static stock Garage_Wall(bool:alongX, Float:x, Float:y, Float:top, color)
     }
 }
 
-new GarageExitPickup = -1;
-
 stock Garage_CreateMap()
 {
-    // Пикап на изхода отвътре (във всички светове) – стъпваш и излиза прозорец "Излез?"
-    GarageExitPickup = CreateDynamicPickup(1318, 1, GARAGE_X, GARAGE_Y - 13.5, GARAGE_Z + 1.0, -1, -1);
 
     // Под и таван (таванът е обърнат надолу, за да се вижда отвътре)
     Garage_Plane(0.0, 0.0, 0.0, 0.0, 0.0, GARAGE_TINT_FLOOR);
