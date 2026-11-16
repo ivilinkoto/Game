@@ -7,7 +7,8 @@ enum {
     MENU_ITEM_PROFILE,
     MENU_ITEM_CB,
     MENU_ITEM_SETTINGS,
-    MENU_ITEM_HELP
+    MENU_ITEM_HELP,
+    MENU_ITEM_ADMIN     // само за админи
 }
 
 enum {
@@ -18,8 +19,13 @@ enum {
 
 stock Menu_Show(playerid)
 {
-    ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-        "Работа\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
+    if (PlayerData[playerid][pAdmin] >= 1) {
+        ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
+            "Работа\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
+    } else {
+        ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
+            "Работа\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
+    }
 }
 
 stock Menu_ShowProfile(playerid)
@@ -98,6 +104,7 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 case MENU_ITEM_CB:       Menu_ShowCBChannel(playerid);
                 case MENU_ITEM_SETTINGS: Menu_ShowSettings(playerid);
                 case MENU_ITEM_HELP:     Menu_ShowHelp(playerid);
+                case MENU_ITEM_ADMIN:    Admin_ShowPanel(playerid);
             }
             return 1;
         }

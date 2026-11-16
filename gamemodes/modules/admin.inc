@@ -56,7 +56,8 @@ stock Admin_OnLoginResult(playerid, bool:success)
     PlayerData[playerid][pAdminAuthed] = true;
     new lvl[24];
     Admin_GetLevelName(PlayerData[playerid][pAdmin], lvl);
-    SendClientMessage(playerid, COLOR_ADMIN, "[A] Влезе като %s. Команди: /ahelp", lvl);
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Влезе като %s. Админ панел: /ahelp или Меню > Админ панел", lvl);
+    Admin_ShowPanel(playerid);
 }
 
 stock Admin_OnPassHashed(playerid, const hash[])
@@ -67,7 +68,8 @@ stock Admin_OnPassHashed(playerid, const hash[])
     format(q, sizeof (q), "UPDATE accounts SET admin_password = '%s' WHERE id = %d", hash, PlayerData[playerid][pID]);
     Database_Exec(q);
     PlayerData[playerid][pAdminAuthed] = true;
-    SendClientMessage(playerid, COLOR_ADMIN, "[A] Админ паролата е създадена и си влязъл. Команди: /ahelp");
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Админ паролата е създадена и си влязъл. Админ панел: /ahelp");
+    Admin_ShowPanel(playerid);
 }
 
 CMD:alogin(playerid, params[])
@@ -87,9 +89,34 @@ CMD:alogin(playerid, params[])
     return 1;
 }
 
-stock Admin_OnDialogResponse(playerid, dialogid, response, const inputtext[])
+stock Admin_OnDialogResponse(playerid, dialogid, response, listitem, const inputtext[])
 {
     switch (dialogid) {
+        case DIALOG_ADMIN_PANEL: {
+            if (!response) return 1;
+            if (listitem < 0 || listitem >= ADMIN_PANEL_MAX) return 1;
+            new idx = AdminPanelMap[playerid][listitem];
+            if (idx < 0 || idx >= sizeof (AdminCmds) || AdminCmds[idx][acLevel] > PlayerData[playerid][pAdmin]) return 1;
+            AdminPanelCmd[playerid] = idx;
+            if (AdminCmds[idx][acUsage][0] == EOS) {
+                Admin_RunCommand(playerid, idx, "");
+            } else {
+                Admin_ShowParams(playerid, "");
+            }
+            return 1;
+        }
+        case DIALOG_ADMIN_PARAMS: {
+            if (!response) {
+                Admin_ShowPanel(playerid);
+                return 1;
+            }
+            if (inputtext[0] == EOS) {
+                Admin_ShowParams(playerid, "Не си въвел параметри.");
+                return 1;
+            }
+            Admin_RunCommand(playerid, AdminPanelCmd[playerid], inputtext);
+            return 1;
+        }
         case DIALOG_ADMIN_LOGIN: {
             if (!response) return 1;
             Pass_Verify(playerid, PASS_ADMIN_LOGIN, inputtext, PlayerData[playerid][pAdminHash]);
@@ -146,16 +173,87 @@ stock bool:Admin_CheckBan(playerid)
 
 // ---------- Команди ----------
 
+// ---------- Админ панел (диалог) ----------
+// /ahelp или Меню > Админ панел. Показва само командите, до които играчът има достъп.
+// Избираш команда -> въвеждаш параметрите (ако има) -> изпълнява се.
+
+#define ADMIN_PANEL_MAX     24
+
+enum E_ADMIN_CMD {
+    acName[16],
+    acLevel,
+    acUsage[48],        // "" = без параметри
+    acDesc[48]
+}
+
+static const AdminCmds[][E_ADMIN_CMD] = {
+    {"admins",    1, "",                                    "Администратори онлайн"},
+    {"a",         1, "[текст]",                             "Админ чат"},
+    {"goto",      1, "[ID или ник]",                        "Отиди при играч"},
+    {"gethere",   1, "[ID или ник]",                        "Доведи играч при себе си"},
+    {"kick",      1, "[ID] [причина]",                      "Изритай играч"},
+    {"ban",       2, "[ID] [дни, 0 = завинаги] [причина]",  "Бан на играч"},
+    {"unban",     2, "[ник]",                               "Махни бан"},
+    {"veh",       3, "[модел 400-611]",                     "Извикай превозно средство"},
+    {"dv",        3, "",                                    "Махни извиканото превозно средство"},
+    {"gpsadd",    3, "[категория 0-3] [име]",               "Добави GPS точка тук"},
+    {"gpslist",   3, "",                                    "Списък с GPS точки"},
+    {"gpsdel",    3, "[номер от списъка]",                  "Изтрий GPS точка"},
+    {"givemoney", 4, "[ID] [сума]",                         "Дай пари на играч"},
+    {"setmoney",  4, "[ID] [сума]",                         "Задай парите на играч"},
+    {"makeadmin", 5, "[ID] [ниво 0-5]",                     "Смени админ нивото на играч"}
+};
+
+static AdminPanelMap[MAX_PLAYERS][ADMIN_PANEL_MAX];
+static AdminPanelCmd[MAX_PLAYERS];
+
+stock Admin_ShowPanel(playerid)
+{
+    if (PlayerData[playerid][pAdmin] < 1) return SendError(playerid, "Не си администратор.");
+    if (!PlayerData[playerid][pAdminAuthed]) {
+        // Първо вход – после панелът се отваря сам.
+        return CallLocalFunction("cmd_alogin", "is", playerid, "\1");
+    }
+
+    new body[2048], line[128], n = 0, lvl[24];
+    format(body, sizeof (body), "Команда\tКакво прави\n");
+    for (new i = 0; i < sizeof (AdminCmds) && n < ADMIN_PANEL_MAX; i++) {
+        if (AdminCmds[i][acLevel] > PlayerData[playerid][pAdmin]) continue;
+        format(line, sizeof (line), C_BRAND "/%s\t" C_WHITE "%s\n", AdminCmds[i][acName], AdminCmds[i][acDesc]);
+        strcat(body, line);
+        AdminPanelMap[playerid][n++] = i;
+    }
+    Admin_GetLevelName(PlayerData[playerid][pAdmin], lvl);
+    new title[64];
+    format(title, sizeof (title), C_BRAND "Админ панел" C_WHITE " | %s", lvl);
+    ShowPlayerDialog(playerid, DIALOG_ADMIN_PANEL, DIALOG_STYLE_TABLIST_HEADERS, title, "%s", "Избери", "Затвори", body);
+    return 1;
+}
+
+static stock Admin_ShowParams(playerid, const error[])
+{
+    new idx = AdminPanelCmd[playerid], err[96];
+    if (error[0] != EOS) format(err, sizeof (err), "\n\n" C_RED "%s", error);
+    ShowPlayerDialog(playerid, DIALOG_ADMIN_PARAMS, DIALOG_STYLE_INPUT, C_BRAND "Админ панел" C_WHITE " | Параметри",
+        C_WHITE "%s\n\nКоманда: " C_BRAND "/%s %s" C_WHITE "\n\nВъведи параметрите (без името на командата):%s",
+        "Изпълни", "Назад", AdminCmds[idx][acDesc], AdminCmds[idx][acName], AdminCmds[idx][acUsage], err);
+}
+
+static stock Admin_RunCommand(playerid, idx, const params[])
+{
+    new funcname[32];
+    format(funcname, sizeof (funcname), "cmd_%s", AdminCmds[idx][acName]);
+    if (IsNull(params)) {
+        CallLocalFunction(funcname, "is", playerid, "\1");
+    } else {
+        CallLocalFunction(funcname, "is", playerid, params);
+    }
+}
+
 CMD:ahelp(playerid, params[])
 {
     #pragma unused params
-    if (!Admin_Check(playerid, 1)) return 1;
-    SendClientMessage(playerid, COLOR_ADMIN, "[1] /a [текст] · /kick · /goto · /gethere · /admins");
-    if (PlayerData[playerid][pAdmin] >= 2) SendClientMessage(playerid, COLOR_ADMIN, "[2] /ban [ID] [дни, 0 = завинаги] [причина] · /unban [ник]");
-    if (PlayerData[playerid][pAdmin] >= 3) SendClientMessage(playerid, COLOR_ADMIN, "[3] /veh [модел] · /dv · /gpsadd · /gpslist · /gpsdel");
-    if (PlayerData[playerid][pAdmin] >= 4) SendClientMessage(playerid, COLOR_ADMIN, "[4] /givemoney [ID] [сума] · /setmoney [ID] [сума]");
-    if (PlayerData[playerid][pAdmin] >= 5) SendClientMessage(playerid, COLOR_ADMIN, "[5] /makeadmin [ID] [0-5]");
-    return 1;
+    return Admin_ShowPanel(playerid);
 }
 
 CMD:a(playerid, params[])

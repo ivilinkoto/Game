@@ -3,11 +3,7 @@
 // Поток: свързване -> камера над града -> вход ИЛИ регистрация
 //        (парола -> потвърждение -> пол -> скин) -> спаун.
 
-// Шофьорски скинове за избор при регистрация
-static const AuthSkinsMale[]   = {133, 202, 261, 206, 34};
-static const AuthSkinsFemale[] = {201, 157, 131};
-static const AuthSkinNamesMale[][]   = {"Камионджия с каскет", "Камионджия с риза", "Шофьор на тир", "Механик", "Каубой"};
-static const AuthSkinNamesFemale[][] = {"Шофьорка", "Фермерка", "Каубойка"};
+// Скинът се избира визуално – виж modules/skin_select.inc
 
 // ---------- Свързване ----------
 
@@ -192,22 +188,24 @@ stock Auth_ShowGender(playerid)
         "Мъж\nЖена", "Напред", "Назад");
 }
 
+// Визуален избор на скин (решетка с модели). Вика се и при ESC от решетката – назад към пола.
 stock Auth_ShowSkin(playerid)
 {
-    new body[256];
-    if (PlayerData[playerid][pRegGender] == 0) {
-        for (new i = 0; i < sizeof (AuthSkinNamesMale); i++) {
-            if (i > 0) strcat(body, "\n");
-            strcat(body, AuthSkinNamesMale[i]);
-        }
-    } else {
-        for (new i = 0; i < sizeof (AuthSkinNamesFemale); i++) {
-            if (i > 0) strcat(body, "\n");
-            strcat(body, AuthSkinNamesFemale[i]);
-        }
-    }
-    ShowPlayerDialog(playerid, DIALOG_REG_SKIN, DIALOG_STYLE_LIST, C_BRAND "Регистрация" C_WHITE " | Външен вид (4/4)",
-        "%s", "Готово", "Назад", body);
+    SkinSelect_Show(playerid, PlayerData[playerid][pRegGender]);
+}
+
+stock Auth_OnSkinChosen(playerid, skin)
+{
+    if (PlayerData[playerid][pLogged] || PlayerData[playerid][pRegPass][0] == EOS) return;
+    PlayerData[playerid][pGender] = PlayerData[playerid][pRegGender];
+    PlayerData[playerid][pSkin] = skin;
+    Pass_Hash(playerid, PASS_REGISTER, PlayerData[playerid][pRegPass]);
+}
+
+stock Auth_OnSkinCancelled(playerid)
+{
+    if (PlayerData[playerid][pLogged]) return;
+    Auth_ShowGender(playerid);
 }
 
 stock Auth_OnRegisterHashed(playerid, const hash[])
@@ -386,24 +384,6 @@ stock Auth_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
             }
             PlayerData[playerid][pRegGender] = (listitem == 1) ? 1 : 0;
             Auth_ShowSkin(playerid);
-            return 1;
-        }
-        case DIALOG_REG_SKIN: {
-            if (!response) {
-                Auth_ShowGender(playerid);
-                return 1;
-            }
-            new gender = PlayerData[playerid][pRegGender], skin;
-            if (gender == 0) {
-                if (listitem < 0 || listitem >= sizeof (AuthSkinsMale)) listitem = 0;
-                skin = AuthSkinsMale[listitem];
-            } else {
-                if (listitem < 0 || listitem >= sizeof (AuthSkinsFemale)) listitem = 0;
-                skin = AuthSkinsFemale[listitem];
-            }
-            PlayerData[playerid][pGender] = gender;
-            PlayerData[playerid][pSkin] = skin;
-            Pass_Hash(playerid, PASS_REGISTER, PlayerData[playerid][pRegPass]);
             return 1;
         }
         case DIALOG_WELCOME: {

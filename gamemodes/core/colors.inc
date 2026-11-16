@@ -15,3 +15,4 @@
 #define C_RED           "{FF5555}"
 #define C_GREEN         "{6BD66B}"
 #define C_CB            "{9FD86A}"
+#define C_ADMIN         "{FF7F50}"

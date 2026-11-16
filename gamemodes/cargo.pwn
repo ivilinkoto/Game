@@ -34,6 +34,7 @@ forward bool:Admin_CheckBan(playerid);
 #include "modules/money.inc"
 #include "modules/levels.inc"
 #include "modules/hud.inc"
+#include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
 #include "modules/gps.inc"
@@ -103,6 +104,7 @@ public OnPlayerConnect(playerid)
     ResetPlayerData(playerid);
     Pass_OnPlayerConnect(playerid);
     Gps_Reset(playerid);
+    SkinSelect_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
     SetPlayerColor(playerid, 0xF5A623FF);
@@ -169,7 +171,19 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (!PlayerData[playerid][pLogged]) return 1;
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
-    if (Admin_OnDialogResponse(playerid, dialogid, response, inputtext)) return 1;
+    if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
+    return 0;
+}
+
+public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
+{
+    if (SkinSelect_OnClickPlayerTD(playerid, playertextid)) return 1;
+    return 0;
+}
+
+public OnPlayerClickTextDraw(playerid, Text:clickedid)
+{
+    if (SkinSelect_OnClickTD(playerid, clickedid)) return 1;
     return 0;
 }
 
