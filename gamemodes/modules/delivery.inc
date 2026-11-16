@@ -39,7 +39,7 @@ enum E_JOB {
     jbTo,
     jbKg,
     jbBasePay,
-    jbCompanyBonus,         // бонус от компанията А (вече взет от касата ѝ)
+    jbCompanyBonus,         // бонус от компанията А (вече взет от касата й)
     jbVehicle,
     jbAcceptedAt,
     jbDeadline,             // gettime(), когато трябва да е доставено (след товарене)
