@@ -96,9 +96,8 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
             if (!response) return 1;
             switch (listitem) {
                 case MENU_ITEM_WORK: {
-                    ShowPlayerDialog(playerid, DIALOG_MENU_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Работа",
-                        C_WHITE "Превозите (камиони под наем, поръчки, товари)\nидват в следващата версия на сървъра.",
-                        "Добре", "");
+                    if (Delivery_HasJob(playerid)) Delivery_ShowCurrent(playerid);
+                    else Delivery_ShowBoard(playerid);
                 }
                 case MENU_ITEM_GARAGE:   Garage_ShowMenu(playerid);
                 case MENU_ITEM_GPS:      Gps_ShowCategories(playerid);

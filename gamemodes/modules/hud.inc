@@ -123,5 +123,6 @@ public Hud_Tick()
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerLogged(i)) Hud_Update(i);
     }
+    Delivery_Tick();
     return 1;
 }

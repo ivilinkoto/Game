@@ -34,6 +34,7 @@ forward bool:Admin_CheckBan(playerid);
 forward bool:Veh_IsOut(playerid, slot);
 forward bool:Veh_ReturnToGarage(playerid, slot);
 forward bool:Garage_IsInside(playerid);
+forward bool:Delivery_HasJob(playerid);
 
 #include "maps/garage.inc"
 
@@ -41,9 +42,12 @@ forward bool:Garage_IsInside(playerid);
 #include "modules/levels.inc"
 #include "modules/hud.inc"
 #include "modules/catalog.inc"
+#include "modules/goods.inc"
 #include "modules/cities.inc"
 #include "modules/vehicles.inc"
 #include "modules/garage.inc"
+#include "modules/companies.inc"
+#include "modules/delivery.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -80,6 +84,8 @@ public OnGameModeInit()
     Garage_CreateMap();
     City_Init();
     Veh_Init();
+    Company_Init();
+    Contracts_Init();
 
     gTickTimer = SetTimer("Server_Tick", 1000, true);
     gHudTimer = SetTimer("Hud_Tick", 300, true);
@@ -121,6 +127,7 @@ public OnPlayerConnect(playerid)
     SkinSelect_OnPlayerConnect(playerid);
     Veh_OnPlayerConnect(playerid);
     Garage_OnPlayerConnect(playerid);
+    Delivery_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
     SetPlayerColor(playerid, 0xF5A623FF);
@@ -131,6 +138,7 @@ public OnPlayerDisconnect(playerid, reason)
 {
     #pragma unused reason
     Auth_SaveAccount(playerid);
+    Delivery_OnPlayerDisconnect(playerid);
     Veh_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
     Hud_Destroy(playerid);
@@ -169,6 +177,7 @@ public OnPlayerDeath(playerid, killerid, WEAPON:reason)
 public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -191,6 +200,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Garage_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Delivery_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }
@@ -199,6 +209,19 @@ public OnPlayerStateChange(playerid, PLAYER_STATE:newstate, PLAYER_STATE:oldstat
 {
     #pragma unused oldstate
     Veh_OnPlayerStateChange(playerid, newstate);
+    return 1;
+}
+
+public OnVehicleDeath(vehicleid, killerid)
+{
+    #pragma unused killerid
+    Delivery_OnVehicleDeath(vehicleid);
+    return 1;
+}
+
+public OnPlayerEnterRaceCheckpoint(playerid)
+{
+    Delivery_OnEnterRaceCP(playerid);
     return 1;
 }
 
