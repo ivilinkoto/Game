@@ -61,7 +61,7 @@ static stock City_CreateEntrance(city)
     CityPickup[city] = CreateDynamicPickup(1318, 1, x, y, z, 0, 0);
 
     new text[160];
-    format(text, sizeof (text), C_BRAND "ГАРАЖИ %s\n" C_WHITE "Натисни " C_BRAND "Y" C_WHITE " за вход\n" C_GREY "(пеша или с твоя камион)", CityShort[city]);
+    format(text, sizeof (text), C_BRAND "ГАРАЖИ %s\n" C_WHITE "Вход: " C_BRAND "ALT" C_WHITE " пеша, " C_BRAND "H" C_WHITE " с превозно средство", CityShort[city]);
     CityLabel[city] = CreateDynamic3DTextLabel(text, COLOR_WHITE, x, y, z + 0.8, 25.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, 0, 0);
 }
 
@@ -91,11 +91,11 @@ stock City_GetEntranceNear(playerid, Float:range)
     return -1;
 }
 
-// Икона на камион на картата – само за гаража на играча.
+// Икона "къща" на картата – само за гаража на играча.
 stock City_ShowGarageIcon(playerid)
 {
     new city = PlayerData[playerid][pGarageCity];
-    SetPlayerMapIcon(playerid, GARAGE_MAP_ICON_ID, CityEntrance[city][0], CityEntrance[city][1], CityEntrance[city][2], 51, 0, MAPICON_GLOBAL);
+    SetPlayerMapIcon(playerid, GARAGE_MAP_ICON_ID, CityEntrance[city][0], CityEntrance[city][1], CityEntrance[city][2], 35, 0, MAPICON_GLOBAL);
 }
 
 CMD:garagepos(playerid, params[])

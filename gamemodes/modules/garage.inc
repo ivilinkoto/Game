@@ -1,7 +1,8 @@
 // Личен гараж: влизане/излизане (пеша и с камион), спаун, меню "Моят гараж".
 //
-// Y на входа в твоя град -> влизаш (с твой камион – той отива на мястото си, ти си в него).
-// Y до вратата отвътре -> излизаш (с камиона, ако караш).
+// Вход/изход: ALT пеша, H (клаксон) с превозно средство.
+// На входа в твоя град -> влизаш (с твой камион – той отива на мястото си, ти си в него).
+// До вратата отвътре -> излизаш (с камиона, ако караш).
 
 #define GARAGE_FREEZE_MS    1500
 
@@ -100,15 +101,17 @@ static stock Garage_ExitWithVehicle(playerid, vehicleid, slot)
     GameTextForPlayer(playerid, "~y~DRIVE SAFE!", 2000, 1);
 }
 
-// ---------- Бутон Y ----------
+// ---------- ALT / H ----------
 
 stock Garage_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     if (!PlayerData[playerid][pLogged] || !PlayerData[playerid][pSpawned]) return 0;
-    if (!((newkeys & KEY_YES) && !(oldkeys & KEY_YES))) return 0;
 
     new vehicleid = GetPlayerVehicleID(playerid);
     new bool:driver = (vehicleid != 0 && GetPlayerState(playerid) == PLAYER_STATE_DRIVER);
+    new KEY:key = driver ? KEY_CROUCH : KEY_WALK;     // в превозно средство KEY_CROUCH е клаксонът (H)
+    if (!((newkeys & key) && !(oldkeys & key))) return 0;
+    if (vehicleid != 0 && !driver) return 0;
 
     // --- Отвътре: до вратата ---
     if (PlayerData[playerid][pInGarage]) {
@@ -140,10 +143,6 @@ stock Garage_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 
     if (vehicleid == 0) {
         Garage_PutPlayerInside(playerid);
-        return 1;
-    }
-    if (!driver) {
-        SendError(playerid, "Слез от превозното средство или влез като шофьор.");
         return 1;
     }
     new slot = Veh_GetSlot(vehicleid);
@@ -234,7 +233,7 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
             } else {
                 ShowPlayerDialog(playerid, DIALOG_GARAGE_TRUCK, DIALOG_STYLE_MSGBOX, C_BRAND "Моят гараж",
                     C_WHITE "%s е в гаража, място %d.\n" \
-                    "Товароносимост: " C_BRAND "%s" C_WHITE " · Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "Y" C_WHITE " до вратата, за да излезеш.\n" \
+                    "Товароносимост: " C_BRAND "%s" C_WHITE " · Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "H" C_WHITE " до вратата, за да излезеш.\n" \
                     C_GREY "Тунинг – скоро.", "Добре", "", name, listitem + 1, payload, cargo);
             }
             return 1;

@@ -35,12 +35,15 @@ forward bool:Veh_IsOut(playerid, slot);
 forward bool:Veh_ReturnToGarage(playerid, slot);
 forward bool:Garage_IsInside(playerid);
 forward bool:Delivery_HasJob(playerid);
+forward bool:Engine_IsOn(vehicleid);
 
 #include "maps/garage.inc"
 
 #include "modules/money.inc"
 #include "modules/levels.inc"
 #include "modules/hud.inc"
+#include "modules/logo.inc"
+#include "modules/engine.inc"
 #include "modules/catalog.inc"
 #include "modules/goods.inc"
 #include "modules/cities.inc"
@@ -85,6 +88,8 @@ public OnGameModeInit()
     City_Init();
     Veh_Init();
     Company_Init();
+    Engine_Init();
+    Logo_Init();
     Contracts_Init();
 
     gTickTimer = SetTimer("Server_Tick", 1000, true);
@@ -113,6 +118,7 @@ public Server_Tick()
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;
         PlayerData[i][pPlayTime]++;
+        if (gSecondsCounter % 5 == 0) Company_UpdateIcons(i);
         Money_Sync(i);
         if (autosave) Auth_SaveAccount(i);
     }
@@ -164,6 +170,8 @@ public OnPlayerSpawn(playerid)
     if (!Auth_OnPlayerSpawn(playerid)) return 1;
     Garage_OnPlayerSpawn(playerid);
     Hud_Show(playerid);
+    Logo_Show(playerid);
+    Company_UpdateIcons(playerid);
     return 1;
 }
 
@@ -176,6 +184,7 @@ public OnPlayerDeath(playerid, killerid, WEAPON:reason)
 
 public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
+    if (Engine_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
@@ -209,6 +218,7 @@ public OnPlayerStateChange(playerid, PLAYER_STATE:newstate, PLAYER_STATE:oldstat
 {
     #pragma unused oldstate
     Veh_OnPlayerStateChange(playerid, newstate);
+    Engine_OnPlayerStateChange(playerid, newstate);
     return 1;
 }
 

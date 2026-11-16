@@ -5,7 +5,9 @@
 
 #define MAX_COMPANIES       14
 #define COMPANY_RANGE       12.0        // колко близо до базата се брои "в базата"
-#define COMPANY_ICON_COLOR  0xF5A623FF
+#define COMPANY_ICON_TYPE   51          // икона "камион" на картата
+#define COMPANY_ICON_NEAREST 5          // колко от най-близките компании да се виждат
+#define COMPANY_ICON_ID_BASE 91         // ID-та на иконите при играча: 91..95
 
 enum {
     COMPANY_SMALL,
@@ -98,7 +100,6 @@ enum E_COMPANY {
 
 new Company[MAX_COMPANIES][E_COMPANY];
 static Text3D:CompanyLabel[MAX_COMPANIES] = {Text3D:-1, ...};
-static CompanyIcon[MAX_COMPANIES] = {-1, ...};
 
 stock Company_Init()
 {
@@ -158,17 +159,53 @@ stock Company_GoodsList(mask, dest[], size = sizeof (dest), bool:latin = false)
 static stock Company_CreateMarkers(c)
 {
     if (CompanyLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(CompanyLabel[c]);
-    if (CompanyIcon[c] != -1) DestroyDynamicMapIcon(CompanyIcon[c]);
 
     new produces[160], accepts[160], text[512];
     Company_GoodsList(CompanyDefs[c][cdProduces], produces);
     Company_GoodsList(CompanyDefs[c][cdAccepts], accepts);
     format(text, sizeof (text),
-        C_BRAND "%s\n" C_GREY "%s\n" C_WHITE "Дава: " C_GREEN "%s\n" C_WHITE "Приема: " C_BRAND "%s\n" C_GREY "Y с превозно средство – поръчки",
+        C_BRAND "%s\n" C_GREY "%s\n" C_WHITE "Дава: " C_GREEN "%s\n" C_WHITE "Приема: " C_BRAND "%s\n" C_GREY "N с превозно средство – поръчки",
         CompanyDefs[c][cdName], CompanyDefs[c][cdPlace], produces, accepts);
     CompanyLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, Company[c][cpX], Company[c][cpY], Company[c][cpZ] + 1.5, 30.0,
         INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
-    CompanyIcon[c] = CreateDynamicMapIcon(Company[c][cpX], Company[c][cpY], Company[c][cpZ], 0, COMPANY_ICON_COLOR, 0, 0, -1, 6000.0, MAPICON_GLOBAL);
+}
+
+// Показва на картата само най-близките компании (вика се на няколко секунди).
+stock Company_UpdateIcons(playerid)
+{
+    new Float:px, Float:py, Float:pz;
+    if (PlayerData[playerid][pInGarage]) {
+        // В гаража – спрямо входа в града
+        new Float:a;
+        City_GetEntrance(PlayerData[playerid][pGarageCity], px, py, pz, a);
+    } else {
+        GetPlayerPos(playerid, px, py, pz);
+    }
+
+    new picked[COMPANY_ICON_NEAREST], n = 0;
+    for (new k = 0; k < COMPANY_ICON_NEAREST; k++) {
+        new best = -1, Float:bestDist = 999999.0;
+        for (new c = 0; c < MAX_COMPANIES; c++) {
+            new bool:used = false;
+            for (new j = 0; j < n; j++) if (picked[j] == c) used = true;
+            if (used) continue;
+            new Float:d = VectorSize(Company[c][cpX] - px, Company[c][cpY] - py, 0.0);
+            if (d < bestDist) {
+                bestDist = d;
+                best = c;
+            }
+        }
+        if (best == -1) break;
+        picked[n++] = best;
+    }
+    for (new k = 0; k < COMPANY_ICON_NEAREST; k++) {
+        if (k < n) {
+            new c = picked[k];
+            SetPlayerMapIcon(playerid, COMPANY_ICON_ID_BASE + k, Company[c][cpX], Company[c][cpY], Company[c][cpZ], COMPANY_ICON_TYPE, 0, MAPICON_GLOBAL);
+        } else {
+            RemovePlayerMapIcon(playerid, COMPANY_ICON_ID_BASE + k);
+        }
+    }
 }
 
 stock bool:Company_Produces(c, good)

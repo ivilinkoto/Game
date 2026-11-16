@@ -399,6 +399,7 @@ CMD:veh(playerid, params[])
     LinkVehicleToInterior(vehicleid, GetPlayerInterior(playerid));
     SetVehicleVirtualWorld(vehicleid, GetPlayerVirtualWorld(playerid));
     PutPlayerInVehicle(playerid, vehicleid, 0);
+    Engine_Set(vehicleid, true);
     PlayerData[playerid][pAdminVehicle] = vehicleid;
     return 1;
 }

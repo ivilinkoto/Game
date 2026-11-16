@@ -412,18 +412,31 @@ stock Delivery_ShowCurrent(playerid)
         "Избери", "Назад", Goods[good][gdName], tons, CompanyDefs[target][cdName]);
 }
 
-// ---------- Бутон Y ----------
+// ---------- Бутон N – всичко за работата ----------
+// Текущ курс -> детайли/отказ. Без курс: в база на компания -> нейните поръчки, иначе най-близките.
+
+stock Delivery_OpenWork(playerid)
+{
+    if (Job[playerid][jbStage] != JOB_NONE) {
+        Delivery_ShowCurrent(playerid);
+        return 1;
+    }
+    new c = (GetPlayerState(playerid) == PLAYER_STATE_DRIVER) ? Company_GetNear(playerid) : -1;
+    Delivery_ShowBoard(playerid, c);
+    return 1;
+}
 
 stock Delivery_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
-    if (!((newkeys & KEY_YES) && !(oldkeys & KEY_YES))) return 0;
-    if (!PlayerData[playerid][pLogged] || PlayerData[playerid][pInGarage]) return 0;
-    if (GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return 0;
+    if (!((newkeys & KEY_NO) && !(oldkeys & KEY_NO))) return 0;
+    if (!PlayerData[playerid][pLogged] || !PlayerData[playerid][pSpawned]) return 0;
+    return Delivery_OpenWork(playerid);
+}
 
-    new c = Company_GetNear(playerid);
-    if (c == -1) return 0;
-    Delivery_ShowBoard(playerid, c);
-    return 1;
+CMD:work(playerid, params[])
+{
+    #pragma unused params
+    return Delivery_OpenWork(playerid);
 }
 
 // ---------- Събития ----------
@@ -488,11 +501,11 @@ stock Delivery_OnDialogResponse(playerid, dialogid, response, listitem)
 }
 
 // ======================= Панел (TextDraw) =======================
-// Долу в средата, над скоростта. На латиница.
+// Вдясно по средата на екрана (вляво от бутоните на мобилния клиент). На латиница.
 
-#define DP_X            320.0
-#define DP_Y            300.0
-#define DP_W            190.0
+#define DP_X            488.0
+#define DP_Y            160.0
+#define DP_W            176.0
 #define DP_LINES        6
 
 static PlayerText:DpBox[MAX_PLAYERS] = {INVALID_PLAYER_TEXT_DRAW, ...};
@@ -597,14 +610,14 @@ stock Delivery_UpdatePanel(playerid)
     PlayerTextDrawSetString(playerid, DpTitle[playerid], text);
 
     // 1: товар, тегло, ценност
-    Goods_StarsTD(good, stars);
-    format(text, sizeof (text), "~w~CARGO  ~y~%s  ~w~%d.%d T  %s", Goods[good][gdNameEN], Job[playerid][jbKg] / 1000, (Job[playerid][jbKg] % 1000) / 100, stars);
+    format(stars, sizeof (stars), "%d/5", Goods[good][gdStars]);
+    format(text, sizeof (text), "~w~CARGO  ~y~%s  ~w~%d.%d T  ~y~%s", Goods[good][gdNameEN], Job[playerid][jbKg] / 1000, (Job[playerid][jbKg] % 1000) / 100, stars);
     PlayerTextDrawSetString(playerid, DpLine[playerid][0], text);
 
     // 2–3: откъде, докъде
-    format(text, sizeof (text), "%sFROM  ~w~%s", (stage <= JOB_LOADING) ? ("~y~") : ("~l~"), CompanyDefs[from][cdName]);
+    format(text, sizeof (text), "%sFROM  ~w~%s", (stage <= JOB_LOADING) ? ("~y~") : ("~w~"), CompanyDefs[from][cdName]);
     PlayerTextDrawSetString(playerid, DpLine[playerid][1], text);
-    format(text, sizeof (text), "%sTO      ~w~%s", (stage >= JOB_TO_DROP) ? ("~y~") : ("~l~"), CompanyDefs[to][cdName]);
+    format(text, sizeof (text), "%sTO      ~w~%s", (stage >= JOB_TO_DROP) ? ("~y~") : ("~w~"), CompanyDefs[to][cdName]);
     PlayerTextDrawSetString(playerid, DpLine[playerid][2], text);
 
     // 4: разстояние до текущата цел
@@ -621,12 +634,12 @@ stock Delivery_UpdatePanel(playerid)
         new filled = (total - left) * 20 / total, bar[64];
         format(bar, sizeof (bar), "~g~");
         for (new i = 0; i < 20; i++) {
-            if (i == filled) strcat(bar, "~l~");
+            if (i == filled) strcat(bar, "~w~");
             strcat(bar, "I");
         }
         format(text, sizeof (text), "~w~PROGRESS  %s", bar);
     } else if (Job[playerid][jbDeadline] == 0) {
-        format(text, sizeof (text), "~w~TIME  ~l~starts after loading");
+        format(text, sizeof (text), "~w~TIME  ~y~starts after loading");
     } else {
         new left = Job[playerid][jbDeadline] - gettime();
         if (left >= 0) format(text, sizeof (text), "~w~TIME LEFT  ~g~%d:%02d", left / 60, left % 60);

@@ -65,15 +65,6 @@ stock Goods_Stars(good, dest[], size = sizeof (dest))
     for (new i = n; i < 5; i++) strcat(dest, "*", size);
 }
 
-stock Goods_StarsTD(good, dest[], size = sizeof (dest))
-{
-    new n = Goods[good][gdStars];
-    format(dest, size, "~y~");
-    for (new i = 0; i < n; i++) strcat(dest, "]", size);
-    strcat(dest, "~l~", size);
-    for (new i = n; i < 5; i++) strcat(dest, "]", size);
-}
-
 // "1.2 т"
 stock FormatTons(kg, dest[], size = sizeof (dest))
 {
