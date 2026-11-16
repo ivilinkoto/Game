@@ -28,6 +28,7 @@
 #include "core/passwords.inc"
 #include "core/commands.inc"
 #include "core/jobs.inc"
+#include "core/settings.inc"
 
 #include "maps/hospital.inc"
 
@@ -64,6 +65,7 @@ public OnGameModeInit()
     }
     Report_CreateTables();
     Job_CreateTables();
+    Settings_Init();
     Market_Init();
 
     SetGameModeText("HOTFIX ONLINE");
@@ -147,11 +149,11 @@ public OnPlayerConnect(playerid)
 public OnPlayerDisconnect(playerid, reason)
 {
     #pragma unused reason
+    Farm_OnPlayerDisconnect(playerid);  // преди записа – връща депозита
     Auth_SaveAccount(playerid);
     Skin_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
     Afk_OnPlayerDisconnect(playerid);
-    Farm_OnPlayerDisconnect(playerid);
     Minigame_OnPlayerDisconnect(playerid);
     Map_OnPlayerDisconnect(playerid);
     Job_ResetPlayer(playerid);
@@ -213,7 +215,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, inputtext)) return 1;
     if (Report_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
-    if (Farm_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Farm_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Npc_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Map_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;

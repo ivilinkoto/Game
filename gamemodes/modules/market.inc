@@ -24,7 +24,7 @@ static const GoodsInfo[MAX_GOODS][E_GOODS] = {
     {"Картофи", "potato", 20, 2000},
     {"Домати",  "tomato", 35, 1500},
     {"Мед",     "honey",  60, 800},
-    {"Памук",   "cotton", 15, 5000}
+    {"Памук",   "cotton", 12, 3000}
 };
 
 #define MARKET_CONSUME_MINUTES  10      // на всеки толкова минути градът изразходва

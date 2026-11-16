@@ -20,12 +20,14 @@
 enum {
     NPC_ROLE_DECOR,     // само за украса / атмосфера
     NPC_ROLE_FARM,      // фермер – работата във фермата
+    NPC_ROLE_FARM_BUYER,// изкупвач на памук
     MAX_NPC_ROLES
 }
 
 static const NpcRoleName[MAX_NPC_ROLES][] = {
     "Украса (без меню)",
-    "Фермер (работа)"
+    "Фермер (работа)",
+    "Изкупвач на памук"
 };
 
 // Анимации: библиотека, име
@@ -225,6 +227,13 @@ stock Npc_MoveRole(role, Float:x, Float:y, Float:z, Float:a)
     return 0;
 }
 
+// Мести NPC-то с тази роля; ако няма такова – създава ново.
+stock Npc_PlaceRole(role, const name[], skin, Float:x, Float:y, Float:z, Float:a, anim)
+{
+    if (Npc_MoveRole(role, x, y, z, a)) return 1;
+    return (Npc_Create(name, role, skin, x, y, z, a, 0, anim) != -1);
+}
+
 // Някои анимации се „изключват“, когато играч влезе в обхват – подновяваме ги.
 stock Npc_OnTick(tick)
 {
@@ -276,7 +285,8 @@ stock bool:Npc_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 stock Npc_OnInteract(playerid, npc)
 {
     switch (NpcData[npc][npcRole]) {
-        case NPC_ROLE_FARM: Farm_OnNpcInteract(playerid);
+        case NPC_ROLE_FARM:       Farm_OnNpcInteract(playerid);
+        case NPC_ROLE_FARM_BUYER: Farm_OnBuyerInteract(playerid);
     }
 }
 

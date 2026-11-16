@@ -1,88 +1,100 @@
-// Работа: ФЕРМЕР – памучно поле (начална – без ниво, без кметство)
+// Работа: ФЕРМА (памук) – по спецификация docs/specs/farm.md (v1)
 //
-//  1. Говориш с Иван (ALT) -> започваш смяна (работни дрехи).
-//  2. Отиваш до храст памук и натискаш ALT (или Y) – героят бере няколко секунди.
-//  3. Снопът отива в чувала на гърба (до 5 снопа).
-//  4. С чувала отиваш до склада и натискаш ALT – плаща се на сноп.
-//  5. Обраните храсти поникват наново след няколко минути (по-бързо в дъжд, по-бавно в жега).
+// Начална работа: без ниво, без кметство. Фермата е при Blueberry.
 //
-//  Нашето различно:
-//   - "Златен сноп": рядък храст, плаща се x5.
-//   - Серия: без дълги паузи бонусът расте (+5% на 10 снопа, до +25%).
-//   - Скил 2: трактор – засява наново обраните места, докато минаваш през тях (+$ за всяко).
-//   - Скил 3: комбайн – жъне храстите, през които минаваш; разтоварваш в склада.
+//   Иван (NPC, ALT)      – смяна: депозит $200 за гребло, работни дрехи, HUD
+//   Храст (ALT до него)  – беране с лента за прогрес; брояч "N от 10" над храста
+//   Изчерпан храст       – кълн -> стрък -> узрял (3 етапа), дъждът ускорява, жегата забавя
+//   Петър (NPC, ALT)     – изкупвач, цена според пазара
 //
-//  Админ: /farmedit – застани на мястото и избери: Иван, ъгъл 1 и 2 на полето, склад, паркинг.
-//  Храстите се подреждат сами в редове между двата ъгъла.
+// Админ: /farmedit – Иван/изкупвач тук, добави/изтрий храст, пробни модели, избор на модели.
 
 // ------------------------------------------------------------
 //  Настройки
 // ------------------------------------------------------------
 
-#define FARM_MAX_PLANTS         150
-#define FARM_ROW_SPACING        3.0     // между редовете (м)
-#define FARM_PLANT_SPACING      2.5     // между храстите в реда (м)
-#define FARM_PLANT_MODEL        19473   // храст (смени, ако има по-подходящ модел)
-#define FARM_PLANT_Z_OFFSET     -1.0    // от височината на играча до земята
+#define FARM_MAX_BUSHES         40
+#define FARM_BUSH_HARVESTS      10      // беране от един узрял храст
+#define FARM_STAGE_SECONDS      120     // всеки етап на растеж (нормално време)
+#define FARM_INTERACT_RANGE     2.0
+#define FARM_CANCEL_RANGE       1.5     // отдалечиш ли се толкова – беренето прекъсва
 
-#define FARM_SACK_SIZE          5       // снопа в чувала
-#define FARM_HARVEST_MS         5000    // колко време се бере (скил 1)
-#define FARM_HARVEST_MS_FAST    3500    // скил 2+
-#define FARM_BUNDLE_PRICE       30      // $ за сноп на скил 1
-#define FARM_GOLD_MULTIPLIER    5
-#define FARM_GOLD_CHANCE        3       // % шанс храстът да е златен
-#define FARM_RESPAWN_SECONDS    180     // нормално време
-#define FARM_RESPAWN_RAIN       110
-#define FARM_RESPAWN_HOT        260
-#define FARM_STREAK_RESET       180     // секунди без беране -> серията се нулира
-#define FARM_TRACTOR_PAY        6       // $ за засадено място с трактора
-#define FARM_COMBINE_CAPACITY   30      // снопа в бункера на комбайна
+#define FARM_DEPOSIT            200
+#define FARM_DOUBLE_CHANCE_2    10      // % шанс за +2 на скил 2
+#define FARM_DOUBLE_CHANCE_3    20      // % шанс за +2 на скил 3
+#define FARM_GOLD_CHANCE        1       // % шанс за златна шушулка
+#define FARM_GOLD_VALUE         10      // златна = толкова обикновени
+#define FARM_STREAK_RESET       300     // секунди без беране -> серията се нулира
+#define FARM_STREAK_STEP        20      // на всеки толкова броя ...
+#define FARM_STREAK_PERCENT     5       // ... +5%
+#define FARM_STREAK_MAX         25
+#define FARM_EXP_PER_UNITS      10      // +1 EXP на всеки 10 продадени
 
 #define FARM_SKIN_MALE          158
 #define FARM_SKIN_FEMALE        157
-#define FARM_TRACTOR_MODEL      531
-#define FARM_COMBINE_MODEL      532
-#define FARM_SACK_SLOT          9
-#define FARM_SACK_MODEL         2060
+#define FARM_RAKE_SLOT          8
+#define FARM_RAKE_MODEL         18890
+
+// Модели по подразбиране (сменят се от играта: /farmedit)
+#define FARM_DEF_MODEL_RIPE     19473
+#define FARM_DEF_MODEL_STALK    19473
+#define FARM_DEF_MODEL_SPROUT   874
+
+// Етапи на храста
+#define BUSH_SPROUT     1
+#define BUSH_STALK      2
+#define BUSH_RIPE       3
+
+// Модели за пробния ред (/farmedit -> "Пробни модели тук")
+static const FarmTestModels[] = {19473, 3409, 804, 805, 806, 870, 874, 2244};
+
+// Време за беране по скил (мин, макс, в ms)
+static const FarmHarvestMin[] = {6000, 5000, 4000};
+static const FarmHarvestMax[] = {9000, 7000, 6000};
 
 // ------------------------------------------------------------
 //  Данни
 // ------------------------------------------------------------
 
-enum E_PLANT {
-    bool:ptExists,
-    Float:ptX,
-    Float:ptY,
-    Float:ptZ,
-    bool:ptAlive,
-    bool:ptGold,
-    ptRespawnAt,        // unix време
-    ptObject,
-    ptHarvester,        // кой го бере в момента
-    STREAMER_TAG_3D_TEXT_LABEL:ptLabel,
-    bool:ptHasLabel
+enum E_BUSH {
+    bool:bsExists,
+    bsDBID,
+    Float:bsX,
+    Float:bsY,
+    Float:bsZ,
+    Float:bsA,
+    bsStage,
+    bsCount,            // оставащи берения (когато е узрял)
+    bsNextStage,        // unix време за следващия етап
+    bsObject,
+    bsHarvester,
+    STREAMER_TAG_3D_TEXT_LABEL:bsLabel
 }
-static FarmPlant[FARM_MAX_PLANTS][E_PLANT];
-static gFarmPlantCount;
+static FarmBush[FARM_MAX_BUSHES][E_BUSH];
 
-static bool:gFarmFieldSet, bool:gFarmStoreSet, bool:gFarmParkSet;
-static Float:gFieldAX, Float:gFieldAY, Float:gFieldAZ, Float:gFieldBX, Float:gFieldBY, Float:gFieldBZ;
-static Float:gStoreX, Float:gStoreY, Float:gStoreZ;
-static Float:gParkX, Float:gParkY, Float:gParkZ, Float:gParkA;
-static STREAMER_TAG_3D_TEXT_LABEL:gFarmStoreLabel, STREAMER_TAG_3D_TEXT_LABEL:gFarmFieldLabel, STREAMER_TAG_3D_TEXT_LABEL:gFarmParkLabel;
-static bool:gFarmLabelsCreated;
+static gModelRipe, gModelStalk, gModelSprout;
 
 static bool:FarmOnShift[MAX_PLAYERS],
-    FarmSack[MAX_PLAYERS],              // обикновени снопове в чувала
-    FarmSackGold[MAX_PLAYERS],          // златни снопове в чувала
-    FarmHarvestPlant[MAX_PLAYERS],      // кой храст бере (-1 ако не бере)
+    FarmCotton[MAX_PLAYERS],            // обикновен памук в джоба
+    FarmGold[MAX_PLAYERS],              // златни шушулки
     FarmStreak[MAX_PLAYERS],
-    FarmLastHarvest[MAX_PLAYERS],
-    FarmVehicle[MAX_PLAYERS],
-    FarmBunker[MAX_PLAYERS],            // снопове в комбайна
-    FarmBunkerGold[MAX_PLAYERS],
+    FarmBatchBonus[MAX_PLAYERS],        // най-високият бонус от серия в тази партида
+    FarmLastPick[MAX_PLAYERS],
+    FarmExpCarry[MAX_PLAYERS],          // продадени бройки, които още не са дали EXP
+    FarmBush_Picking[MAX_PLAYERS],      // храстът, който бере (-1)
+    FarmPickStart[MAX_PLAYERS],
+    FarmPickDuration[MAX_PLAYERS],
+    FarmPickTimer[MAX_PLAYERS],
+    Float:FarmPickX[MAX_PLAYERS],
+    Float:FarmPickY[MAX_PLAYERS],
+    Float:FarmPickZ[MAX_PLAYERS],
     FarmKeyTick[MAX_PLAYERS],
-    FarmMenuAction[MAX_PLAYERS][8];
+    FarmMenuAction[MAX_PLAYERS][8],
+    FarmModelEdit[MAX_PLAYERS],
+    PlayerText:FarmBarBg[MAX_PLAYERS],
+    PlayerText:FarmBarFill[MAX_PLAYERS],
+    PlayerText:FarmBarText[MAX_PLAYERS],
+    PlayerText:FarmHud[MAX_PLAYERS];
 
 // ============================================================
 //  Инициализация
@@ -90,142 +102,157 @@ static bool:FarmOnShift[MAX_PLAYERS],
 
 stock Farm_Init()
 {
-    // Почистване от старите версии на фермата
+    // Почистване от предишните версии
     Database_Exec("DROP TABLE IF EXISTS farm_plots");
-    Database_Exec("DELETE FROM job_points WHERE job = 1 AND name LIKE 'spot%'");
-    Database_Exec("DELETE FROM job_points WHERE job = 1 AND name IN ('buyer', 'well', 'vehicle')");
+    Database_Exec("DELETE FROM job_points WHERE job = 1 AND name <> 'job'");
+    Database_Exec("CREATE TABLE IF NOT EXISTS farm_bushes (id INTEGER PRIMARY KEY AUTOINCREMENT, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, a REAL NOT NULL DEFAULT 0)");
 
-    for (new i = 0; i < FARM_MAX_PLANTS; i++) {
-        FarmPlant[i][ptExists] = false;
-        FarmPlant[i][ptHarvester] = INVALID_PLAYER_ID;
+    gModelRipe = Settings_GetInt("farm_model_ripe", FARM_DEF_MODEL_RIPE);
+    gModelStalk = Settings_GetInt("farm_model_stalk", FARM_DEF_MODEL_STALK);
+    gModelSprout = Settings_GetInt("farm_model_sprout", FARM_DEF_MODEL_SPROUT);
+
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) {
+        FarmBush[i][bsExists] = false;
+        FarmBush[i][bsHarvester] = INVALID_PLAYER_ID;
     }
 
-    new Float:a;
-    gFarmFieldSet = Job_GetPoint(JOB_FARM, "fieldA", gFieldAX, gFieldAY, gFieldAZ, a)
-        && Job_GetPoint(JOB_FARM, "fieldB", gFieldBX, gFieldBY, gFieldBZ, a);
-    gFarmStoreSet = Job_GetPoint(JOB_FARM, "store", gStoreX, gStoreY, gStoreZ, a);
-    gFarmParkSet = Job_GetPoint(JOB_FARM, "park", gParkX, gParkY, gParkZ, gParkA);
-
-    Farm_BuildField();
-    Farm_CreateLabels();
+    new DBResult:result = Database_Query("SELECT * FROM farm_bushes ORDER BY id");
+    new count = 0;
+    if (result != DBResult:0) {
+        if (DB_GetRowCount(result) > 0) {
+            do {
+                if (Farm_AddBushToMemory(DB_GetFieldIntByName(result, "id"),
+                    DB_GetFieldFloatByName(result, "x"), DB_GetFieldFloatByName(result, "y"),
+                    DB_GetFieldFloatByName(result, "z"), DB_GetFieldFloatByName(result, "a")) != -1) count++;
+            } while (DB_SelectNextRow(result));
+        }
+        DB_FreeResultSet(result);
+    }
+    printf("[FARM] %d cotton bush(es) loaded.", count);
 }
 
-// Махаме картата "ferma" от старата версия (след като редакторът на карти е зареден).
+// Махаме картата "ferma" от предишната версия (след като редакторът на карти е зареден).
 stock Farm_SeedMap()
 {
     if (Map_GetID("ferma") == 0) return;
     Map_ClearMap("ferma");
     Database_Exec("DELETE FROM maps WHERE name = 'ferma'");
-    print("[FARM] Old farm map removed.");
 }
 
-stock Farm_CreateLabels()
+stock Farm_ResetPlayer(playerid)
 {
-    if (gFarmLabelsCreated) {
-        DestroyDynamic3DTextLabel(gFarmStoreLabel);
-        DestroyDynamic3DTextLabel(gFarmFieldLabel);
-        DestroyDynamic3DTextLabel(gFarmParkLabel);
-    }
-    gFarmStoreLabel = CreateDynamic3DTextLabel("{FF6A00}Склад за памук\n{FFFFFF}Разтовари чувала: ALT", COLOR_WHITE,
-        gStoreX, gStoreY, gFarmStoreSet ? (gStoreZ + 0.6) : -100.0, 15.0);
-    gFarmFieldLabel = CreateDynamic3DTextLabel("{FF6A00}Памучно поле\n{FFFFFF}Бери: ALT до храст", COLOR_WHITE,
-        (gFieldAX + gFieldBX) / 2.0, (gFieldAY + gFieldBY) / 2.0, gFarmFieldSet ? ((gFieldAZ + gFieldBZ) / 2.0 + 2.0) : -100.0, 40.0);
-    gFarmParkLabel = CreateDynamic3DTextLabel("{FF6A00}Техника на фермата", COLOR_WHITE,
-        gParkX, gParkY, gFarmParkSet ? (gParkZ + 0.6) : -100.0, 15.0);
-    gFarmLabelsCreated = true;
+    FarmOnShift[playerid] = false;
+    FarmCotton[playerid] = 0;
+    FarmGold[playerid] = 0;
+    FarmStreak[playerid] = 0;
+    FarmBatchBonus[playerid] = 0;
+    FarmLastPick[playerid] = 0;
+    FarmExpCarry[playerid] = 0;
+    FarmBush_Picking[playerid] = -1;
+    FarmKeyTick[playerid] = 0;
+    FarmBarBg[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    FarmBarFill[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    FarmBarText[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    FarmHud[playerid] = INVALID_PLAYER_TEXT_DRAW;
 }
 
-// Подрежда храстите в редове между двата ъгъла на полето.
-stock Farm_BuildField()
+// ============================================================
+//  Храсти
+// ============================================================
+
+stock Farm_AddBushToMemory(dbid, Float:x, Float:y, Float:z, Float:a)
 {
-    // Старите храсти
-    for (new i = 0; i < FARM_MAX_PLANTS; i++) {
-        if (!FarmPlant[i][ptExists]) continue;
-        Farm_HidePlant(i);
-        FarmPlant[i][ptExists] = false;
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) {
+        if (FarmBush[i][bsExists]) continue;
+        FarmBush[i][bsExists] = true;
+        FarmBush[i][bsDBID] = dbid;
+        FarmBush[i][bsX] = x;
+        FarmBush[i][bsY] = y;
+        FarmBush[i][bsZ] = z;
+        FarmBush[i][bsA] = a;
+        FarmBush[i][bsObject] = 0;
+        FarmBush[i][bsHarvester] = INVALID_PLAYER_ID;
+        FarmBush[i][bsLabel] = CreateDynamic3DTextLabel(" ", COLOR_WHITE, x, y, z + 0.4, 12.0);
+        Farm_SetStage(i, BUSH_RIPE);
+        return i;
     }
-    gFarmPlantCount = 0;
-    if (!gFarmFieldSet) return;
-
-    new Float:minX = (gFieldAX < gFieldBX) ? gFieldAX : gFieldBX, Float:maxX = (gFieldAX < gFieldBX) ? gFieldBX : gFieldAX;
-    new Float:minY = (gFieldAY < gFieldBY) ? gFieldAY : gFieldBY, Float:maxY = (gFieldAY < gFieldBY) ? gFieldBY : gFieldAY;
-    new Float:dx = gFieldBX - gFieldAX, Float:dy = gFieldBY - gFieldAY, Float:len2 = dx * dx + dy * dy;
-
-    for (new Float:x = minX + 1.0; x <= maxX - 1.0; x += FARM_ROW_SPACING) {
-        for (new Float:y = minY + 1.0; y <= maxY - 1.0; y += FARM_PLANT_SPACING) {
-            if (gFarmPlantCount >= FARM_MAX_PLANTS) break;
-
-            // Височина: по правата между двата ъгъла
-            new Float:t = 0.5;
-            if (len2 > 1.0) {
-                t = ((x - gFieldAX) * dx + (y - gFieldAY) * dy) / len2;
-                if (t < 0.0) t = 0.0;
-                if (t > 1.0) t = 1.0;
-            }
-            new i = gFarmPlantCount++;
-            FarmPlant[i][ptExists] = true;
-            FarmPlant[i][ptX] = x;
-            FarmPlant[i][ptY] = y;
-            FarmPlant[i][ptZ] = gFieldAZ + (gFieldBZ - gFieldAZ) * t;
-            FarmPlant[i][ptHarvester] = INVALID_PLAYER_ID;
-            FarmPlant[i][ptObject] = 0;
-            FarmPlant[i][ptHasLabel] = false;
-            Farm_GrowPlant(i);
-        }
-    }
-    printf("[FARM] Cotton field: %d plants.", gFarmPlantCount);
+    return -1;
 }
 
-stock Farm_GrowPlant(i)
+stock Farm_RemoveBush(i)
 {
-    Farm_HidePlant(i);
-    FarmPlant[i][ptAlive] = true;
-    FarmPlant[i][ptGold] = (random(100) < FARM_GOLD_CHANCE);
-    FarmPlant[i][ptObject] = CreateDynamicObject(FARM_PLANT_MODEL,
-        FarmPlant[i][ptX], FarmPlant[i][ptY], FarmPlant[i][ptZ] + FARM_PLANT_Z_OFFSET, 0.0, 0.0, float(random(360)), 0, 0, -1, 120.0);
-    if (FarmPlant[i][ptGold]) {
-        FarmPlant[i][ptLabel] = CreateDynamic3DTextLabel("{FFD700}* Златен сноп *", COLOR_WHITE,
-            FarmPlant[i][ptX], FarmPlant[i][ptY], FarmPlant[i][ptZ] + 0.6, 25.0);
-        FarmPlant[i][ptHasLabel] = true;
-    }
+    if (!FarmBush[i][bsExists]) return;
+    if (FarmBush[i][bsObject] != 0) DestroyDynamicObject(FarmBush[i][bsObject]);
+    DestroyDynamic3DTextLabel(FarmBush[i][bsLabel]);
+    FarmBush[i][bsExists] = false;
 }
 
-stock Farm_HidePlant(i)
+stock Farm_StageModel(stage)
 {
-    if (FarmPlant[i][ptObject] != 0) {
-        DestroyDynamicObject(FarmPlant[i][ptObject]);
-        FarmPlant[i][ptObject] = 0;
+    switch (stage) {
+        case BUSH_SPROUT: return gModelSprout;
+        case BUSH_STALK:  return gModelStalk;
     }
-    if (FarmPlant[i][ptHasLabel]) {
-        DestroyDynamic3DTextLabel(FarmPlant[i][ptLabel]);
-        FarmPlant[i][ptHasLabel] = false;
-    }
+    return gModelRipe;
 }
 
-stock Farm_GetRespawnSeconds()
+stock Farm_StageSeconds()
 {
     switch (Weather_GetKind()) {
-        case WEATHER_KIND_RAIN: return FARM_RESPAWN_RAIN;
-        case WEATHER_KIND_HOT:  return FARM_RESPAWN_HOT;
+        case WEATHER_KIND_RAIN: return FARM_STAGE_SECONDS * 70 / 100;
+        case WEATHER_KIND_HOT:  return FARM_STAGE_SECONDS * 130 / 100;
     }
-    return FARM_RESPAWN_SECONDS;
+    return FARM_STAGE_SECONDS;
 }
 
-// Обран храст
-stock Farm_PickPlant(i)
+stock Farm_SetStage(i, stage)
 {
-    Farm_HidePlant(i);
-    FarmPlant[i][ptAlive] = false;
-    FarmPlant[i][ptHarvester] = INVALID_PLAYER_ID;
-    FarmPlant[i][ptRespawnAt] = gettime() + Farm_GetRespawnSeconds();
+    FarmBush[i][bsStage] = stage;
+    if (stage == BUSH_RIPE) FarmBush[i][bsCount] = FARM_BUSH_HARVESTS;
+    else FarmBush[i][bsNextStage] = gettime() + Farm_StageSeconds();
+
+    if (FarmBush[i][bsObject] != 0) DestroyDynamicObject(FarmBush[i][bsObject]);
+    // Обектът стои на земята: позицията е на играча (около 1 м над земята)
+    FarmBush[i][bsObject] = CreateDynamicObject(Farm_StageModel(stage),
+        FarmBush[i][bsX], FarmBush[i][bsY], FarmBush[i][bsZ] - 1.0, 0.0, 0.0, FarmBush[i][bsA], 0, 0, -1, 100.0);
+    Farm_UpdateBushLabel(i);
 }
 
-stock Farm_GetNearestPlant(playerid, Float:range, bool:alive)
+stock Farm_UpdateBushLabel(i)
+{
+    new text[96];
+    if (FarmBush[i][bsStage] == BUSH_RIPE) {
+        format(text, sizeof (text), "{FFFFFF}Памук {FF6A00}(%d от %d)\n{A0A0A0}ALT - бери", FarmBush[i][bsCount], FARM_BUSH_HARVESTS);
+    } else {
+        // Оставащо време до узряване (текущият етап + следващите)
+        new left = FarmBush[i][bsNextStage] - gettime();
+        if (FarmBush[i][bsStage] == BUSH_SPROUT) left += Farm_StageSeconds();
+        if (left < 0) left = 0;
+        format(text, sizeof (text), "{A0A0A0}Расте: %d:%02d", left / 60, left % 60);
+    }
+    UpdateDynamic3DTextLabelText(FarmBush[i][bsLabel], COLOR_WHITE, text);
+}
+
+stock Farm_GetNearestRipeBush(playerid, Float:range)
 {
     new best = -1, Float:bestDist = range;
-    for (new i = 0; i < gFarmPlantCount; i++) {
-        if (!FarmPlant[i][ptExists] || FarmPlant[i][ptAlive] != alive) continue;
-        new Float:d = GetPlayerDistanceFromPoint(playerid, FarmPlant[i][ptX], FarmPlant[i][ptY], FarmPlant[i][ptZ]);
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) {
+        if (!FarmBush[i][bsExists] || FarmBush[i][bsStage] != BUSH_RIPE) continue;
+        new Float:d = GetPlayerDistanceFromPoint(playerid, FarmBush[i][bsX], FarmBush[i][bsY], FarmBush[i][bsZ]);
+        if (d < bestDist) {
+            bestDist = d;
+            best = i;
+        }
+    }
+    return best;
+}
+
+stock Farm_GetNearestBush(playerid, Float:range)
+{
+    new best = -1, Float:bestDist = range;
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) {
+        if (!FarmBush[i][bsExists]) continue;
+        new Float:d = GetPlayerDistanceFromPoint(playerid, FarmBush[i][bsX], FarmBush[i][bsY], FarmBush[i][bsZ]);
         if (d < bestDist) {
             bestDist = d;
             best = i;
@@ -235,108 +262,153 @@ stock Farm_GetNearestPlant(playerid, Float:range, bool:alive)
 }
 
 // ============================================================
-//  Играч
+//  Интерфейс: лента за прогрес и HUD
 // ============================================================
 
-stock Farm_ResetPlayer(playerid)
+#define FARM_BAR_X      245.0
+#define FARM_BAR_Y      360.0
+#define FARM_BAR_W      150.0
+
+stock Farm_ShowBar(playerid)
 {
-    FarmOnShift[playerid] = false;
-    FarmSack[playerid] = 0;
-    FarmSackGold[playerid] = 0;
-    FarmHarvestPlant[playerid] = -1;
-    FarmStreak[playerid] = 0;
-    FarmLastHarvest[playerid] = 0;
-    FarmVehicle[playerid] = INVALID_VEHICLE_ID;
-    FarmBunker[playerid] = 0;
-    FarmBunkerGold[playerid] = 0;
-    FarmKeyTick[playerid] = 0;
+    Farm_HideBar(playerid);
+
+    new PlayerText:bg = CreatePlayerTextDraw(playerid, FARM_BAR_X, FARM_BAR_Y, "_");
+    PlayerTextDrawUseBox(playerid, bg, true);
+    PlayerTextDrawBoxColour(playerid, bg, 0x000000AA);
+    PlayerTextDrawLetterSize(playerid, bg, 0.0, 1.2);
+    PlayerTextDrawTextSize(playerid, bg, FARM_BAR_X + FARM_BAR_W, 0.0);
+    FarmBarBg[playerid] = bg;
+
+    new PlayerText:fill = CreatePlayerTextDraw(playerid, FARM_BAR_X, FARM_BAR_Y, "_");
+    PlayerTextDrawUseBox(playerid, fill, true);
+    PlayerTextDrawBoxColour(playerid, fill, COLOR_BRAND);
+    PlayerTextDrawLetterSize(playerid, fill, 0.0, 1.2);
+    PlayerTextDrawTextSize(playerid, fill, FARM_BAR_X + 1.0, 0.0);
+    FarmBarFill[playerid] = fill;
+
+    new PlayerText:t = CreatePlayerTextDraw(playerid, FARM_BAR_X + FARM_BAR_W / 2.0, FARM_BAR_Y - 14.0, "PICKING COTTON...");
+    PlayerTextDrawFont(playerid, t, TEXT_DRAW_FONT_2);
+    PlayerTextDrawLetterSize(playerid, t, 0.22, 1.0);
+    PlayerTextDrawAlignment(playerid, t, TEXT_DRAW_ALIGN_CENTRE);
+    PlayerTextDrawColour(playerid, t, COLOR_WHITE);
+    PlayerTextDrawSetOutline(playerid, t, 1);
+    PlayerTextDrawSetShadow(playerid, t, 0);
+    PlayerTextDrawBackgroundColour(playerid, t, 0x000000FF);
+    FarmBarText[playerid] = t;
+
+    PlayerTextDrawShow(playerid, bg);
+    PlayerTextDrawShow(playerid, fill);
+    PlayerTextDrawShow(playerid, t);
+}
+
+stock Farm_UpdateBar(playerid, percent)
+{
+    if (FarmBarFill[playerid] == INVALID_PLAYER_TEXT_DRAW) return;
+    if (percent < 1) percent = 1;
+    if (percent > 100) percent = 100;
+    PlayerTextDrawTextSize(playerid, FarmBarFill[playerid], FARM_BAR_X + FARM_BAR_W * float(percent) / 100.0, 0.0);
+    PlayerTextDrawShow(playerid, FarmBarFill[playerid]); // повторното показване прилага новия размер
+}
+
+stock Farm_HideBar(playerid)
+{
+    if (FarmBarBg[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, FarmBarBg[playerid]);
+    if (FarmBarFill[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, FarmBarFill[playerid]);
+    if (FarmBarText[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, FarmBarText[playerid]);
+    FarmBarBg[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    FarmBarFill[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    FarmBarText[playerid] = INVALID_PLAYER_TEXT_DRAW;
 }
 
 stock Farm_StreakBonus(playerid)
 {
-    new bonus = (FarmStreak[playerid] / 10) * 5;
-    return (bonus > 25) ? 25 : bonus;
+    new bonus = (FarmStreak[playerid] / FARM_STREAK_STEP) * FARM_STREAK_PERCENT;
+    return (bonus > FARM_STREAK_MAX) ? FARM_STREAK_MAX : bonus;
 }
 
-stock Farm_BundlePrice(playerid)
+stock Farm_ShowHud(playerid)
 {
-    return FARM_BUNDLE_PRICE * Job_GetPayPercent(playerid, JOB_FARM) / 100;
-}
-
-stock Farm_UpdateSack(playerid)
-{
-    if (FarmSack[playerid] + FarmSackGold[playerid] > 0) {
-        SetPlayerAttachedObject(playerid, FARM_SACK_SLOT, FARM_SACK_MODEL, 1, 0.1, -0.25, 0.0, 0.0, 90.0, 0.0, 0.8, 0.8, 0.8);
-    } else {
-        RemovePlayerAttachedObject(playerid, FARM_SACK_SLOT);
+    if (FarmHud[playerid] == INVALID_PLAYER_TEXT_DRAW) {
+        new PlayerText:h = CreatePlayerTextDraw(playerid, 608.0, 150.0, "_");
+        PlayerTextDrawFont(playerid, h, TEXT_DRAW_FONT_2);
+        PlayerTextDrawLetterSize(playerid, h, 0.22, 1.05);
+        PlayerTextDrawAlignment(playerid, h, TEXT_DRAW_ALIGN_RIGHT);
+        PlayerTextDrawColour(playerid, h, COLOR_WHITE);
+        PlayerTextDrawSetOutline(playerid, h, 1);
+        PlayerTextDrawSetShadow(playerid, h, 0);
+        PlayerTextDrawBackgroundColour(playerid, h, 0x000000FF);
+        FarmHud[playerid] = h;
     }
+    if (FarmGold[playerid] > 0) {
+        PlayerTextDrawSetString(playerid, FarmHud[playerid], "~y~FARM~n~~w~COTTON: ~y~%d ~w~+ ~y~%d GOLD~n~~w~SKILL: ~y~%d~n~~w~STREAK: ~y~+%d%%",
+            FarmCotton[playerid], FarmGold[playerid], Job_GetSkill(playerid, JOB_FARM), Farm_StreakBonus(playerid));
+    } else {
+        PlayerTextDrawSetString(playerid, FarmHud[playerid], "~y~FARM~n~~w~COTTON: ~y~%d~n~~w~SKILL: ~y~%d~n~~w~STREAK: ~y~+%d%%",
+            FarmCotton[playerid], Job_GetSkill(playerid, JOB_FARM), Farm_StreakBonus(playerid));
+    }
+    PlayerTextDrawShow(playerid, FarmHud[playerid]);
+}
+
+stock Farm_HideHud(playerid)
+{
+    if (FarmHud[playerid] != INVALID_PLAYER_TEXT_DRAW) {
+        PlayerTextDrawDestroy(playerid, FarmHud[playerid]);
+        FarmHud[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    }
+}
+
+// ============================================================
+//  Смяна
+// ============================================================
+
+stock Farm_AttachRake(playerid)
+{
+    SetPlayerAttachedObject(playerid, FARM_RAKE_SLOT, FARM_RAKE_MODEL, 6, 0.07, 0.03, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+}
+
+stock Farm_ApplyOutfit(playerid)
+{
+    SetPlayerSkin(playerid, (PlayerData[playerid][pGender] == GENDER_FEMALE) ? FARM_SKIN_FEMALE : FARM_SKIN_MALE);
+    Farm_AttachRake(playerid);
 }
 
 stock Farm_StartShift(playerid)
 {
-    if (!gFarmFieldSet || !gFarmStoreSet) {
-        SendClientMessage(playerid, COLOR_GREY, "Иван: \"Полето още не е готово. Ела по-късно.\" {A0A0A0}(админ: /farmedit)");
+    if (FarmOnShift[playerid]) return;
+    if (Money_Get(playerid) < FARM_DEPOSIT) {
+        SendClientMessage(playerid, COLOR_GREY, "Иван: \"Греблото е срещу $%d депозит. Нямаш толкова в себе си.\"", FARM_DEPOSIT);
         return;
     }
+    Money_Give(playerid, -FARM_DEPOSIT);
     FarmOnShift[playerid] = true;
     FarmStreak[playerid] = 0;
-    FarmLastHarvest[playerid] = gettime();
-    SetPlayerSkin(playerid, (PlayerData[playerid][pGender] == GENDER_FEMALE) ? FARM_SKIN_FEMALE : FARM_SKIN_MALE);
-    Gps_SetTarget(playerid, "Памучно поле", (gFieldAX + gFieldBX) / 2.0, (gFieldAY + gFieldBY) / 2.0, (gFieldAZ + gFieldBZ) / 2.0);
+    FarmBatchBonus[playerid] = 0;
+    FarmLastPick[playerid] = gettime();
+    Farm_ApplyOutfit(playerid);
+    Farm_ShowHud(playerid);
 
-    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната започна! Отиди до храст памук и натисни {FFD54A}ALT{FFFFFF}.");
-    SendClientMessage(playerid, COLOR_GREY, "Чувалът събира %d снопа. Пълния чувал занеси в склада (ALT). Златните снопове се плащат x%d!",
-        FARM_SACK_SIZE, FARM_GOLD_MULTIPLIER);
+    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната започна. Остави {FFD54A}$%d{FFFFFF} депозит за греблото – връща се в края.", FARM_DEPOSIT);
+    SendClientMessage(playerid, COLOR_WHITE, "Отиди до узрял храст памук и натисни {FFD54A}ALT{FFFFFF}. Продавай при {FFD54A}Петър{FFFFFF} – изкупвача.");
 }
 
 stock Farm_EndShift(playerid, bool:silent = false)
 {
     if (!FarmOnShift[playerid]) return;
-    Farm_CancelHarvest(playerid);
+    Farm_CancelPick(playerid, false);
     FarmOnShift[playerid] = false;
 
-    if (FarmVehicle[playerid] != INVALID_VEHICLE_ID) {
-        DestroyVehicle(FarmVehicle[playerid]);
-        FarmVehicle[playerid] = INVALID_VEHICLE_ID;
-    }
-    new lost = FarmSack[playerid] + FarmSackGold[playerid] + FarmBunker[playerid] + FarmBunkerGold[playerid];
-    FarmSack[playerid] = 0;
-    FarmSackGold[playerid] = 0;
-    FarmBunker[playerid] = 0;
-    FarmBunkerGold[playerid] = 0;
-
+    Money_Give(playerid, FARM_DEPOSIT);
     if (IsPlayerConnected(playerid)) {
-        RemovePlayerAttachedObject(playerid, FARM_SACK_SLOT);
+        RemovePlayerAttachedObject(playerid, FARM_RAKE_SLOT);
         SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
+        Farm_HideHud(playerid);
         if (!silent) {
-            if (lost > 0) SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната приключи. Неразтоварените %d снопа остават във фермата.", lost);
-            else SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната приключи. Ела пак!");
+            SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Смяната приключи. Върнат депозит: {33CC66}$%d{FFFFFF}.", FARM_DEPOSIT);
+            if (FarmCotton[playerid] + FarmGold[playerid] > 0) {
+                SendClientMessage(playerid, COLOR_GREY, "Още носиш непродаден памук – можеш да го продадеш при Петър и след смяната.");
+            }
         }
-    }
-}
-
-stock Farm_SpawnVehicle(playerid, model)
-{
-    if (!gFarmParkSet) {
-        SendError(playerid, "Паркингът за техниката още не е поставен (админ: /farmedit).");
-        return;
-    }
-    if (FarmVehicle[playerid] != INVALID_VEHICLE_ID) DestroyVehicle(FarmVehicle[playerid]);
-
-    new vehicleid = CreateVehicle(model, gParkX, gParkY, gParkZ + 0.5, gParkA, 1, 1, -1);
-    if (vehicleid == INVALID_VEHICLE_ID || vehicleid == 0) {
-        FarmVehicle[playerid] = INVALID_VEHICLE_ID;
-        SendError(playerid, "Техниката не може да бъде създадена.");
-        return;
-    }
-    FarmVehicle[playerid] = vehicleid;
-    SetVehicleNumberPlate(vehicleid, "FARM");
-    PutPlayerInVehicle(playerid, vehicleid, 0);
-
-    if (model == FARM_TRACTOR_MODEL) {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Трактор: карай през обраните места – засява ги наново ($%d за всяко).", FARM_TRACTOR_PAY);
-    } else {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Комбайн: карай през храстите – жъне ги. Разтовари бункера в склада (до %d снопа).", FARM_COMBINE_CAPACITY);
     }
 }
 
@@ -344,234 +416,227 @@ stock Farm_SpawnVehicle(playerid, model)
 //  Беране
 // ============================================================
 
-stock Farm_TryHarvest(playerid)
+stock Farm_TryPick(playerid)
 {
-    if (FarmHarvestPlant[playerid] != -1) return;
-    if (FarmSack[playerid] + FarmSackGold[playerid] >= FARM_SACK_SIZE) {
-        GameTextForPlayer(playerid, "~r~Sack is full!~n~~w~Go to the store", 2500, 3);
+    if (FarmBush_Picking[playerid] != -1) return;
+
+    new bush = Farm_GetNearestRipeBush(playerid, FARM_INTERACT_RANGE);
+    if (bush == -1) return;
+    if (!FarmOnShift[playerid]) {
+        SendClientMessage(playerid, COLOR_GREY, "Нямаш гребло. Започни смяна при Иван.");
         return;
     }
-    new plant = Farm_GetNearestPlant(playerid, 1.8, true);
-    if (plant == -1) return;
-    if (FarmPlant[plant][ptHarvester] != INVALID_PLAYER_ID) {
+    if (FarmBush[bush][bsHarvester] != INVALID_PLAYER_ID) {
         SendClientMessage(playerid, COLOR_GREY, "Някой вече бере този храст.");
         return;
     }
 
-    FarmPlant[plant][ptHarvester] = playerid;
-    FarmHarvestPlant[playerid] = plant;
-    TogglePlayerControllable(playerid, false);
-    ApplyAnimation(playerid, "BOMBER", "BOM_Plant_Loop", 4.1, true, false, false, false, 0);
+    new skill = Job_GetSkill(playerid, JOB_FARM) - 1;
+    new duration = FarmHarvestMin[skill] + random(FarmHarvestMax[skill] - FarmHarvestMin[skill] + 1);
 
-    new ms = (Job_GetSkill(playerid, JOB_FARM) >= 2) ? FARM_HARVEST_MS_FAST : FARM_HARVEST_MS;
-    GameTextForPlayer(playerid, "~y~Picking cotton...", ms, 3);
-    SetTimerEx("Farm_HarvestDone", ms, false, "ii", playerid, plant);
+    FarmBush[bush][bsHarvester] = playerid;
+    FarmBush_Picking[playerid] = bush;
+    FarmPickStart[playerid] = GetTickCount();
+    FarmPickDuration[playerid] = duration;
+    GetPlayerPos(playerid, FarmPickX[playerid], FarmPickY[playerid], FarmPickZ[playerid]);
+
+    ApplyAnimation(playerid, "BOMBER", "BOM_Plant_Loop", 4.1, true, false, false, false, 0);
+    Farm_ShowBar(playerid);
+    FarmPickTimer[playerid] = SetTimerEx("Farm_PickTick", 200, true, "i", playerid);
 }
 
-forward Farm_HarvestDone(playerid, plant);
-public Farm_HarvestDone(playerid, plant)
+forward Farm_PickTick(playerid);
+public Farm_PickTick(playerid)
 {
-    if (!IsPlayerConnected(playerid) || FarmHarvestPlant[playerid] != plant) return 0;
-    FarmHarvestPlant[playerid] = -1;
-    TogglePlayerControllable(playerid, true);
+    new bush = FarmBush_Picking[playerid];
+    if (!IsPlayerConnected(playerid) || bush == -1) return 0;
+
+    // Отдалечил се / влязъл в кола -> прекъсва
+    if (IsPlayerInAnyVehicle(playerid) ||
+        GetPlayerDistanceFromPoint(playerid, FarmPickX[playerid], FarmPickY[playerid], FarmPickZ[playerid]) > FARM_CANCEL_RANGE) {
+        Farm_CancelPick(playerid, true);
+        return 0;
+    }
+
+    new elapsed = GetTickCount() - FarmPickStart[playerid];
+    if (elapsed < FarmPickDuration[playerid]) {
+        Farm_UpdateBar(playerid, elapsed * 100 / FarmPickDuration[playerid]);
+        return 1;
+    }
+    Farm_FinishPick(playerid);
+    return 0;
+}
+
+stock Farm_CancelPick(playerid, bool:notify)
+{
+    new bush = FarmBush_Picking[playerid];
+    if (bush == -1) return;
+    KillTimer(FarmPickTimer[playerid]);
+    FarmBush_Picking[playerid] = -1;
+    if (FarmBush[bush][bsHarvester] == playerid) FarmBush[bush][bsHarvester] = INVALID_PLAYER_ID;
+    if (IsPlayerConnected(playerid)) {
+        Farm_HideBar(playerid);
+        ClearAnimations(playerid);
+        if (notify) GameTextForPlayer(playerid, "~r~Interrupted", 1500, 3);
+    }
+}
+
+stock Farm_FinishPick(playerid)
+{
+    new bush = FarmBush_Picking[playerid];
+    KillTimer(FarmPickTimer[playerid]);
+    FarmBush_Picking[playerid] = -1;
+    Farm_HideBar(playerid);
     ClearAnimations(playerid);
 
-    if (!FarmPlant[plant][ptAlive] || FarmPlant[plant][ptHarvester] != playerid) return 0;
-
-    new bool:gold = FarmPlant[plant][ptGold];
-    Farm_PickPlant(plant);
-
-    if (gold) FarmSackGold[playerid]++;
-    else FarmSack[playerid]++;
+    if (bush == -1 || FarmBush[bush][bsHarvester] != playerid || FarmBush[bush][bsStage] != BUSH_RIPE) return;
+    FarmBush[bush][bsHarvester] = INVALID_PLAYER_ID;
 
     // Серия
-    if (gettime() - FarmLastHarvest[playerid] > FARM_STREAK_RESET) FarmStreak[playerid] = 0;
-    FarmStreak[playerid]++;
-    FarmLastHarvest[playerid] = gettime();
+    new now = gettime();
+    if (now - FarmLastPick[playerid] > FARM_STREAK_RESET) FarmStreak[playerid] = 0;
+    FarmLastPick[playerid] = now;
 
-    Farm_UpdateSack(playerid);
-    new total = FarmSack[playerid] + FarmSackGold[playerid];
-    if (gold) {
-        GameTextForPlayer(playerid, "~y~GOLDEN BUNDLE!", 2500, 3);
-        SendClientMessage(playerid, COLOR_GOLD, "[Ферма] Златен сноп! Плаща се x%d.", FARM_GOLD_MULTIPLIER);
+    // Добив
+    new skill = Job_GetSkill(playerid, JOB_FARM), amount = 1;
+    if ((skill == 2 && random(100) < FARM_DOUBLE_CHANCE_2) || (skill >= 3 && random(100) < FARM_DOUBLE_CHANCE_3)) amount = 2;
+
+    if (random(100) < FARM_GOLD_CHANCE) {
+        FarmGold[playerid]++;
+        GameTextForPlayer(playerid, "~y~GOLDEN BOLL!", 3000, 3);
+        new rpName[MAX_PLAYER_NAME + 1], msg[144];
+        GetRPName(playerid, rpName);
+        format(msg, sizeof (msg), "[Ферма] %s намери златна памучна шушулка!", rpName);
+        ProxMessage(playerid, 60.0, COLOR_GOLD, msg, false);
     } else {
-        GameTextForPlayer(playerid, "~w~Sack: ~y~%d/%d", 1500, 3, total, FARM_SACK_SIZE);
+        FarmCotton[playerid] += amount;
+        if (amount == 2) GameTextForPlayer(playerid, "~g~+2 ~w~cotton", 1500, 3);
+        else GameTextForPlayer(playerid, "~g~+1 ~w~cotton", 1500, 3);
     }
-    if (total >= FARM_SACK_SIZE) {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Чувалът е пълен. Занеси го в склада.");
-        Gps_SetTarget(playerid, "Склад за памук", gStoreX, gStoreY, gStoreZ);
-    }
-    return 1;
-}
-
-stock Farm_CancelHarvest(playerid)
-{
-    new plant = FarmHarvestPlant[playerid];
-    if (plant == -1) return;
-    FarmHarvestPlant[playerid] = -1;
-    if (plant >= 0 && plant < FARM_MAX_PLANTS && FarmPlant[plant][ptHarvester] == playerid) {
-        FarmPlant[plant][ptHarvester] = INVALID_PLAYER_ID;
-    }
-    if (IsPlayerConnected(playerid)) {
-        TogglePlayerControllable(playerid, true);
-        ClearAnimations(playerid);
-    }
-}
-
-// Разтоварване в склада (чувал или бункер на комбайна)
-stock Farm_Unload(playerid, normal, gold, bool:fromCombine)
-{
-    if (normal + gold <= 0) return 0;
-
-    new price = Farm_BundlePrice(playerid);
-    new pay = normal * price + gold * price * FARM_GOLD_MULTIPLIER;
+    FarmStreak[playerid] += amount;
     new bonus = Farm_StreakBonus(playerid);
-    pay += pay * bonus / 100;
+    if (bonus > FarmBatchBonus[playerid]) FarmBatchBonus[playerid] = bonus;
 
-    Money_Give(playerid, pay);
-    Market_Add(GOODS_COTTON, (normal + gold) * 2);
-    Auth_SaveAccount(playerid);
+    // Храстът
+    FarmBush[bush][bsCount]--;
+    if (FarmBush[bush][bsCount] <= 0) Farm_SetStage(bush, BUSH_SPROUT);
+    else Farm_UpdateBushLabel(bush);
 
-    if (bonus > 0) {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Разтовари %d снопа. Получи {33CC66}$%d{FFFFFF} (серия: +%d%%).",
-            normal + gold, pay, bonus);
-    } else {
-        SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Разтовари %d снопа. Получи {33CC66}$%d{FFFFFF}.", normal + gold, pay);
-    }
-
-    // EXP: 1 на пълен чувал (или на всеки 5 снопа от комбайна), +1 за злато
-    new exp = (normal + gold) / FARM_SACK_SIZE;
-    if (exp < 1) exp = 1;
-    if (gold > 0) exp++;
-    Job_AddExp(playerid, JOB_FARM, exp);
-
-    new details[48];
-    if (fromCombine) format(details, sizeof (details), "%d снопа: $%d (комбайн)", normal + gold, pay);
-    else format(details, sizeof (details), "%d снопа: $%d", normal + gold, pay);
-    Log_Add("farm", PlayerData[playerid][pName], "", details);
-    return pay;
+    Farm_ShowHud(playerid);
 }
 
-stock bool:Farm_TryUnloadSack(playerid)
-{
-    if (GetPlayerDistanceFromPoint(playerid, gStoreX, gStoreY, gStoreZ) > 3.0) return false;
-    if (FarmSack[playerid] + FarmSackGold[playerid] == 0) {
-        SendClientMessage(playerid, COLOR_GREY, "Чувалът ти е празен.");
-        return true;
-    }
-    ApplyAnimation(playerid, "CARRY", "putdwn", 4.1, false, false, false, false, 0);
-    Farm_Unload(playerid, FarmSack[playerid], FarmSackGold[playerid], false);
-    FarmSack[playerid] = 0;
-    FarmSackGold[playerid] = 0;
-    Farm_UpdateSack(playerid);
-    Gps_Stop(playerid);
-    return true;
-}
-
-// ALT / Y. Връща true, ако бутонът е използван от фермата.
+// ALT (или Y). Връща true, ако бутонът е използван от фермата.
 stock bool:Farm_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
-    if (!FarmOnShift[playerid] || IsPlayerInAnyVehicle(playerid)) return false;
+    if (IsPlayerInAnyVehicle(playerid)) return false;
     new bool:alt = ((newkeys & KEY_WALK) && !(oldkeys & KEY_WALK)),
         bool:yes = ((newkeys & KEY_YES) && !(oldkeys & KEY_YES));
     if (!alt && !yes) return false;
+    if (Farm_GetNearestRipeBush(playerid, FARM_INTERACT_RANGE) == -1) return false;
 
-    // До склада – разтоварване
-    if (gFarmStoreSet && GetPlayerDistanceFromPoint(playerid, gStoreX, gStoreY, gStoreZ) <= 3.0) {
-        Farm_TryUnloadSack(playerid);
-        return true;
-    }
-    // До храст – беране
-    if (Farm_GetNearestPlant(playerid, 1.8, true) != -1) {
-        new now = GetTickCount();
-        if (now - FarmKeyTick[playerid] < 500) return true;
-        FarmKeyTick[playerid] = now;
-        Farm_TryHarvest(playerid);
-        return true;
-    }
-    return false;
+    new now = GetTickCount();
+    if (now - FarmKeyTick[playerid] < 500) return true;
+    FarmKeyTick[playerid] = now;
+    Farm_TryPick(playerid);
+    return true;
 }
 
 // ============================================================
-//  Таймер (всяка секунда)
+//  Изкупвач
 // ============================================================
 
+stock Farm_SaleValue(playerid)
+{
+    new units = FarmCotton[playerid] + FarmGold[playerid] * FARM_GOLD_VALUE;
+    new value = units * Market_GetPrice(GOODS_COTTON) * Job_GetPayPercent(playerid, JOB_FARM) / 100;
+    value += value * FarmBatchBonus[playerid] / 100;
+    return value;
+}
+
+stock Farm_OnBuyerInteract(playerid)
+{
+    if (FarmCotton[playerid] + FarmGold[playerid] == 0) {
+        SendClientMessage(playerid, COLOR_GREY, "Петър: \"Нямаш памук. Ела, като набереш.\" {A0A0A0}(цена сега: $%d за брой)", Market_GetPrice(GOODS_COTTON));
+        return;
+    }
+    new body[768], line[128];
+    format(body, sizeof (body), C_GREY "Петър: " C_WHITE "\"Да видим какво носиш...\"\n\n");
+    format(line, sizeof (line), C_WHITE "Памук: " C_GOLD "%d бр." C_WHITE " x " C_GREEN "$%d\n", FarmCotton[playerid], Market_GetPrice(GOODS_COTTON));
+    strcat(body, line);
+    if (FarmGold[playerid] > 0) {
+        format(line, sizeof (line), C_WHITE "Златни шушулки: " C_GOLD "%d" C_WHITE " (всяка = %d бр.)\n", FarmGold[playerid], FARM_GOLD_VALUE);
+        strcat(body, line);
+    }
+    format(line, sizeof (line), C_WHITE "Бонус скил: " C_GREEN "%d%%" C_WHITE "   Бонус серия: " C_GREEN "+%d%%\n\n",
+        Job_GetPayPercent(playerid, JOB_FARM), FarmBatchBonus[playerid]);
+    strcat(body, line);
+    format(line, sizeof (line), C_WHITE "Общо: " C_GREEN "$%d", Farm_SaleValue(playerid));
+    strcat(body, line);
+    ShowPlayerDialog(playerid, DIALOG_FARM_SELL, DIALOG_STYLE_MSGBOX, C_BRAND "Петър - Изкупвач", "%s", "Продай", "Отказ", body);
+}
+
+stock Farm_Sell(playerid)
+{
+    new units = FarmCotton[playerid] + FarmGold[playerid] * FARM_GOLD_VALUE;
+    if (units <= 0) return;
+    new value = Farm_SaleValue(playerid), gold = FarmGold[playerid];
+
+    Market_Add(GOODS_COTTON, FarmCotton[playerid] + FarmGold[playerid]);
+    Money_Give(playerid, value);
+    SendClientMessage(playerid, COLOR_GREEN, "[Ферма] {FFFFFF}Продаде памука за {33CC66}$%d{FFFFFF}.", value);
+
+    // EXP: +1 на всеки 10 продадени (остатъкът се пази), +1 за всяка златна
+    FarmExpCarry[playerid] += FarmCotton[playerid];
+    new exp = FarmExpCarry[playerid] / FARM_EXP_PER_UNITS + gold;
+    FarmExpCarry[playerid] %= FARM_EXP_PER_UNITS;
+
+    FarmCotton[playerid] = 0;
+    FarmGold[playerid] = 0;
+    FarmBatchBonus[playerid] = Farm_StreakBonus(playerid);
+    if (exp > 0) Job_AddExp(playerid, JOB_FARM, exp);
+    if (FarmOnShift[playerid]) Farm_ShowHud(playerid);
+    Auth_SaveAccount(playerid);
+
+    new details[48];
+    format(details, sizeof (details), "%d бр.: $%d", units, value);
+    Log_Add("farm_sell", PlayerData[playerid][pName], "", details);
+}
+
+// ============================================================
+//  Таймер и събития
+// ============================================================
+
+// Всяка секунда
 stock Farm_OnTick()
 {
-    new now = gettime();
-
-    // Поникване
-    for (new i = 0; i < gFarmPlantCount; i++) {
-        if (FarmPlant[i][ptExists] && !FarmPlant[i][ptAlive] && now >= FarmPlant[i][ptRespawnAt]) Farm_GrowPlant(i);
-    }
-
-    // Техника
-    for (new p = 0; p < MAX_PLAYERS; p++) {
-        if (!FarmOnShift[p] || FarmVehicle[p] == INVALID_VEHICLE_ID || !IsPlayerConnected(p)) continue;
-        if (GetVehicleModel(FarmVehicle[p]) == 0) {
-            FarmVehicle[p] = INVALID_VEHICLE_ID;
-            continue;
-        }
-        if (GetPlayerVehicleID(p) != FarmVehicle[p]) continue;
-        new model = GetVehicleModel(FarmVehicle[p]);
-
-        if (model == FARM_TRACTOR_MODEL) {
-            // Засява обраните места наоколо
-            new plant = Farm_GetNearestPlant(p, 3.5, false);
-            if (plant != -1) {
-                Farm_GrowPlant(plant);
-                Money_Give(p, FARM_TRACTOR_PAY);
-                GameTextForPlayer(p, "~g~+$%d ~w~seeded", 1000, 3, FARM_TRACTOR_PAY);
-            }
-        } else if (model == FARM_COMBINE_MODEL) {
-            // Жъне храстите наоколо
-            if (FarmBunker[p] + FarmBunkerGold[p] < FARM_COMBINE_CAPACITY) {
-                new plant = Farm_GetNearestPlant(p, 3.5, true);
-                if (plant != -1 && FarmPlant[plant][ptHarvester] == INVALID_PLAYER_ID) {
-                    if (FarmPlant[plant][ptGold]) FarmBunkerGold[p]++;
-                    else FarmBunker[p]++;
-                    Farm_PickPlant(plant);
-                    FarmStreak[p]++;
-                    FarmLastHarvest[p] = now;
-                    GameTextForPlayer(p, "~w~Bunker: ~y~%d/%d", 1000, 3, FarmBunker[p] + FarmBunkerGold[p], FARM_COMBINE_CAPACITY);
-                    if (FarmBunker[p] + FarmBunkerGold[p] >= FARM_COMBINE_CAPACITY) {
-                        SendClientMessage(p, COLOR_GREEN, "[Ферма] {FFFFFF}Бункерът е пълен. Закарай комбайна до склада.");
-                        Gps_SetTarget(p, "Склад за памук", gStoreX, gStoreY, gStoreZ);
-                    }
-                }
-            }
-            // Разтоварване до склада
-            if (FarmBunker[p] + FarmBunkerGold[p] > 0 && GetPlayerDistanceFromPoint(p, gStoreX, gStoreY, gStoreZ) <= 8.0) {
-                Farm_Unload(p, FarmBunker[p], FarmBunkerGold[p], true);
-                FarmBunker[p] = 0;
-                FarmBunkerGold[p] = 0;
-                Gps_Stop(p);
-            }
+    new now = gettime(), bool:updateLabels = (now % 5 == 0);
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) {
+        if (!FarmBush[i][bsExists] || FarmBush[i][bsStage] == BUSH_RIPE) continue;
+        if (now >= FarmBush[i][bsNextStage]) {
+            Farm_SetStage(i, FarmBush[i][bsStage] + 1);
+        } else if (updateLabels) {
+            Farm_UpdateBushLabel(i);
         }
     }
 }
 
 stock Farm_OnPlayerDisconnect(playerid)
 {
-    Farm_EndShift(playerid, true);
+    Farm_CancelPick(playerid, false);
+    Farm_EndShift(playerid, true);   // връща депозита преди записа на акаунта
     Farm_ResetPlayer(playerid);
 }
 
 stock Farm_OnPlayerDeath(playerid)
 {
-    Farm_CancelHarvest(playerid);
-    if (FarmSack[playerid] + FarmSackGold[playerid] > 0) {
-        FarmSack[playerid] = 0;
-        FarmSackGold[playerid] = 0;
-        SendClientMessage(playerid, COLOR_RED, "[Ферма] Изгуби чувала с памук.");
-    }
+    Farm_CancelPick(playerid, false);
 }
 
 stock Farm_OnPlayerSpawn(playerid)
 {
     if (FarmOnShift[playerid]) {
-        SetPlayerSkin(playerid, (PlayerData[playerid][pGender] == GENDER_FEMALE) ? FARM_SKIN_FEMALE : FARM_SKIN_MALE);
-        Farm_UpdateSack(playerid);
+        Farm_ApplyOutfit(playerid);
+        Farm_ShowHud(playerid);
     }
 }
 
@@ -581,34 +646,19 @@ stock Farm_OnPlayerSpawn(playerid)
 
 stock Farm_OnNpcInteract(playerid)
 {
-    new body[512], count = 0, skill = Job_GetSkill(playerid, JOB_FARM);
+    new body[512], count = 0;
     body[0] = EOS;
     if (!FarmOnShift[playerid]) {
-        strcat(body, C_GREEN "» " C_WHITE "Започни смяна\n");
+        format(body, sizeof (body), C_GREEN "» " C_WHITE "Започни смяна " C_GREY "(депозит $%d за гребло)\n", FARM_DEPOSIT);
         FarmMenuAction[playerid][count++] = 1;
     } else {
-        strcat(body, C_RED "» " C_WHITE "Приключи смяната\n");
+        strcat(body, C_RED "» " C_WHITE "Приключи смяната " C_GREY "(връща депозита)\n");
         FarmMenuAction[playerid][count++] = 2;
-        if (skill >= 2) {
-            strcat(body, C_BRAND "» " C_WHITE "Вземи трактор\n");
-            FarmMenuAction[playerid][count++] = 3;
-        } else {
-            strcat(body, C_GREY "» Трактор (скил 2)\n");
-            FarmMenuAction[playerid][count++] = 0;
-        }
-        if (skill >= 3) {
-            strcat(body, C_BRAND "» " C_WHITE "Вземи комбайн\n");
-            FarmMenuAction[playerid][count++] = 4;
-        } else {
-            strcat(body, C_GREY "» Комбайн (скил 3)\n");
-            FarmMenuAction[playerid][count++] = 0;
-        }
     }
     strcat(body, C_BLUE "» " C_WHITE "Моят напредък\n");
-    FarmMenuAction[playerid][count++] = 5;
+    FarmMenuAction[playerid][count++] = 3;
     strcat(body, C_BLUE "» " C_WHITE "Как се работи");
-    FarmMenuAction[playerid][count] = 6;
-
+    FarmMenuAction[playerid][count] = 4;
     ShowPlayerDialog(playerid, DIALOG_FARM_NPC, DIALOG_STYLE_LIST, C_BRAND "Иван - Фермер", "%s", "Избери", "Затвори", body);
 }
 
@@ -622,20 +672,15 @@ stock Farm_ShowProgress(playerid)
         format(line, sizeof (line), C_GREY " - следващ при %d EXP", Job_GetSkillExp(JOB_FARM, skill + 1));
         strcat(body, line);
     }
-    format(line, sizeof (line), "\n" C_WHITE "Цена за сноп: " C_GREEN "$%d" C_WHITE " (златен: " C_GOLD "$%d" C_WHITE ")\n",
-        Farm_BundlePrice(playerid), Farm_BundlePrice(playerid) * FARM_GOLD_MULTIPLIER);
+    format(line, sizeof (line), "\n" C_WHITE "Беране: " C_GOLD "%d-%d сек." C_WHITE "   Шанс за +2: " C_GOLD "%d%%\n",
+        FarmHarvestMin[skill - 1] / 1000, FarmHarvestMax[skill - 1] / 1000,
+        (skill >= 3) ? FARM_DOUBLE_CHANCE_3 : ((skill == 2) ? FARM_DOUBLE_CHANCE_2 : 0));
     strcat(body, line);
-    if (FarmOnShift[playerid]) {
-        format(line, sizeof (line), C_WHITE "Серия: " C_GOLD "%d снопа" C_WHITE " (бонус +%d%%)\n", FarmStreak[playerid], Farm_StreakBonus(playerid));
-        strcat(body, line);
-        format(line, sizeof (line), C_WHITE "В чувала: " C_GOLD "%d/%d\n", FarmSack[playerid] + FarmSackGold[playerid], FARM_SACK_SIZE);
-        strcat(body, line);
-    }
-    strcat(body, "\n" C_BRAND "Скил\n");
-    strcat(body, C_WHITE "1: беране на ръка\n");
-    strcat(body, C_WHITE "2: по-бързо беране + трактор (засява обраните места)\n");
-    strcat(body, C_WHITE "3: комбайн (жъне всичко по пътя си)\n");
-    strcat(body, C_GREY "EXP: +1 за пълен чувал, +1 за златен сноп.");
+    format(line, sizeof (line), C_WHITE "Цена сега: " C_GREEN "$%d" C_WHITE " за брой (бонус скил %d%%)\n",
+        Market_GetPrice(GOODS_COTTON), Job_GetPayPercent(playerid, JOB_FARM));
+    strcat(body, line);
+    format(line, sizeof (line), C_WHITE "В теб: " C_GOLD "%d памук" C_WHITE ", " C_GOLD "%d златни\n", FarmCotton[playerid], FarmGold[playerid]);
+    strcat(body, line);
     ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Напредък", "%s", "Назад", "", body);
 }
 
@@ -643,31 +688,35 @@ stock Farm_ShowHelp(playerid)
 {
     new body[1500], line[160];
     body[0] = EOS;
-    strcat(body, C_WHITE "1. Започни смяна при " C_BRAND "Иван" C_WHITE ".\n");
-    strcat(body, C_WHITE "2. Отиди до храст памук и натисни " C_GOLD "ALT" C_WHITE " - береш няколко секунди.\n");
-    format(line, sizeof (line), C_WHITE "3. Чувалът на гърба събира " C_GOLD "%d снопа" C_WHITE ".\n", FARM_SACK_SIZE);
+    format(line, sizeof (line), C_WHITE "1. Започни смяна при " C_BRAND "Иван" C_WHITE " - $%d депозит за гребло (връща се).\n", FARM_DEPOSIT);
     strcat(body, line);
-    strcat(body, C_WHITE "4. Отиди до " C_BRAND "склада" C_WHITE " и натисни " C_GOLD "ALT" C_WHITE " - плаща се на сноп.\n\n");
-    format(line, sizeof (line), C_GOLD "Златен сноп" C_WHITE " - рядък, плаща се x%d. Търси надписа над храста!\n", FARM_GOLD_MULTIPLIER);
+    strcat(body, C_WHITE "2. Отиди до узрял храст и натисни " C_GOLD "ALT" C_WHITE ". Не мърдай, докато лентата се напълни.\n");
+    format(line, sizeof (line), C_WHITE "3. Всеки храст дава " C_GOLD "%d" C_WHITE " пъти, после пораства наново (~%d мин.).\n", FARM_BUSH_HARVESTS, FARM_STAGE_SECONDS * 3 / 60);
+    strcat(body, line);
+    strcat(body, C_WHITE "4. Продай памука при " C_BRAND "Петър" C_WHITE " - изкупвача.\n\n");
+    format(line, sizeof (line), C_GOLD "Златна шушулка" C_WHITE " - %d%% шанс, струва колкото %d броя.\n", FARM_GOLD_CHANCE, FARM_GOLD_VALUE);
     strcat(body, line);
     strcat(body, C_WHITE "Серия - береш без дълги паузи и бонусът расте до " C_GREEN "+25%" C_WHITE ".\n");
-    strcat(body, C_WHITE "Обраните храсти поникват наново - по-бързо в дъжд, по-бавно в жега.\n");
+    strcat(body, C_WHITE "Дъждът ускорява растежа, жегата го забавя.\n");
+    strcat(body, C_WHITE "Скил 2 и 3 - по-бързо беране и шанс за двоен добив.\n\n");
+    strcat(body, C_GREY "Внимание: непродаденият памук се губи при излизане от сървъра.");
     ShowPlayerDialog(playerid, DIALOG_FARM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Ферма " C_WHITE "| Как се работи", "%s", "Назад", "", body);
 }
 
-stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
+// ============================================================
+//  Диалози
+// ============================================================
+
+stock Farm_OnDialogResponse(playerid, dialogid, response, listitem, const inputtext[])
 {
     switch (dialogid) {
         case DIALOG_FARM_NPC: {
-            if (!response || listitem < 0 || listitem > 5) return 1;
+            if (!response || listitem < 0 || listitem > 3) return 1;
             switch (FarmMenuAction[playerid][listitem]) {
                 case 1: Farm_StartShift(playerid);
                 case 2: Farm_EndShift(playerid);
-                case 3: Farm_SpawnVehicle(playerid, FARM_TRACTOR_MODEL);
-                case 4: Farm_SpawnVehicle(playerid, FARM_COMBINE_MODEL);
-                case 5: Farm_ShowProgress(playerid);
-                case 6: Farm_ShowHelp(playerid);
-                default: SendError(playerid, "Скилът ти още не стига за това.");
+                case 3: Farm_ShowProgress(playerid);
+                case 4: Farm_ShowHelp(playerid);
             }
             return 1;
         }
@@ -675,8 +724,26 @@ stock Farm_OnDialogResponse(playerid, dialogid, response, listitem)
             Farm_OnNpcInteract(playerid);
             return 1;
         }
+        case DIALOG_FARM_SELL: {
+            if (response) Farm_Sell(playerid);
+            return 1;
+        }
         case DIALOG_FARM_EDIT: {
             if (response) Farm_OnEditSelect(playerid, listitem);
+            return 1;
+        }
+        case DIALOG_FARM_MODEL: {
+            if (!response) {
+                Farm_ShowEditMenu(playerid);
+                return 1;
+            }
+            new model = IsNumeric(inputtext) ? strval(inputtext) : 0;
+            if (model < 300 || model > 20000) {
+                SendError(playerid, "Невалиден модел.");
+                return 1;
+            }
+            Farm_SetModel(playerid, FarmModelEdit[playerid], model);
+            Farm_ShowEditMenu(playerid);
             return 1;
         }
     }
@@ -695,28 +762,25 @@ CMD:farmedit(playerid, params[])
     return 1;
 }
 
-stock Farm_EditLine(body[], size, const name[], bool:isSet)
-{
-    new line[96];
-    if (isSet) format(line, sizeof (line), C_GREEN "» " C_WHITE "%s " C_GREEN "(поставен)\n", name);
-    else format(line, sizeof (line), C_GREY "» " C_WHITE "%s " C_GREY "(не е поставен)\n", name);
-    strcat(body, line, size);
-}
-
 stock Farm_ShowEditMenu(playerid)
 {
-    new body[1024], Float:x, Float:y, Float:z, Float:a;
+    new body[1024], line[128], count = 0;
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) if (FarmBush[i][bsExists]) count++;
+
     body[0] = EOS;
-    strcat(body, C_BRAND "» " C_WHITE "Иван (NPC) - тук\n");
-    Farm_EditLine(body, sizeof (body), "Ъгъл 1 на полето", Job_GetPoint(JOB_FARM, "fieldA", x, y, z, a));
-    Farm_EditLine(body, sizeof (body), "Ъгъл 2 на полето", Job_GetPoint(JOB_FARM, "fieldB", x, y, z, a));
-    Farm_EditLine(body, sizeof (body), "Склад", gFarmStoreSet);
-    Farm_EditLine(body, sizeof (body), "Паркинг за техниката", gFarmParkSet);
-    new line[96];
-    format(line, sizeof (line), C_BLUE "» " C_WHITE "Засади полето наново " C_GREY "(%d храста)", gFarmPlantCount);
+    strcat(body, C_BRAND "» " C_WHITE "Иван (фермер) - тук\n");
+    strcat(body, C_BRAND "» " C_WHITE "Петър (изкупвач) - тук\n");
+    format(line, sizeof (line), C_GREEN "» " C_WHITE "Добави храст тук " C_GREY "(сега: %d/%d)\n", count, FARM_MAX_BUSHES);
     strcat(body, line);
-    ShowPlayerDialog(playerid, DIALOG_FARM_EDIT, DIALOG_STYLE_LIST, C_RED "Ферма " C_WHITE "| Застани на мястото и избери",
-        "%s", "Постави тук", "Затвори", body);
+    strcat(body, C_RED "» " C_WHITE "Изтрий най-близкия храст\n");
+    strcat(body, C_BLUE "» " C_WHITE "Пробни модели тук " C_GREY "(ред от модели за избор, за 3 мин.)\n");
+    format(line, sizeof (line), C_BLUE "» " C_WHITE "Модел: узрял храст " C_GREY "(%d)\n", gModelRipe);
+    strcat(body, line);
+    format(line, sizeof (line), C_BLUE "» " C_WHITE "Модел: стрък " C_GREY "(%d)\n", gModelStalk);
+    strcat(body, line);
+    format(line, sizeof (line), C_BLUE "» " C_WHITE "Модел: кълн " C_GREY "(%d)", gModelSprout);
+    strcat(body, line);
+    ShowPlayerDialog(playerid, DIALOG_FARM_EDIT, DIALOG_STYLE_LIST, C_RED "Ферма " C_WHITE "| Редактор", "%s", "Избери", "Затвори", body);
 }
 
 stock Farm_OnEditSelect(playerid, item)
@@ -728,41 +792,119 @@ stock Farm_OnEditSelect(playerid, item)
     switch (item) {
         case 0: {
             Job_SetPoint(JOB_FARM, "job", x, y, z, a);
-            Npc_MoveRole(NPC_ROLE_FARM, x, y, z, a);
-            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Иван е преместен тук.");
+            Npc_PlaceRole(NPC_ROLE_FARM, "Иван - Фермер", 158, x, y, z, a, 3);
+            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Иван е тук.");
         }
-        case 1, 2: {
-            if (item == 1) Job_SetPoint(JOB_FARM, "fieldA", x, y, z, a);
-            else Job_SetPoint(JOB_FARM, "fieldB", x, y, z, a);
-            new Float:t;
-            gFarmFieldSet = Job_GetPoint(JOB_FARM, "fieldA", gFieldAX, gFieldAY, gFieldAZ, t)
-                && Job_GetPoint(JOB_FARM, "fieldB", gFieldBX, gFieldBY, gFieldBZ, t);
-            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Ъгъл %d на полето е поставен.", item);
-            if (gFarmFieldSet) {
-                Farm_BuildField();
-                SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Полето е засадено: %d храста.", gFarmPlantCount);
+        case 1: {
+            Npc_PlaceRole(NPC_ROLE_FARM_BUYER, "Петър - Изкупвач", 161, x, y, z, a, 1);
+            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Петър (изкупвач) е тук.");
+        }
+        case 2: {
+            new q[192];
+            format(q, sizeof (q), "INSERT INTO farm_bushes (x, y, z, a) VALUES (%f, %f, %f, %f)", x, y, z, a);
+            Database_Exec(q);
+            new dbid = 0;
+            new DBResult:result = Database_Query("SELECT MAX(id) AS id FROM farm_bushes");
+            if (result != DBResult:0) {
+                dbid = DB_GetFieldIntByName(result, "id");
+                DB_FreeResultSet(result);
+            }
+            if (Farm_AddBushToMemory(dbid, x, y, z, a) == -1) {
+                SendError(playerid, "Достигнат е максималният брой храсти.");
+            } else {
+                // Отстъпваме, за да не стоим в храста
+                SetPlayerPos(playerid, x - 1.2 * floatsin(a, degrees), y + 1.2 * floatcos(a, degrees), z);
+                SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Храстът е добавен.");
             }
         }
         case 3: {
-            Job_SetPoint(JOB_FARM, "store", x, y, z, a);
-            gStoreX = x; gStoreY = y; gStoreZ = z;
-            gFarmStoreSet = true;
-            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Складът е поставен тук.");
+            new bush = Farm_GetNearestBush(playerid, 3.0);
+            if (bush == -1) {
+                SendError(playerid, "Няма храст в радиус 3 м.");
+            } else {
+                new q[96];
+                format(q, sizeof (q), "DELETE FROM farm_bushes WHERE id = %d", FarmBush[bush][bsDBID]);
+                Database_Exec(q);
+                Farm_RemoveBush(bush);
+                SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Храстът е изтрит.");
+            }
         }
-        case 4: {
-            Job_SetPoint(JOB_FARM, "park", x, y, z, a);
-            gParkX = x; gParkY = y; gParkZ = z; gParkA = a;
-            gFarmParkSet = true;
-            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Паркингът е поставен тук (колата ще гледа накъдето гледаш ти).");
-        }
-        case 5: {
-            Farm_BuildField();
-            SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Полето е засадено наново: %d храста.", gFarmPlantCount);
+        case 4: Farm_ShowTestModels(playerid, x, y, z, a);
+        case 5, 6, 7: {
+            FarmModelEdit[playerid] = item - 5;
+            ShowPlayerDialog(playerid, DIALOG_FARM_MODEL, DIALOG_STYLE_INPUT, C_RED "Ферма " C_WHITE "| Модел",
+                C_WHITE "Въведи номер на модел (виж пробните модели - номерът е над всеки).", "Запази", "Назад");
+            return;
         }
     }
-    Farm_CreateLabels();
     Log_Add("farmedit", PlayerData[playerid][pName], "", "");
     Farm_ShowEditMenu(playerid);
+}
+
+// which: 0 = узрял, 1 = стрък, 2 = кълн
+stock Farm_SetModel(playerid, which, model)
+{
+    switch (which) {
+        case 0: {
+            gModelRipe = model;
+            Settings_SetInt("farm_model_ripe", model);
+        }
+        case 1: {
+            gModelStalk = model;
+            Settings_SetInt("farm_model_stalk", model);
+        }
+        default: {
+            gModelSprout = model;
+            Settings_SetInt("farm_model_sprout", model);
+        }
+    }
+    // Прилагаме веднага
+    for (new i = 0; i < FARM_MAX_BUSHES; i++) {
+        if (!FarmBush[i][bsExists]) continue;
+        if (FarmBush[i][bsObject] != 0) DestroyDynamicObject(FarmBush[i][bsObject]);
+        FarmBush[i][bsObject] = CreateDynamicObject(Farm_StageModel(FarmBush[i][bsStage]),
+            FarmBush[i][bsX], FarmBush[i][bsY], FarmBush[i][bsZ] - 1.0, 0.0, 0.0, FarmBush[i][bsA], 0, 0, -1, 100.0);
+    }
+    SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Моделът е сменен на %d.", model);
+}
+
+// Ред от пробни модели пред админа, с номер над всеки. Изчезват след 3 минути.
+static gFarmTestObj[sizeof (FarmTestModels)], STREAMER_TAG_3D_TEXT_LABEL:gFarmTestLabel[sizeof (FarmTestModels)], bool:gFarmTestActive;
+
+stock Farm_ShowTestModels(playerid, Float:x, Float:y, Float:z, Float:a)
+{
+    Farm_ClearTestModels();
+    // Редът е 3 м пред админа, перпендикулярно на погледа
+    new Float:cx = x - 3.0 * floatsin(a, degrees), Float:cy = y + 3.0 * floatcos(a, degrees);
+    new Float:rx = floatcos(a, degrees), Float:ry = floatsin(a, degrees);
+    new n = sizeof (FarmTestModels), text[16];
+    for (new i = 0; i < n; i++) {
+        new Float:off = (float(i) - float(n - 1) / 2.0) * 1.6;
+        new Float:px = cx + rx * off, Float:py = cy + ry * off;
+        gFarmTestObj[i] = CreateDynamicObject(FarmTestModels[i], px, py, z - 1.0, 0.0, 0.0, a, -1, -1, -1, 100.0);
+        format(text, sizeof (text), "{FFD54A}%d", FarmTestModels[i]);
+        gFarmTestLabel[i] = CreateDynamic3DTextLabel(text, COLOR_WHITE, px, py, z + 0.8, 15.0);
+    }
+    gFarmTestActive = true;
+    SetTimer("Farm_ClearTestModelsTimer", 180000, false);
+    SendClientMessage(playerid, COLOR_ADMIN, "[Ферма] Пред теб има %d пробни модела с номерата им. Избери с /farmedit -> Модел.", n);
+}
+
+forward Farm_ClearTestModelsTimer();
+public Farm_ClearTestModelsTimer()
+{
+    Farm_ClearTestModels();
+    return 1;
+}
+
+stock Farm_ClearTestModels()
+{
+    if (!gFarmTestActive) return;
+    for (new i = 0; i < sizeof (FarmTestModels); i++) {
+        DestroyDynamicObject(gFarmTestObj[i]);
+        DestroyDynamic3DTextLabel(gFarmTestLabel[i]);
+    }
+    gFarmTestActive = false;
 }
 
 CMD:farm(playerid, params[])
