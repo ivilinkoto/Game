@@ -1,12 +1,14 @@
-// HUD долу вдясно: пари винаги, скорост и състояние на машината – в превозно средство.
+// HUD долу в средата: скорост и състояние на машината – само в превозно средство.
+// Парите не се дублират – играта сама ги показва горе вдясно.
+// В средата, за да не застъпва бутоните на мобилния клиент (долу вляво и вдясно).
 // Текстът е на латиница: шрифтовете на SA не показват кирилица.
 //
 // В етап 2 тук се добавят гориво и товар.
 
-#define HUD_X           608.0
+#define HUD_X           320.0
 #define HUD_Y_MONEY     392.0
-#define HUD_Y_SPEED     408.0
-#define HUD_Y_HEALTH    424.0
+#define HUD_Y_SPEED     398.0
+#define HUD_Y_HEALTH    414.0
 
 static PlayerText:HudMoney[MAX_PLAYERS] = {INVALID_PLAYER_TEXT_DRAW, ...};
 static PlayerText:HudSpeed[MAX_PLAYERS] = {INVALID_PLAYER_TEXT_DRAW, ...};
@@ -18,7 +20,7 @@ static stock PlayerText:Hud_MakeText(playerid, Float:y, Float:size)
     new PlayerText:t = CreatePlayerTextDraw(playerid, HUD_X, y, "_");
     PlayerTextDrawFont(playerid, t, TEXT_DRAW_FONT_3);
     PlayerTextDrawLetterSize(playerid, t, size, size * 4.0);
-    PlayerTextDrawAlignment(playerid, t, TEXT_DRAW_ALIGN_RIGHT);
+    PlayerTextDrawAlignment(playerid, t, TEXT_DRAW_ALIGN_CENTRE);
     PlayerTextDrawColour(playerid, t, COLOR_WHITE);
     PlayerTextDrawSetOutline(playerid, t, 1);
     PlayerTextDrawSetShadow(playerid, t, 0);
@@ -50,8 +52,6 @@ stock Hud_Destroy(playerid)
 stock Hud_Show(playerid)
 {
     if (!PlayerData[playerid][pHudOn] || HudMoney[playerid] == INVALID_PLAYER_TEXT_DRAW) return;
-    Hud_UpdateMoney(playerid);
-    PlayerTextDrawShow(playerid, HudMoney[playerid]);
     HudInVehicle[playerid] = false;
     Hud_Update(playerid);
 }

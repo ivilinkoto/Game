@@ -51,7 +51,7 @@ stock Menu_ShowProfile(playerid)
 stock Menu_ShowSettings(playerid)
 {
     new body[192];
-    format(body, sizeof (body), "CB радио\t%s\nCB канал\t" C_BRAND "%d\nHUD (скорост, пари)\t%s",
+    format(body, sizeof (body), "CB радио\t%s\nCB канал\t" C_BRAND "%d\nHUD (скорост)\t%s",
         PlayerData[playerid][pCBOn] ? (C_GREEN "ВКЛ") : (C_RED "ИЗК"),
         PlayerData[playerid][pCBChannel],
         PlayerData[playerid][pHudOn] ? (C_GREEN "ВКЛ") : (C_RED "ИЗК"));
