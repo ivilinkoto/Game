@@ -14,8 +14,8 @@ static const AdminLevelNames[][] = {"Играч", "Хелпър", "Модера�
 enum E_ADMIN_CMD {
     acName[16],
     acLevel,
-    acUsage[64],        // "" = без параметри
-    acDesc[64]
+    acUsage[80],        // "" = без параметри
+    acDesc[80]
 }
 
 static const AdminCmds[][E_ADMIN_CMD] = {
