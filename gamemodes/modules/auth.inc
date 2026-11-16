@@ -115,6 +115,7 @@ stock Auth_OnLoginResult(playerid, bool:success)
 
     ClearChat(playerid);
     SendClientMessage(playerid, COLOR_BRAND, "[CARGO] " C_WHITE "Добре дошъл отново, " C_BRAND "%s" C_WHITE "! Менюто е на " C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE ".", PlayerData[playerid][pName]);
+    if (!PlayerData[playerid][pStarterGiven]) Veh_GiveStarter(playerid);
     Auth_SpawnPlayer(playerid);
 }
 
@@ -141,8 +142,15 @@ stock Auth_LoadAccount(playerid)
         PlayerData[playerid][pCBChannel] = DB_GetFieldIntByName(r, "cb_channel");
         PlayerData[playerid][pCBOn]      = (DB_GetFieldIntByName(r, "cb_on") != 0);
         PlayerData[playerid][pHudOn]     = (DB_GetFieldIntByName(r, "hud_on") != 0);
+        PlayerData[playerid][pGarageCity] = DB_GetFieldIntByName(r, "garage_city");
+        PlayerData[playerid][pStarterGiven] = (DB_GetFieldIntByName(r, "starter_given") != 0);
     }
     DB_FreeResultSet(r);
+
+    if (PlayerData[playerid][pGarageCity] < 0 || PlayerData[playerid][pGarageCity] >= MAX_CITIES) {
+        PlayerData[playerid][pGarageCity] = CITY_LS;
+    }
+    Veh_Load(playerid);
 
     // Нивото винаги следва опита (ако праговете се сменят)
     PlayerData[playerid][pLevel] = Level_ForExp(PlayerData[playerid][pExp]);
@@ -168,7 +176,7 @@ stock Auth_ShowPassword(playerid, const error[])
 {
     new err[96];
     Auth_ErrorSuffix(error, err);
-    ShowPlayerDialog(playerid, DIALOG_REG_PASSWORD, DIALOG_STYLE_PASSWORD, C_BRAND "Регистрация" C_WHITE " | Парола (1/4)",
+    ShowPlayerDialog(playerid, DIALOG_REG_PASSWORD, DIALOG_STYLE_PASSWORD, C_BRAND "Регистрация" C_WHITE " | Парола (1/5)",
         C_WHITE "Измисли парола (" C_BRAND "%d–%d" C_WHITE " символа):%s",
         "Напред", "Назад", PASSWORD_MIN, PASSWORD_MAX, err);
 }
@@ -177,14 +185,14 @@ stock Auth_ShowConfirm(playerid, const error[])
 {
     new err[96];
     Auth_ErrorSuffix(error, err);
-    ShowPlayerDialog(playerid, DIALOG_REG_CONFIRM, DIALOG_STYLE_PASSWORD, C_BRAND "Регистрация" C_WHITE " | Парола (2/4)",
+    ShowPlayerDialog(playerid, DIALOG_REG_CONFIRM, DIALOG_STYLE_PASSWORD, C_BRAND "Регистрация" C_WHITE " | Парола (2/5)",
         C_WHITE "Въведи паролата още веднъж:%s",
         "Напред", "Назад", err);
 }
 
 stock Auth_ShowGender(playerid)
 {
-    ShowPlayerDialog(playerid, DIALOG_REG_GENDER, DIALOG_STYLE_LIST, C_BRAND "Регистрация" C_WHITE " | Пол (3/4)",
+    ShowPlayerDialog(playerid, DIALOG_REG_GENDER, DIALOG_STYLE_LIST, C_BRAND "Регистрация" C_WHITE " | Пол (3/5)",
         "Мъж\nЖена", "Напред", "Назад");
 }
 
@@ -199,7 +207,17 @@ stock Auth_OnSkinChosen(playerid, skin)
     if (PlayerData[playerid][pLogged] || PlayerData[playerid][pRegPass][0] == EOS) return;
     PlayerData[playerid][pGender] = PlayerData[playerid][pRegGender];
     PlayerData[playerid][pSkin] = skin;
-    Pass_Hash(playerid, PASS_REGISTER, PlayerData[playerid][pRegPass]);
+    Auth_ShowCity(playerid);
+}
+
+stock Auth_ShowCity(playerid)
+{
+    ShowPlayerDialog(playerid, DIALOG_REG_CITY, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Регистрация" C_WHITE " | Начален град (5/5)",
+        "Град\tНачални товари\tПътища\n" \
+        C_BRAND "Los Santos\t" C_WHITE "пристанище, контейнери, кутии\t" C_GREY "град, къси курсове\n" \
+        C_BRAND "San Fierro\t" C_WHITE "дърва, строителни материали\t" C_GREY "хълмове и завои\n" \
+        C_BRAND "Las Venturas\t" C_WHITE "кариера, руда, гориво\t" C_GREY "пустиня, дълги прави",
+        "Избери", "Назад");
 }
 
 stock Auth_OnSkinCancelled(playerid)
@@ -215,10 +233,10 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     new ip[16], q[400];
     GetPlayerIp(playerid, ip, sizeof (ip));
     format(q, sizeof (q),
-        "INSERT INTO accounts (name, password, gender, skin, money, register_ip, last_ip, registered_at, last_login) " \
-        "VALUES ('%s', '%s', %d, %d, %d, '%s', '%s', %d, %d)",
+        "INSERT INTO accounts (name, password, gender, skin, money, garage_city, register_ip, last_ip, registered_at, last_login) " \
+        "VALUES ('%s', '%s', %d, %d, %d, %d, '%s', '%s', %d, %d)",
         PlayerData[playerid][pName], hash, PlayerData[playerid][pGender], PlayerData[playerid][pSkin],
-        START_MONEY, ip, ip, gettime(), gettime());
+        START_MONEY, PlayerData[playerid][pRegCity], ip, ip, gettime(), gettime());
     Database_Exec(q);
 
     format(q, sizeof (q), "SELECT id FROM accounts WHERE name = '%s' LIMIT 1", PlayerData[playerid][pName]);
@@ -241,20 +259,24 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     PlayerData[playerid][pExp] = 0;
     PlayerData[playerid][pLevel] = 1;
     PlayerData[playerid][pRegPass][0] = EOS;
+    PlayerData[playerid][pGarageCity] = PlayerData[playerid][pRegCity];
 
     printf("[AUTH] New account: %s (id %d)", PlayerData[playerid][pName], id);
     ClearChat(playerid);
+    Veh_Load(playerid);
+    Veh_GiveStarter(playerid);
     Auth_SpawnPlayer(playerid);
 
     new money[16];
     FormatMoney(START_MONEY, money);
     ShowPlayerDialog(playerid, DIALOG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Готово!",
-        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " начален капитал.\n\n" \
+        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " и безплатен " C_BRAND "Yankee" C_WHITE ".\n" \
+        "Намираш се в своя гараж в " C_BRAND "%s" C_WHITE ". Качи се в камиона и натисни " C_BRAND "Y" C_WHITE " до вратата.\n\n" \
         C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – главното меню (работа, GPS, профил, настройки)\n" \
         C_BRAND "/cb [текст]" C_WHITE " – CB радио за шофьорите (канал 19)\n" \
         C_BRAND "/pm [ID] [текст]" C_WHITE " – лично съобщение\n\n" \
         "Приятен път!",
-        "Да карам!", "", money);
+        "Да карам!", "", money, CityNames[PlayerData[playerid][pGarageCity]]);
 }
 
 // ---------- Спаун ----------
@@ -264,13 +286,15 @@ stock Auth_SpawnPlayer(playerid)
     PlayerData[playerid][pLogged] = true;
     SetPlayerScore(playerid, PlayerData[playerid][pLevel]);
 
-    if (PlayerData[playerid][pHasPos]) {
-        SetSpawnInfo(playerid, NO_TEAM, PlayerData[playerid][pSkin],
-            PlayerData[playerid][pPosX], PlayerData[playerid][pPosY], PlayerData[playerid][pPosZ], PlayerData[playerid][pPosA]);
-    } else {
-        SetSpawnInfo(playerid, NO_TEAM, PlayerData[playerid][pSkin], SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_A);
-    }
+    // Спаунът е винаги в личния гараж (виж Garage_OnPlayerSpawn).
+    Auth_SetGarageSpawn(playerid);
     TogglePlayerSpectating(playerid, false);
+}
+
+stock Auth_SetGarageSpawn(playerid)
+{
+    SetSpawnInfo(playerid, NO_TEAM, PlayerData[playerid][pSkin],
+        GARAGE_X + GARAGE_FOOT_X, GARAGE_Y + GARAGE_FOOT_Y, GARAGE_Z + 1.0, 0.0);
 }
 
 stock Auth_OnPlayerSpawn(playerid)
@@ -283,13 +307,10 @@ stock Auth_OnPlayerSpawn(playerid)
 
     PlayerData[playerid][pSpawned] = true;
     SetPlayerSkin(playerid, PlayerData[playerid][pSkin]);
-    SetPlayerInterior(playerid, 0);
-    SetPlayerVirtualWorld(playerid, 0);
-    SetCameraBehindPlayer(playerid);
     Money_Sync(playerid);
 
-    // Следващите спауни (след смърт) са на основната точка.
-    SetSpawnInfo(playerid, NO_TEAM, PlayerData[playerid][pSkin], SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_A);
+    // И следващите спауни (след смърт) са в гаража.
+    Auth_SetGarageSpawn(playerid);
     return 1;
 }
 
@@ -384,6 +405,16 @@ stock Auth_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
             }
             PlayerData[playerid][pRegGender] = (listitem == 1) ? 1 : 0;
             Auth_ShowSkin(playerid);
+            return 1;
+        }
+        case DIALOG_REG_CITY: {
+            if (!response) {
+                Auth_ShowSkin(playerid);
+                return 1;
+            }
+            if (listitem < 0 || listitem >= MAX_CITIES) listitem = CITY_LS;
+            PlayerData[playerid][pRegCity] = listitem;
+            Pass_Hash(playerid, PASS_REGISTER, PlayerData[playerid][pRegPass]);
             return 1;
         }
         case DIALOG_WELCOME: {

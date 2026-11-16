@@ -33,6 +33,12 @@ enum E_PLAYER_DATA {
     Float:pPosA,
     bool:pHasPos,
 
+    // Град и гараж
+    pGarageCity,
+    pRegCity,
+    bool:pStarterGiven,
+    bool:pInGarage,
+
     // Настройки
     pCBChannel,
     bool:pCBOn,

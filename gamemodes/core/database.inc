@@ -12,6 +12,31 @@ stock Database_Exec(const query[])
     }
 }
 
+// Добавя колона, ако я няма (за бази от по-стари версии).
+stock Database_AddColumn(const table[], const column[], const definition[])
+{
+    new q[256], DBResult:r, bool:exists = false, name[64];
+    format(q, sizeof (q), "PRAGMA table_info(%s)", table);
+    r = DB_ExecuteQuery(gDatabase, "%s", q);
+    if (r != DBResult:0) {
+        new rows = DB_GetRowCount(r);
+        for (new i = 0; i < rows; i++) {
+            DB_GetFieldStringByName(r, "name", name, sizeof (name));
+            if (strcmp(name, column, true) == 0) {
+                exists = true;
+                break;
+            }
+            DB_SelectNextRow(r);
+        }
+        DB_FreeResultSet(r);
+    }
+    if (!exists) {
+        format(q, sizeof (q), "ALTER TABLE %s ADD COLUMN %s %s", table, column, definition);
+        Database_Exec(q);
+        printf("[DB] Added column %s.%s", table, column);
+    }
+}
+
 // Заявка с резултат. Извикващият трябва да извика DB_FreeResultSet!
 stock DBResult:Database_Query(const query[])
 {
@@ -79,6 +104,27 @@ stock bool:Database_Init()
     strcat(q, "name TEXT NOT NULL,");
     strcat(q, "x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL)");
     Database_Exec(q);
+
+    // --- Колони, добавени след етап 1 ---
+    Database_AddColumn("accounts", "garage_city", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("accounts", "starter_given", "INTEGER NOT NULL DEFAULT 0");
+
+    // --- Камиони на играчите ---
+    q[0] = EOS;
+    strcat(q, "CREATE TABLE IF NOT EXISTS player_vehicles (");
+    strcat(q, "id INTEGER PRIMARY KEY AUTOINCREMENT,");
+    strcat(q, "owner_id INTEGER NOT NULL,");
+    strcat(q, "slot INTEGER NOT NULL,");
+    strcat(q, "model INTEGER NOT NULL,");
+    strcat(q, "color1 INTEGER NOT NULL DEFAULT 1,");
+    strcat(q, "color2 INTEGER NOT NULL DEFAULT 1,");
+    strcat(q, "health REAL NOT NULL DEFAULT 1000,");
+    strcat(q, "created_at INTEGER NOT NULL DEFAULT 0)");
+    Database_Exec(q);
+    Database_Exec("CREATE INDEX IF NOT EXISTS idx_pveh_owner ON player_vehicles(owner_id)");
+
+    // --- Входове на гаражите (по град) ---
+    Database_Exec("CREATE TABLE IF NOT EXISTS garage_entrances (city INTEGER PRIMARY KEY, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, a REAL NOT NULL)");
 
     print("[DB] " DATABASE_FILE " is ready.");
     return true;

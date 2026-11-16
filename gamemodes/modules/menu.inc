@@ -3,6 +3,7 @@
 
 enum {
     MENU_ITEM_WORK,
+    MENU_ITEM_GARAGE,
     MENU_ITEM_GPS,
     MENU_ITEM_PROFILE,
     MENU_ITEM_CB,
@@ -21,10 +22,10 @@ stock Menu_Show(playerid)
 {
     if (PlayerData[playerid][pAdmin] >= 1) {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Работа\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
+            "Работа\nМоят гараж\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
     } else {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Работа\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
+            "Работа\nМоят гараж\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
     }
 }
 
@@ -99,6 +100,7 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                         C_WHITE "Превозите (камиони под наем, поръчки, товари)\nидват в следващата версия на сървъра.",
                         "Добре", "");
                 }
+                case MENU_ITEM_GARAGE:   Garage_ShowMenu(playerid);
                 case MENU_ITEM_GPS:      Gps_ShowCategories(playerid);
                 case MENU_ITEM_PROFILE:  Menu_ShowProfile(playerid);
                 case MENU_ITEM_CB:       Menu_ShowCBChannel(playerid);

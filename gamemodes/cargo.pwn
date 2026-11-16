@@ -11,6 +11,7 @@
 
 #include <open.mp>
 #include <samp_bcrypt>
+#include <streamer>
 
 // Памет за стека/heap-а (в клетки по 4 байта = 256 KB) – за големите диалози и заявки.
 #pragma dynamic 65536
@@ -30,10 +31,18 @@
 // Функции с таг (bool:), които се ползват преди дефиницията си
 forward bool:Admin_Check(playerid, level);
 forward bool:Admin_CheckBan(playerid);
+forward bool:Veh_IsOut(playerid, slot);
+forward bool:Veh_ReturnToGarage(playerid, slot);
+forward bool:Garage_IsInside(playerid);
+
+#include "maps/garage.inc"
 
 #include "modules/money.inc"
 #include "modules/levels.inc"
 #include "modules/hud.inc"
+#include "modules/cities.inc"
+#include "modules/vehicles.inc"
+#include "modules/garage.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -66,6 +75,9 @@ public OnGameModeInit()
 
     // Нужен е поне един клас, иначе клиентът не може да спаунне.
     AddPlayerClass(133, SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_A);
+
+    Garage_CreateMap();
+    City_Init();
 
     gTickTimer = SetTimer("Server_Tick", 1000, true);
     gHudTimer = SetTimer("Hud_Tick", 300, true);
@@ -105,6 +117,8 @@ public OnPlayerConnect(playerid)
     Pass_OnPlayerConnect(playerid);
     Gps_Reset(playerid);
     SkinSelect_OnPlayerConnect(playerid);
+    Veh_OnPlayerConnect(playerid);
+    Garage_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
     SetPlayerColor(playerid, 0xF5A623FF);
@@ -115,6 +129,7 @@ public OnPlayerDisconnect(playerid, reason)
 {
     #pragma unused reason
     Auth_SaveAccount(playerid);
+    Veh_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
     Hud_Destroy(playerid);
     ResetPlayerData(playerid);
@@ -137,6 +152,7 @@ public OnPlayerRequestSpawn(playerid)
 public OnPlayerSpawn(playerid)
 {
     if (!Auth_OnPlayerSpawn(playerid)) return 1;
+    Garage_OnPlayerSpawn(playerid);
     Hud_Show(playerid);
     return 1;
 }
@@ -150,6 +166,7 @@ public OnPlayerDeath(playerid, killerid, WEAPON:reason)
 
 public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
+    if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -171,8 +188,22 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (!PlayerData[playerid][pLogged]) return 1;
     if (Menu_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Gps_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Garage_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
+}
+
+public OnPlayerStateChange(playerid, PLAYER_STATE:newstate, PLAYER_STATE:oldstate)
+{
+    #pragma unused oldstate
+    Veh_OnPlayerStateChange(playerid, newstate);
+    return 1;
+}
+
+public OnVehicleSpawn(vehicleid)
+{
+    Veh_OnVehicleSpawn(vehicleid);
+    return 1;
 }
 
 public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)

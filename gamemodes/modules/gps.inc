@@ -95,6 +95,16 @@ static stock Gps_SetTarget(playerid, pointId)
     DB_FreeResultSet(r);
 }
 
+// Маршрут до произволна точка (напр. гаража).
+stock Gps_SetPoint(playerid, const name[], Float:x, Float:y, Float:z)
+{
+    DisablePlayerCheckpoint(playerid);
+    SetPlayerCheckpoint(playerid, x, y, z, GPS_CP_RADIUS);
+    GpsActive[playerid] = true;
+    SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Маршрут до " C_BRAND "%s" C_WHITE " (%.1f км). Следвай червения маркер на картата.",
+        name, GetPlayerDistanceFromPoint(playerid, x, y, z) / 1000.0);
+}
+
 stock Gps_Cancel(playerid)
 {
     if (!GpsActive[playerid]) return;
