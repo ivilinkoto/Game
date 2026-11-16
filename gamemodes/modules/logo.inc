@@ -49,7 +49,7 @@ stock Logo_Init()
     TextDrawTextSize(LogoTruck, 34.0, 30.0);
     TextDrawSetPreviewModel(LogoTruck, 515);
     TextDrawSetPreviewRot(LogoTruck, -10.0, 0.0, -35.0, 1.0);
-    TextDrawSetPreviewVehCol(LogoTruck, 6, 1);
+    TextDrawSetPreviewVehicleColours(LogoTruck, 6, 1);
 }
 
 stock Logo_Show(playerid)
