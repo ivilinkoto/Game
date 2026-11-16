@@ -31,16 +31,16 @@ Truck simulator сървър за SA-MP / open.mp – целият San Andreas �
 
 ## Сървър (VPS)
 
-open.mp е в `/home/omp/Server` и работи като услуга `omp`. Хранилището е клонирано в `/home/omp/hotfix`.
+open.mp е в `/home/omp/Server` и работи като услуга `omp`. Хранилището е клонирано в `/home/omp/cargo`.
 
-**Еднократно – превключване към CARGO STATE** (като root):
+**Еднократно – премахване на HOTFIX ONLINE и пускане на CARGO STATE** (като root):
 
 ```bash
-BRANCH=ccr-9762dda4-kqdp20 deploy
+cd /home/omp/hotfix && runuser -u omp -- git fetch origin ccr-9762dda4-kqdp20 && runuser -u omp -- git reset --hard FETCH_HEAD && bash scripts/cleanup-hotfix.sh
 ```
 
-Това изтегля новия код, компилира `cargo.amx`, сменя името на сървъра и главния скрипт в `config.json`
-и рестартира. Старата база `hotfix.db` остава непокътната в `scriptfiles/`; новата е `cargo.db`.
+Скриптът спира сървъра, архивира и изтрива старите файлове на HOTFIX (архивът е в `/root`),
+оправя `config.json`, мести хранилището в `/home/omp/cargo`, пренасочва `deploy` и стартира CARGO STATE.
 След това обновяването е само `deploy`.
 
 | Какво | Команда |
