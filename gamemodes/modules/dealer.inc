@@ -13,7 +13,7 @@
 #define DEALER_TOP          118.0
 #define DEALER_ROW_H        (DEALER_CARD_H + 30.0)
 
-// По подразбиране – до входа на гаражите (сменя се с /dealerpos)
+// По подразбиране - до входа на гаражите (сменя се с /dealerpos)
 static const Float:DealerDefault[MAX_CITIES][3] = {
     {1760.0, -1862.0, 13.58},
     {-1971.0, 155.0, 27.69},
@@ -161,7 +161,7 @@ stock Dealer_ShowShowroom(playerid)
 stock Dealer_Destroy(playerid)
 {
     new bool:wasActive = DlActive[playerid];
-    DlActive[playerid] = false;     // преди CancelSelectTextDraw – той вика OnPlayerClickTextDraw
+    DlActive[playerid] = false;     // преди CancelSelectTextDraw - той вика OnPlayerClickTextDraw
 
     if (DlPanel[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, DlPanel[playerid]);
     if (DlTitle[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, DlTitle[playerid]);
@@ -293,7 +293,7 @@ static stock Dealer_Sell(playerid, slot)
     new idx = Catalog_Find(model);
     new value = (idx == -1) ? 0 : VehCatalog[idx][vcPrice] * DEALER_SELL_PERCENT / 100;
     if (!Veh_Remove(playerid, slot)) {
-        SendError(playerid, "Не може сега – слез от превозното средство (или някой е в него).");
+        SendError(playerid, "Не може сега - слез от превозното средство (или някой е в него).");
         return;
     }
     Money_Give(playerid, value);

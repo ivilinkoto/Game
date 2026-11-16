@@ -39,6 +39,7 @@ enum E_JOB {
     jbTo,
     jbKg,
     jbBasePay,
+    jbCompanyBonus,         // бонус от компанията А (вече взет от касата ѝ)
     jbVehicle,
     jbAcceptedAt,
     jbDeadline,             // gettime(), когато трябва да е доставено (след товарене)
@@ -57,7 +58,7 @@ static stock Contracts_Generate(slot)
     // Опитваме няколко пъти да намерим двойка дава/приема
     for (new attempt = 0; attempt < 40; attempt++) {
         new good = random(MAX_GOODS);
-        if (Goods[good][gdCargo] == CARGO_LIQUID) continue;     // гориво – с ремаркета, по-късно
+        if (Goods[good][gdCargo] == CARGO_LIQUID) continue;     // гориво - с ремаркета, по-късно
 
         new producers[MAX_COMPANIES], np = 0, acceptors[MAX_COMPANIES], na = 0;
         for (new c = 0; c < MAX_COMPANIES; c++) {
@@ -150,7 +151,7 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
         dist[n] = GetPlayerDistanceFromPoint(playerid, Company[from][cpX], Company[from][cpY], Company[from][cpZ]);
         n++;
     }
-    // Сортиране по разстояние (малко елементи – прост метод)
+    // Сортиране по разстояние (малко елементи - прост метод)
     for (new a = 0; a < n - 1; a++) {
         for (new b = a + 1; b < n; b++) {
             if (dist[b] < dist[a]) {
@@ -177,7 +178,8 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
     for (new k = 0; k < n && k < CONTRACT_SHOW_MAX; k++) {
         new i = list[k], good = Contracts[i][ctGood];
         FormatTons(Contracts[i][ctKg], tons);
-        FormatMoney(Contracts_GetPay(i), payStr);
+        new pay = Contracts_GetPay(i);
+        FormatMoney(pay + Company_GetBonusAmount(Contracts[i][ctFrom], pay), payStr);
         format(line, sizeof (line), "%s\t%s > %s\t%s, %.1f км\t" C_GREEN "$%s\n",
             Goods[good][gdName], CompanyDefs[Contracts[i][ctFrom]][cdName], CompanyDefs[Contracts[i][ctTo]][cdName],
             tons, Company_Distance(Contracts[i][ctFrom], Contracts[i][ctTo]) / 1000.0, payStr);
@@ -197,25 +199,27 @@ static BoardPick[MAX_PLAYERS];
 static stock Delivery_ShowDetails(playerid, slot)
 {
     new good = Contracts[slot][ctGood], from = Contracts[slot][ctFrom], to = Contracts[slot][ctTo];
-    new tons[16], payStr[16], stars[48];
+    new tons[16], payStr[16], stars[48], bonusLine[96];
     FormatTons(Contracts[slot][ctKg], tons);
-    FormatMoney(Contracts_GetPay(slot), payStr);
+    new pay = Contracts_GetPay(slot), compBonus = Company_GetBonusAmount(from, pay);
+    FormatMoney(pay + compBonus, payStr);
+    if (compBonus > 0) format(bonusLine, sizeof (bonusLine), C_GREEN "Включен бонус от компанията: +%d%%\n", Company[from][cpBonus]);
     Goods_Stars(good, stars);
     new Float:toA = GetPlayerDistanceFromPoint(playerid, Company[from][cpX], Company[from][cpY], Company[from][cpZ]);
     new Float:ab = Company_Distance(from, to);
     new limit = floatround(ab / DELIVERY_SPEED_MS) + DELIVERY_EXTRA_TIME;
 
     ShowPlayerDialog(playerid, DIALOG_JOB_DETAILS, DIALOG_STYLE_MSGBOX, C_BRAND "Поръчка",
-        C_WHITE "Товар: " C_BRAND "%s" C_WHITE " · %s · ценност %s\n\n" \
-        C_WHITE "Взимаш от: " C_BRAND "%s" C_GREY " (%s) – на %.1f км от теб\n" \
-        C_WHITE "Караш до: " C_BRAND "%s" C_GREY " (%s) – %.1f км\n\n" \
-        C_WHITE "Плащане: " C_GREEN "$%s" C_WHITE " · срок след товарене: %d:%02d мин\n" \
+        C_WHITE "Товар: " C_BRAND "%s" C_WHITE ", %s, ценност %s\n\n" \
+        C_WHITE "Взимаш от: " C_BRAND "%s" C_GREY " (%s) - на %.1f км от теб\n" \
+        C_WHITE "Караш до: " C_BRAND "%s" C_GREY " (%s) - %.1f км\n\n" \
+        C_WHITE "Плащане: " C_GREEN "$%s" C_WHITE ", срок след товарене: %d:%02d мин\n%s" \
         C_GREY "Навреме +10%%, закъснял -20%%, щети до -50%%.",
         "Приеми", "Назад",
         Goods[good][gdName], tons, stars,
         CompanyDefs[from][cdName], CompanyDefs[from][cdPlace], toA / 1000.0,
         CompanyDefs[to][cdName], CompanyDefs[to][cdPlace], ab / 1000.0,
-        payStr, limit / 60, limit % 60);
+        payStr, limit / 60, limit % 60, bonusLine);
 }
 
 // ---------- Курс ----------
@@ -247,6 +251,12 @@ static stock Delivery_Accept(playerid, slot)
     Job[playerid][jbTo] = Contracts[slot][ctTo];
     Job[playerid][jbKg] = Contracts[slot][ctKg];
     Job[playerid][jbBasePay] = Contracts_GetPay(slot);
+    Job[playerid][jbCompanyBonus] = Company_GetBonusAmount(Contracts[slot][ctFrom], Job[playerid][jbBasePay]);
+    if (Job[playerid][jbCompanyBonus] > 0) {
+        // Бонусът се запазва от касата веднага (връща се при отказ)
+        Company[Contracts[slot][ctFrom]][cpCash] -= Job[playerid][jbCompanyBonus];
+        Company_Save(Contracts[slot][ctFrom]);
+    }
     Job[playerid][jbVehicle] = vehicleid;
     Job[playerid][jbAcceptedAt] = gettime();
     Job[playerid][jbDeadline] = 0;
@@ -261,7 +271,7 @@ static stock Delivery_Accept(playerid, slot)
     SendClientMessage(playerid, COLOR_BRAND, "[КУРС] " C_WHITE "Приет! Карай до " C_BRAND "%s" C_WHITE " и влез в червения маркер, за да товариш.",
         CompanyDefs[Job[playerid][jbFrom]][cdName]);
 
-    // Ако вече е в базата – товарим веднага
+    // Ако вече е в базата - товарим веднага
     if (IsPlayerInRaceCheckpoint(playerid)) Delivery_OnEnterRaceCP(playerid);
 }
 
@@ -278,6 +288,7 @@ stock Delivery_Cancel(playerid, const reason[], bool:fine)
     if (Job[playerid][jbStage] == JOB_LOADING || Job[playerid][jbStage] == JOB_UNLOADING) {
         TogglePlayerControllable(playerid, true);
     }
+    Delivery_RefundBonus(playerid);
     Delivery_End(playerid);
     if (fine && Money_Take(playerid, DELIVERY_CANCEL_FINE)) {
         SendClientMessage(playerid, COLOR_RED, "[КУРС] " C_WHITE "%s Глоба: $%d.", reason, DELIVERY_CANCEL_FINE);
@@ -316,7 +327,7 @@ public Delivery_TimerDone(playerid, seq, stage)
     return 1;
 }
 
-// Щети в проценти от началото на превоза (0–100)
+// Щети в проценти от началото на превоза (0-100)
 static stock Delivery_DamagePercent(playerid)
 {
     if (Job[playerid][jbStage] != JOB_TO_DROP && Job[playerid][jbStage] != JOB_UNLOADING) return 0;
@@ -326,6 +337,18 @@ static stock Delivery_DamagePercent(playerid)
     if (lost < 0) lost = 0;
     if (lost > 100) lost = 100;
     return lost;
+}
+
+// Връща неизползвания бонус в касата на компанията
+static stock Delivery_RefundBonus(playerid)
+{
+    new amount = Job[playerid][jbCompanyBonus], from = Job[playerid][jbFrom];
+    if (amount <= 0) return;
+    Job[playerid][jbCompanyBonus] = 0;
+    if (Company[from][cpOwner] != 0) {
+        Company[from][cpCash] += amount;
+        Company_Save(from);
+    }
 }
 
 // Очаквано плащане в момента
@@ -342,7 +365,8 @@ static stock Delivery_CurrentPay(playerid, &bonus = 0, &late = 0, &damage = 0)
     if (dmg > 50) dmg = 50;
     damage = base * dmg / 100;
     new total = base + bonus - late - damage;
-    return (total < 0) ? 0 : total;
+    if (total < 0) total = 0;
+    return total + Job[playerid][jbCompanyBonus];
 }
 
 static stock Delivery_Complete(playerid)
@@ -358,9 +382,10 @@ static stock Delivery_Complete(playerid)
     Delivery_End(playerid);
     Money_Give(playerid, total);
     Level_GiveExp(playerid, exp);
-    Company_OnDelivery(from, to, total);
+    Company_OnDelivery(from, to, base);
 
-    new sBase[16], sBonus[16], sLate[16], sDmg[16], sTotal[16], tons[16];
+    new sBase[16], sBonus[16], sLate[16], sDmg[16], sTotal[16], tons[16], sComp[16];
+    FormatMoney(Job[playerid][jbCompanyBonus], sComp);
     FormatMoney(base, sBase);
     FormatMoney(bonus, sBonus);
     FormatMoney(late, sLate);
@@ -375,14 +400,15 @@ static stock Delivery_Complete(playerid)
         C_WHITE "Основно плащане:\t" C_GREEN "$%s\n" \
         C_WHITE "Бонус навреме:\t" C_GREEN "+$%s\n" \
         C_WHITE "Закъснение:\t" C_RED "-$%s\n" \
-        C_WHITE "Щети:\t\t" C_RED "-$%s\n\n" \
-        C_WHITE "Общо: " C_GREEN "$%s" C_WHITE "  ·  Опит: " C_BRAND "+%d",
+        C_WHITE "Щети:\t\t" C_RED "-$%s\n" \
+        C_WHITE "Бонус от компанията:\t" C_GREEN "+$%s\n\n" \
+        C_WHITE "Общо: " C_GREEN "$%s" C_WHITE ", опит: " C_BRAND "+%d",
         "Нов курс", "Затвори",
         Goods[good][gdName], tons, CompanyDefs[from][cdName], CompanyDefs[to][cdName],
-        sBase, sBonus, sLate, sDmg, sTotal, exp);
+        sBase, sBonus, sLate, sDmg, sComp, sTotal, exp);
 }
 
-// Влизане в маркера (товарене/разтоварване стартира само – удобно и на таблет)
+// Влизане в маркера (товарене/разтоварване стартира само - удобно и на таблет)
 stock Delivery_OnEnterRaceCP(playerid)
 {
     new stage = Job[playerid][jbStage];
@@ -412,7 +438,7 @@ stock Delivery_ShowCurrent(playerid)
         "Избери", "Назад", Goods[good][gdName], tons, CompanyDefs[target][cdName]);
 }
 
-// ---------- Бутон N – всичко за работата ----------
+// ---------- Бутон N - всичко за работата ----------
 // Текущ курс -> детайли/отказ. Без курс: в база на компания -> нейните поръчки, иначе най-близките.
 
 stock Delivery_OpenWork(playerid)
@@ -449,6 +475,7 @@ stock Delivery_OnPlayerConnect(playerid)
 
 stock Delivery_OnPlayerDisconnect(playerid)
 {
+    if (Job[playerid][jbStage] != JOB_NONE) Delivery_RefundBonus(playerid);
     Job[playerid][jbStage] = JOB_NONE;
     Delivery_DestroyPanel(playerid);
 }
@@ -457,7 +484,7 @@ stock Delivery_OnVehicleDeath(vehicleid)
 {
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerConnected(i) && Job[i][jbStage] != JOB_NONE && Job[i][jbVehicle] == vehicleid) {
-            Delivery_Cancel(i, "Превозното средство е унищожено – курсът е провален.", false);
+            Delivery_Cancel(i, "Превозното средство е унищожено - курсът е провален.", false);
         }
     }
 }
@@ -614,7 +641,7 @@ stock Delivery_UpdatePanel(playerid)
     format(text, sizeof (text), "~w~CARGO  ~y~%s  ~w~%d.%d T  ~y~%s", Goods[good][gdNameEN], Job[playerid][jbKg] / 1000, (Job[playerid][jbKg] % 1000) / 100, stars);
     PlayerTextDrawSetString(playerid, DpLine[playerid][0], text);
 
-    // 2–3: откъде, докъде
+    // 2-3: откъде, докъде
     format(text, sizeof (text), "%sFROM  ~w~%s", (stage <= JOB_LOADING) ? ("~y~") : ("~w~"), CompanyDefs[from][cdName]);
     PlayerTextDrawSetString(playerid, DpLine[playerid][1], text);
     format(text, sizeof (text), "%sTO      ~w~%s", (stage >= JOB_TO_DROP) ? ("~y~") : ("~w~"), CompanyDefs[to][cdName]);

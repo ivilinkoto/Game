@@ -1,4 +1,4 @@
-// Пароли – BCrypt (плъгин samp-bcrypt).
+// Пароли - BCrypt (плъгин samp-bcrypt).
 //
 // BCrypt е нарочно бавен, затова плъгинът работи асинхронно: хешира в отделна
 // нишка и после извиква Pass_OnHashed / Pass_OnVerified. Сървърът не спира.
@@ -33,7 +33,7 @@ stock Pass_Verify(playerid, purpose, const input[], const hash[])
     bcrypt_verify(playerid, "Pass_OnVerified", input, hash, "dd", purpose, PlayerData[playerid][pConnSeq]);
 }
 
-// ВНИМАНИЕ: плъгинът подава само (playerid, нашите аргументи...) – без "hashid",
+// ВНИМАНИЕ: плъгинът подава само (playerid, нашите аргументи...) - без "hashid",
 // въпреки че документацията в samp_bcrypt.inc твърди друго.
 forward Pass_OnHashed(playerid, purpose, seq);
 public Pass_OnHashed(playerid, purpose, seq)

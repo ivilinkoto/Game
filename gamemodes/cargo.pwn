@@ -1,19 +1,19 @@
 /*
- *  CARGO STATE – truck simulator за SA-MP / open.mp
+ *  CARGO STATE - truck simulator за SA-MP / open.mp
  *
  *  Кодът е в UTF-8. scripts/build.sh го конвертира към Windows-1251
  *  преди компилация, за да се вижда кирилицата в играта.
  *
  *  Структура:
- *    core/     – настройки, цветове, данни на играча, база, команди, пароли
- *    modules/  – отделните системи (вход, пари, нива, HUD, чат, меню, GPS, админ)
+ *    core/     - настройки, цветове, данни на играча, база, команди, пароли
+ *    modules/  - отделните системи (вход, пари, нива, HUD, чат, меню, GPS, админ)
  */
 
 #include <open.mp>
 #include <samp_bcrypt>
 #include <streamer>
 
-// Памет за стека/heap-а (в клетки по 4 байта = 256 KB) – за големите диалози и заявки.
+// Памет за стека/heap-а (в клетки по 4 байта = 256 KB) - за големите диалози и заявки.
 #pragma dynamic 65536
 
 #undef MAX_PLAYERS
@@ -53,6 +53,7 @@ forward bool:Veh_Remove(playerid, slot);
 #include "modules/companies.inc"
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
+#include "modules/business.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -94,6 +95,7 @@ public OnGameModeInit()
     Dealer_Init();
     Logo_Init();
     Contracts_Init();
+    Business_CheckInactive();
 
     gTickTimer = SetTimer("Server_Tick", 1000, true);
     gHudTimer = SetTimer("Hud_Tick", 300, true);
@@ -117,6 +119,7 @@ public Server_Tick()
 {
     gSecondsCounter++;
     new bool:autosave = (gSecondsCounter % AUTOSAVE_SECONDS == 0);
+    if (gSecondsCounter % 3600 == 0) Business_CheckInactive();
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;
@@ -193,6 +196,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -200,7 +204,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 public OnPlayerText(playerid, text[])
 {
     Chat_OnPlayerText(playerid, text);
-    return 0; // винаги 0 – сами изпращаме съобщението
+    return 0; // винаги 0 - сами изпращаме съобщението
 }
 
 public OnPlayerCommandText(playerid, cmdtext[])
@@ -217,6 +221,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Garage_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Delivery_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Dealer_OnDialogResponse(playerid, dialogid, response)) return 1;
+    if (Business_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }

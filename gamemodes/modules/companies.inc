@@ -1,9 +1,10 @@
-// Компании: бази, какво дават и какво приемат. По-късно – собственост (бизнеси).
+// Компании: бази, какво дават и какво приемат. По-късно - собственост (бизнеси).
 //
 // Базите имат приблизителни позиции; админ ги мести на място: /compos [номер].
 // Списък: /complist
 
 #define MAX_COMPANIES       14
+#define COMPANY_COMMISSION  10          // % от всеки курс в касата на собственика
 #define COMPANY_RANGE       12.0        // колко близо до базата се брои "в базата"
 #define COMPANY_ICON_TYPE   51          // икона "камион" на картата
 #define COMPANY_ICON_NEAREST 5          // колко от най-близките компании да се виждат
@@ -93,9 +94,11 @@ enum E_COMPANY {
     Float:cpY,
     Float:cpZ,
     cpOwner,            // ID на акаунт (0 = държавна)
-    cpCash,
+    cpOwnerName[MAX_PLAYER_NAME + 1],
+    cpCash,             // касата - 10% от курсовете от/до компанията
     cpDeliveries,
-    cpEarned
+    cpEarned,
+    cpBonus             // бонус за шофьорите в %, плаща се от касата
 }
 
 new Company[MAX_COMPANIES][E_COMPANY];
@@ -114,6 +117,8 @@ stock Company_Init()
     strcat(q, "earned INTEGER NOT NULL DEFAULT 0,");
     strcat(q, "owner_since INTEGER NOT NULL DEFAULT 0)");
     Database_Exec(q);
+    Database_AddColumn("companies", "owner_name", "TEXT NOT NULL DEFAULT ''");
+    Database_AddColumn("companies", "bonus", "INTEGER NOT NULL DEFAULT 0");
 
     for (new c = 0; c < MAX_COMPANIES; c++) {
         format(q, sizeof (q), "INSERT OR IGNORE INTO companies (id, x, y, z) VALUES (%d, %f, %f, %f)",
@@ -134,6 +139,8 @@ stock Company_Init()
                 Company[c][cpCash] = DB_GetFieldIntByName(r, "cash");
                 Company[c][cpDeliveries] = DB_GetFieldIntByName(r, "deliveries");
                 Company[c][cpEarned] = DB_GetFieldIntByName(r, "earned");
+                Company[c][cpBonus] = DB_GetFieldIntByName(r, "bonus");
+                DB_GetFieldStringByName(r, "owner_name", Company[c][cpOwnerName], MAX_PLAYER_NAME + 1);
             }
             DB_SelectNextRow(r);
         }
@@ -156,16 +163,23 @@ stock Company_GoodsList(mask, dest[], size = sizeof (dest), bool:latin = false)
     if (dest[0] == EOS) format(dest, size, "-");
 }
 
-static stock Company_CreateMarkers(c)
+stock Company_CreateMarkers(c)
 {
     if (CompanyLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(CompanyLabel[c]);
 
-    new produces[160], accepts[160], text[512];
+    new produces[160], accepts[160], owner[96], text[640];
     Company_GoodsList(CompanyDefs[c][cdProduces], produces);
     Company_GoodsList(CompanyDefs[c][cdAccepts], accepts);
+    if (Company[c][cpOwner] != 0) {
+        format(owner, sizeof (owner), C_WHITE "Собственик: " C_BRAND "%s", Company[c][cpOwnerName]);
+    } else {
+        new price[16];
+        FormatMoney(Company_GetPrice(c), price);
+        format(owner, sizeof (owner), C_GREEN "Продава се: $%s", price);
+    }
     format(text, sizeof (text),
-        C_BRAND "%s\n" C_GREY "%s\n" C_WHITE "Дава: " C_GREEN "%s\n" C_WHITE "Приема: " C_BRAND "%s\n" C_GREY "N с превозно средство – поръчки",
-        CompanyDefs[c][cdName], CompanyDefs[c][cdPlace], produces, accepts);
+        C_BRAND "%s\n" C_GREY "%s\n%s\n" C_WHITE "Дава: " C_GREEN "%s\n" C_WHITE "Приема: " C_BRAND "%s\n" C_GREY "N с превозно средство - поръчки, ALT пеша - компанията",
+        CompanyDefs[c][cdName], CompanyDefs[c][cdPlace], owner, produces, accepts);
     CompanyLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, Company[c][cpX], Company[c][cpY], Company[c][cpZ] + 1.5, 30.0,
         INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
 }
@@ -175,7 +189,7 @@ stock Company_UpdateIcons(playerid)
 {
     new Float:px, Float:py, Float:pz;
     if (PlayerData[playerid][pInGarage]) {
-        // В гаража – спрямо входа в града
+        // В гаража - спрямо входа в града
         new Float:a;
         City_GetEntrance(PlayerData[playerid][pGarageCity], px, py, pz, a);
     } else {
@@ -232,15 +246,43 @@ stock Company_GetNear(playerid, Float:range = COMPANY_RANGE)
     return -1;
 }
 
-// Статистика след курс (по-късно и процентът за собственика)
+stock Company_GetPrice(c)
+{
+    return CompanyPrices[CompanyDefs[c][cdSize]];
+}
+
+stock Company_Save(c)
+{
+    new q[256];
+    format(q, sizeof (q), "UPDATE companies SET owner_id = %d, owner_name = '%s', cash = %d, deliveries = %d, earned = %d, bonus = %d WHERE id = %d",
+        Company[c][cpOwner], Company[c][cpOwnerName], Company[c][cpCash], Company[c][cpDeliveries], Company[c][cpEarned], Company[c][cpBonus], c);
+    Database_Exec(q);
+}
+
+// Бонус (в $), който компанията А добавя към курс с тази базова стойност. 0 ако касата не стига.
+stock Company_GetBonusAmount(c, basePay)
+{
+    if (Company[c][cpOwner] == 0 || Company[c][cpBonus] <= 0) return 0;
+    new amount = basePay * Company[c][cpBonus] / 100;
+    return (Company[c][cpCash] >= amount) ? amount : 0;
+}
+
+// След курс: статистика и 10% в касата на всяка компания със собственик.
 stock Company_OnDelivery(from, to, value)
 {
-    new q[160];
+    new cut = value * COMPANY_COMMISSION / 100;
     Company[from][cpDeliveries]++;
     Company[to][cpDeliveries]++;
-    #pragma unused value
-    format(q, sizeof (q), "UPDATE companies SET deliveries = deliveries + 1 WHERE id IN (%d, %d)", from, to);
-    Database_Exec(q);
+    if (Company[from][cpOwner] != 0) {
+        Company[from][cpCash] += cut;
+        Company[from][cpEarned] += cut;
+    }
+    if (Company[to][cpOwner] != 0) {
+        Company[to][cpCash] += cut;
+        Company[to][cpEarned] += cut;
+    }
+    Company_Save(from);
+    Company_Save(to);
 }
 
 // ---------- Админ ----------
@@ -248,7 +290,7 @@ stock Company_OnDelivery(from, to, value)
 CMD:compos(playerid, params[])
 {
     if (!Admin_Check(playerid, 5)) return 1;
-    if (IsNull(params) || !IsNumeric(params)) return SendUsage(playerid, "/compos [номер от /complist] – премества базата тук");
+    if (IsNull(params) || !IsNumeric(params)) return SendUsage(playerid, "/compos [номер от /complist] - премества базата тук");
     new c = strval(params);
     if (c < 0 || c >= MAX_COMPANIES) return SendError(playerid, "Няма такава компания.");
     if (GetPlayerVirtualWorld(playerid) != 0) return SendError(playerid, "Трябва да си навън (свят 0).");
@@ -271,7 +313,7 @@ CMD:complist(playerid, params[])
     #pragma unused params
     if (!Admin_Check(playerid, 3)) return 1;
     for (new c = 0; c < MAX_COMPANIES; c++) {
-        SendClientMessage(playerid, COLOR_GREY, "#%d · %s (%s) · %.1f км от теб", c, CompanyDefs[c][cdName], CompanyDefs[c][cdPlace],
+        SendClientMessage(playerid, COLOR_GREY, "#%d, %s (%s), %.1f км от теб", c, CompanyDefs[c][cdName], CompanyDefs[c][cdPlace],
             GetPlayerDistanceFromPoint(playerid, Company[c][cpX], Company[c][cpY], Company[c][cpZ]) / 1000.0);
     }
     return 1;

@@ -169,7 +169,7 @@ CMD:gpsadd(playerid, params[])
     new catStr[4], name[48];
     if (!GetParam(params, 0, catStr) || !IsNumeric(catStr) || !GetParamRest(params, 1, name)) {
         SendUsage(playerid, "/gpsadd [категория] [име]");
-        SendClientMessage(playerid, COLOR_GREY, "Категории: 0 Индустрии · 1 Бензиностанции · 2 Депа · 3 Други");
+        SendClientMessage(playerid, COLOR_GREY, "Категории: 0 Индустрии, 1 Бензиностанции, 2 Депа, 3 Други");
         return 1;
     }
     new cat = strval(catStr);
@@ -196,7 +196,7 @@ CMD:gpslist(playerid, params[])
         DB_GetFieldStringByName(r, "name", name, sizeof (name));
         new cat = DB_GetFieldIntByName(r, "category");
         if (cat < 0 || cat >= GPS_CAT_COUNT) cat = GPS_CAT_OTHER;
-        SendClientMessage(playerid, COLOR_GREY, "#%d · %s · %s", DB_GetFieldIntByName(r, "id"), GpsCategoryNames[cat], name);
+        SendClientMessage(playerid, COLOR_GREY, "#%d, %s, %s", DB_GetFieldIntByName(r, "id"), GpsCategoryNames[cat], name);
         DB_SelectNextRow(r);
     }
     DB_FreeResultSet(r);

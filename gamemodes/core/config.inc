@@ -13,7 +13,7 @@
 #define SPAWN_Z             13.58
 #define SPAWN_A             0.0
 
-// Камера при вход/регистрация – изглед над Los Santos
+// Камера при вход/регистрация - изглед над Los Santos
 #define AUTH_CAM_X          1500.0
 #define AUTH_CAM_Y          -1700.0
 #define AUTH_CAM_Z          120.0

@@ -27,7 +27,7 @@ enum E_GOOD {
     gdRate,             // $ за тон и км
     gdMinKg,
     gdMaxKg,
-    gdStars             // ценност 1–5
+    gdStars             // ценност 1-5
 }
 
 stock const Goods[MAX_GOODS][E_GOOD] = {

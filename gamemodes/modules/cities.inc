@@ -2,7 +2,7 @@
 //
 // Всеки играч има гараж в своя град. Във всеки град има вход (пикап + надпис + икона на картата).
 // Входовете се местят от админ на място: /garagepos [0 LS | 1 SF | 2 LV]
-// Админът застава пред вратата С ГРЪБ КЪМ НЕЯ (с лице към улицата) – натам излизат играчите.
+// Админът застава пред вратата С ГРЪБ КЪМ НЕЯ (с лице към улицата) - натам излизат играчите.
 
 enum {
     CITY_LS,
@@ -18,11 +18,11 @@ enum {
 stock const CityNames[MAX_CITIES][] = {"Los Santos", "San Fierro", "Las Venturas"};
 stock const CityShort[MAX_CITIES][] = {"LS", "SF", "LV"};
 
-// Позиции по подразбиране (пред гаровете) – сменят се с /garagepos.
+// Позиции по подразбиране (пред гаровете) - сменят се с /garagepos.
 static const Float:CityDefaultEntrance[MAX_CITIES][4] = {
-    {1743.0, -1862.0, 13.58, 0.0},      // LS – Unity Station
-    {-1971.0, 137.0, 27.69, 90.0},      // SF – Cranberry Station
-    {2847.9, 1291.2, 11.39, 90.0}       // LV – Linden Station
+    {1743.0, -1862.0, 13.58, 0.0},      // LS - Unity Station
+    {-1971.0, 137.0, 27.69, 90.0},      // SF - Cranberry Station
+    {2847.9, 1291.2, 11.39, 90.0}       // LV - Linden Station
 };
 
 static Float:CityEntrance[MAX_CITIES][4];
@@ -91,7 +91,7 @@ stock City_GetEntranceNear(playerid, Float:range)
     return -1;
 }
 
-// Икона "къща" на картата – само за гаража на играча.
+// Икона "къща" на картата - само за гаража на играча.
 stock City_ShowGarageIcon(playerid)
 {
     new city = PlayerData[playerid][pGarageCity];
@@ -101,7 +101,7 @@ stock City_ShowGarageIcon(playerid)
 CMD:garagepos(playerid, params[])
 {
     if (!Admin_Check(playerid, 5)) return 1;
-    if (IsNull(params) || !IsNumeric(params)) return SendUsage(playerid, "/garagepos [0 LS | 1 SF | 2 LV] – застани пред вратата с лице към улицата");
+    if (IsNull(params) || !IsNumeric(params)) return SendUsage(playerid, "/garagepos [0 LS | 1 SF | 2 LV] - застани пред вратата с лице към улицата");
     new city = strval(params);
     if (city < 0 || city >= MAX_CITIES) return SendError(playerid, "Градът е 0, 1 или 2.");
     if (GetPlayerVirtualWorld(playerid) != 0 || GetPlayerInterior(playerid) != 0) return SendError(playerid, "Трябва да си навън (свят 0).");

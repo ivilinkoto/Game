@@ -3,7 +3,7 @@
 // Поток: свързване -> камера над града -> вход ИЛИ регистрация
 //        (парола -> потвърждение -> пол -> скин) -> спаун.
 
-// Скинът се избира визуално – виж modules/skin_select.inc
+// Скинът се избира визуално - виж modules/skin_select.inc
 
 // ---------- Свързване ----------
 
@@ -33,7 +33,7 @@ stock Auth_OnPlayerRequestClass(playerid)
 
     PlayerData[playerid][pAuthShown] = true;
     TogglePlayerSpectating(playerid, true);
-    // Камерата не се задава надеждно веднага след spectate – изчакваме малко.
+    // Камерата не се задава надеждно веднага след spectate - изчакваме малко.
     SetTimerEx("Auth_Start", 300, false, "ii", playerid, PlayerData[playerid][pConnSeq]);
     return 1;
 }
@@ -50,7 +50,7 @@ public Auth_Start(playerid, seq)
     if (!IsValidNickname(PlayerData[playerid][pName])) {
         ShowPlayerDialog(playerid, DIALOG_KICK_INFO, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Невалиден ник",
             C_WHITE "Никът ти " C_RED "%s" C_WHITE " не е позволен.\n\n" \
-            "Разрешено: 3–20 символа – латински букви, цифри, " C_BRAND "_" C_WHITE " и " C_BRAND "." C_WHITE "\n" \
+            "Разрешено: 3-20 символа - латински букви, цифри, " C_BRAND "_" C_WHITE " и " C_BRAND "." C_WHITE "\n" \
             "Смени ника си в лаунчера и влез отново.",
             "Разбрах", "", PlayerData[playerid][pName]);
         KickEx(playerid);
@@ -177,7 +177,7 @@ stock Auth_ShowPassword(playerid, const error[])
     new err[96];
     Auth_ErrorSuffix(error, err);
     ShowPlayerDialog(playerid, DIALOG_REG_PASSWORD, DIALOG_STYLE_PASSWORD, C_BRAND "Регистрация" C_WHITE " | Парола (1/5)",
-        C_WHITE "Измисли парола (" C_BRAND "%d–%d" C_WHITE " символа):%s",
+        C_WHITE "Измисли парола (" C_BRAND "%d-%d" C_WHITE " символа):%s",
         "Напред", "Назад", PASSWORD_MIN, PASSWORD_MAX, err);
 }
 
@@ -196,7 +196,7 @@ stock Auth_ShowGender(playerid)
         "Мъж\nЖена", "Напред", "Назад");
 }
 
-// Визуален избор на скин (решетка с модели). Вика се и при ESC от решетката – назад към пола.
+// Визуален избор на скин (решетка с модели). Вика се и при ESC от решетката - назад към пола.
 stock Auth_ShowSkin(playerid)
 {
     SkinSelect_Show(playerid, PlayerData[playerid][pRegGender]);
@@ -272,10 +272,10 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     ShowPlayerDialog(playerid, DIALOG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Готово!",
         C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " и безплатен бус " C_BRAND "Rumpo" C_WHITE ".\n" \
         "Намираш се в своя гараж в " C_BRAND "%s" C_WHITE ". Качи се в буса, запали с " C_BRAND "CTRL" C_WHITE " и натисни " C_BRAND "H" C_WHITE " до вратата.\n" \
-        C_BRAND "N" C_WHITE " – работа и поръчки.\n\n" \
-        C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " – главното меню (работа, GPS, профил, настройки)\n" \
-        C_BRAND "/cb [текст]" C_WHITE " – CB радио за шофьорите (канал 19)\n" \
-        C_BRAND "/pm [ID] [текст]" C_WHITE " – лично съобщение\n\n" \
+        C_BRAND "N" C_WHITE " - работа и поръчки.\n\n" \
+        C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " - главното меню (работа, GPS, профил, настройки)\n" \
+        C_BRAND "/cb [текст]" C_WHITE " - CB радио за шофьорите (канал 19)\n" \
+        C_BRAND "/pm [ID] [текст]" C_WHITE " - лично съобщение\n\n" \
         "Приятен път!",
         "Да карам!", "", money, CityNames[PlayerData[playerid][pGarageCity]]);
 }
@@ -301,7 +301,7 @@ stock Auth_SetGarageSpawn(playerid)
 stock Auth_OnPlayerSpawn(playerid)
 {
     if (!PlayerData[playerid][pLogged]) {
-        // Не би трябвало да се случи – спаун без вход.
+        // Не би трябвало да се случи - спаун без вход.
         Kick(playerid);
         return 0;
     }

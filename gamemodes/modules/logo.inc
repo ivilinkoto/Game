@@ -22,7 +22,7 @@ stock Logo_Init()
     TextDrawSetProportional(LogoTitle, true);
 
     // Оранжева линия под надписа
-    // (подравнена вляво: X е левият край, TextSize X – десният)
+    // (подравнена вляво: X е левият край, TextSize X - десният)
     LogoLine = TextDrawCreate(LOGO_RIGHT - 82.0, LOGO_Y + 14.5, "_");
     TextDrawUseBox(LogoLine, true);
     TextDrawBoxColour(LogoLine, 0xF5A623FF);

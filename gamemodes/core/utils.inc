@@ -63,7 +63,7 @@ stock bool:IsNumeric(const str[])
     return true;
 }
 
-// Ник: 3–20 символа, латински букви, цифри, "_" и ".". Без RP формат.
+// Ник: 3-20 символа, латински букви, цифри, "_" и ".". Без RP формат.
 stock bool:IsValidNickname(const name[])
 {
     new len = strlen(name);

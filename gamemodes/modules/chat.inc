@@ -1,5 +1,5 @@
 // Чат: общ чат, лични съобщения (/pm, /r) и CB радио (/cb, /cbch).
-// Не е RP сървър – без /me, /do и т.н.
+// Не е RP сървър - без /me, /do и т.н.
 
 #define CHAT_COOLDOWN_MS    1000
 
@@ -54,14 +54,14 @@ CMD:pm(playerid, params[])
 
 CMD:r(playerid, params[])
 {
-    if (IsNull(params)) return SendUsage(playerid, "/r [текст] – отговор на последното ЛС");
+    if (IsNull(params)) return SendUsage(playerid, "/r [текст] - отговор на последното ЛС");
     new targetid = PlayerData[playerid][pLastPM];
     if (targetid == INVALID_PLAYER_ID || !IsPlayerLogged(targetid)) return SendError(playerid, "Няма на кого да отговориш.");
     return Chat_SendPM(playerid, targetid, params);
 }
 
 // ---------- CB радио ----------
-// Чува се от всички, които са на същия канал и са с включено радио –
+// Чува се от всички, които са на същия канал и са с включено радио -
 // без значение къде са на картата.
 
 stock CB_Send(playerid, const text[])
@@ -101,7 +101,7 @@ CMD:cb(playerid, params[])
         new cbState[8];
         if (PlayerData[playerid][pCBOn]) format(cbState, sizeof (cbState), "вкл.");
         else format(cbState, sizeof (cbState), "изкл.");
-        SendClientMessage(playerid, COLOR_CB, "[CB] " C_WHITE "Канал %d (%s). Пиши: /cb [текст] · смени канала: /cbch [1-%d]",
+        SendClientMessage(playerid, COLOR_CB, "[CB] " C_WHITE "Канал %d (%s). Пиши: /cb [текст], смени канала: /cbch [1-%d]",
             PlayerData[playerid][pCBChannel], cbState, CB_MAX_CHANNEL);
         return 1;
     }

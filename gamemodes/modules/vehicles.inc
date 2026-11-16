@@ -1,11 +1,11 @@
 // Камионите на играчите.
 //
 // Всеки играч има GARAGE_SLOTS места. Докато е онлайн, камионите му съществуват:
-// паркираните – в неговия гараж (неговия виртуален свят), а този, с който кара – навън.
+// паркираните - в неговия гараж (неговия виртуален свят), а този, с който кара - навън.
 // При изход от сървъра всички се записват и махат; при следващ вход са отново в гаража.
 
 #define GARAGE_SLOTS        2
-#define STARTER_MODEL       440         // Rumpo – бус
+#define STARTER_MODEL       440         // Rumpo - бус
 #define GARAGE_VW_BASE      10000       // свят на гаража = база + ID на акаунта
 
 enum E_PLAYER_VEH {
@@ -141,7 +141,7 @@ stock Veh_GiveStarter(playerid)
     PlayerData[playerid][pStarterGiven] = true;
 
     Veh_Load(playerid);
-    SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Получаваш безплатен бус " C_BRAND "Rumpo" C_WHITE " (1.5 т, пратки) – чака те в гаража.");
+    SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Получаваш безплатен бус " C_BRAND "Rumpo" C_WHITE " (1.5 т, пратки) - чака те в гаража.");
 }
 
 stock Veh_FindFreeSlot(playerid)

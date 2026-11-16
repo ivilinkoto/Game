@@ -4,7 +4,7 @@
 // Цените са за автокъщата (идва по-късно); стартовият бус е безплатен.
 
 // Видове товари (битове)
-#define CARGO_PARCEL    (1 << 0)    // пратки и колети – градски доставки
+#define CARGO_PARCEL    (1 << 0)    // пратки и колети - градски доставки
 #define CARGO_BOX       (1 << 1)    // кутии и палети
 #define CARGO_BULK      (1 << 2)    // насипни: пясък, руда, дърва
 #define CARGO_LIQUID    (1 << 3)    // течни: гориво
@@ -14,7 +14,7 @@ enum E_VEH_CLASS {
     vcName[16],
     vcPayload,          // кг
     vcCargo,            // CARGO_* битове
-    bool:vcTrailer,     // влекач – товарът е в ремарке
+    bool:vcTrailer,     // влекач - товарът е в ремарке
     vcLevel,            // нужно ниво за покупка
     vcPrice
 }
@@ -60,7 +60,7 @@ stock Catalog_FormatPayload(model, dest[], size = sizeof (dest))
     else format(dest, size, "%d.%d т", kg / 1000, (kg % 1000) / 100);
 }
 
-// "1.5 T" – за TextDraw
+// "1.5 T" - за TextDraw
 stock Catalog_FormatPayloadLatin(model, dest[], size = sizeof (dest))
 {
     new kg = Catalog_GetPayload(model);

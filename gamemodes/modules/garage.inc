@@ -1,7 +1,7 @@
 // Личен гараж: влизане/излизане (пеша и с камион), спаун, меню "Моят гараж".
 //
 // Вход/изход: ALT пеша, H (клаксон) с превозно средство.
-// На входа в твоя град -> влизаш (с твой камион – той отива на мястото си, ти си в него).
+// На входа в твоя град -> влизаш (с твой камион - той отива на мястото си, ти си в него).
 // До вратата отвътре -> излизаш (с камиона, ако караш).
 
 #define GARAGE_FREEZE_MS    1500
@@ -218,7 +218,7 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
             }
             if (listitem < 0 || listitem >= GARAGE_SLOTS) return 1;
             if (!Veh_HasInSlot(playerid, listitem)) {
-                SendInfo(playerid, "Мястото е празно. Нови камиони – скоро в автокъщата.");
+                SendInfo(playerid, "Мястото е празно. Нови камиони - скоро в автокъщата.");
                 Garage_ShowMenu(playerid);
                 return 1;
             }
@@ -233,8 +233,8 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
             } else {
                 ShowPlayerDialog(playerid, DIALOG_GARAGE_TRUCK, DIALOG_STYLE_MSGBOX, C_BRAND "Моят гараж",
                     C_WHITE "%s е в гаража, място %d.\n" \
-                    "Товароносимост: " C_BRAND "%s" C_WHITE " · Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "H" C_WHITE " до вратата, за да излезеш.\n" \
-                    C_GREY "Тунинг – скоро.", "Продай", "Назад", name, listitem + 1, payload, cargo);
+                    "Товароносимост: " C_BRAND "%s" C_WHITE ", Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "H" C_WHITE " до вратата, за да излезеш.\n" \
+                    C_GREY "Тунинг - скоро.", "Продай", "Назад", name, listitem + 1, payload, cargo);
             }
             return 1;
         }
@@ -248,7 +248,7 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
                 if (Veh_ReturnToGarage(playerid, slot)) {
                     SendClientMessage(playerid, COLOR_BRAND, "[ГАРАЖ] " C_WHITE "Камионът е върнат в гаража.");
                 } else {
-                    SendError(playerid, "Не може сега – слез от камиона (или някой е в него).");
+                    SendError(playerid, "Не може сега - слез от камиона (или някой е в него).");
                 }
             }
             Garage_ShowMenu(playerid);

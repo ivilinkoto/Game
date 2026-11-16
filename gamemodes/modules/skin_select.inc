@@ -1,6 +1,6 @@
 // Визуален избор на скин при регистрация: решетка с 3D модели на героите.
 // Играчът докосва/цъква героя, който иска. ESC = назад към избора на пол.
-// Текстът е на латиница – шрифтовете на SA не показват кирилица.
+// Текстът е на латиница - шрифтовете на SA не показват кирилица.
 
 #define SKIN_MAX_CARDS      8
 #define SKIN_COLS           4
@@ -88,7 +88,7 @@ stock SkinSelect_Show(playerid, gender)
 stock SkinSelect_Destroy(playerid)
 {
     new bool:wasActive = SkinActive[playerid];
-    SkinActive[playerid] = false;   // преди CancelSelectTextDraw – той извиква OnPlayerClickTextDraw
+    SkinActive[playerid] = false;   // преди CancelSelectTextDraw - той извиква OnPlayerClickTextDraw
 
     if (SkinPanel[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, SkinPanel[playerid]);
     if (SkinTitle[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, SkinTitle[playerid]);
