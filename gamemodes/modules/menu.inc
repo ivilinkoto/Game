@@ -4,7 +4,6 @@
 enum {
     MENU_ITEM_GARAGE,
     MENU_ITEM_COMPANY,
-    MENU_ITEM_FUEL,
     MENU_ITEM_GPS,
     MENU_ITEM_PROFILE,
     MENU_ITEM_CB,
@@ -23,10 +22,10 @@ stock Menu_Show(playerid)
 {
     if (PlayerData[playerid][pAdmin] >= 1) {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Моят гараж\nМоята компания\nГориво\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
+            "Моят гараж\nМоята компания\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
     } else {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Моят гараж\nМоята компания\nГориво\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
+            "Моят гараж\nМоята компания\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
     }
 }
 
@@ -74,7 +73,8 @@ stock Menu_ShowHelp(playerid)
         C_BRAND "N" C_WHITE " или " C_BRAND "/work" C_WHITE " - работа: поръчки, текущ курс, отказ\n" \
         C_BRAND "CTRL" C_WHITE " или " C_BRAND "/engine" C_WHITE " - двигател (пали/гаси)\n" \
         C_BRAND "ALT" C_WHITE " пеша / " C_BRAND "H" C_WHITE " с превозно средство - вход и изход (гараж)\n" \
-        C_BRAND "/gps" C_WHITE " - навигация\n" \
+        C_BRAND "/gps" C_WHITE " - навигация: компании, бензиностанции, автокъщи, гараж\n" \
+        C_BRAND "Y" C_WHITE " на бензиностанция (двигателят изгасен) - зареждане, " C_BRAND "/roadside" C_WHITE " - пътна помощ\n" \
         C_BRAND "/cb [текст]" C_WHITE " - CB радио (чуват те всички на твоя канал)\n" \
         C_BRAND "/cbch [канал]" C_WHITE " - смяна на CB канала\n" \
         C_BRAND "/pm [ID] [текст]" C_WHITE " - лично съобщение, " C_BRAND "/r" C_WHITE " - отговор\n" \
@@ -100,7 +100,6 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
             switch (listitem) {
                 case MENU_ITEM_GARAGE:   Garage_ShowMenu(playerid);
                 case MENU_ITEM_COMPANY:  Business_OpenOwn(playerid);
-                case MENU_ITEM_FUEL:     Fuel_ShowMenu(playerid);
                 case MENU_ITEM_GPS:      Gps_ShowCategories(playerid);
                 case MENU_ITEM_PROFILE:  Menu_ShowProfile(playerid);
                 case MENU_ITEM_CB:       Menu_ShowCBChannel(playerid);

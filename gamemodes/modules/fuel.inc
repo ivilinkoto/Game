@@ -82,10 +82,23 @@ static stock Fuel_LoadStations()
         FuelLabel[k] = CreateDynamic3DTextLabel(text,
             COLOR_WHITE, FuelStation[k][0], FuelStation[k][1], FuelStation[k][2] + 1.0, 30.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
         // Червено квадратче на радара – само наблизо, за да не претрупва картата
-        FuelIcon[k] = CreateDynamicMapIcon(FuelStation[k][0], FuelStation[k][1], FuelStation[k][2], 0, 0xE04040FF, 0, 0, -1, 350.0, MAPICON_LOCAL);
+        FuelIcon[k] = CreateDynamicMapIcon(FuelStation[k][0], FuelStation[k][1], FuelStation[k][2], 0, 0xE04040FF, 0, 0, -1, MAP_ICON_RANGE, MAPICON_LOCAL);
         DB_SelectNextRow(r);
     }
     DB_FreeResultSet(r);
+}
+
+// Достъп за други модули (GPS)
+stock Fuel_Total()
+{
+    return FuelStationCount;
+}
+
+stock Fuel_GetPos(i, &Float:x, &Float:y, &Float:z)
+{
+    x = FuelStation[i][0];
+    y = FuelStation[i][1];
+    z = FuelStation[i][2];
 }
 
 static stock Fuel_GetNearestStation(playerid, &Float:dist)
@@ -147,7 +160,7 @@ stock Fuel_Tick(playerid)
         Veh_SetFuel(vehicleid, 0.0);
         Engine_Set(vehicleid, false);
         GameTextForPlayer(playerid, "~r~OUT OF FUEL", 3000, 4);
-        SendClientMessage(playerid, COLOR_RED, "[ГОРИВО] " C_WHITE "Резервоарът е празен! Пътна помощ: Меню (Y) > Гориво.");
+        SendClientMessage(playerid, COLOR_RED, "[ГОРИВО] " C_WHITE "Резервоарът е празен! Пътна помощ: " C_BRAND "/roadside" C_WHITE " (+30 л за $400).");
         return;
     }
     Veh_SetFuel(vehicleid, fuel);
@@ -156,7 +169,7 @@ stock Fuel_Tick(playerid)
     if (tank > 0 && fuel < float(tank) * FUEL_LOW_PERCENT / 100.0) {
         if (!FuelWarned[playerid]) {
             FuelWarned[playerid] = true;
-            SendClientMessage(playerid, COLOR_BRAND, "[ГОРИВО] " C_WHITE "Горивото свършва! Най-близката бензиностанция: Меню (Y) > Гориво.");
+            SendClientMessage(playerid, COLOR_BRAND, "[ГОРИВО] " C_WHITE "Горивото свършва! Най-близката бензиностанция: " C_BRAND "/gps" C_WHITE " > Бензиностанции.");
         }
     } else {
         FuelWarned[playerid] = false;
@@ -291,6 +304,20 @@ stock Fuel_OnPlayerConnect(playerid)
 }
 
 // ---------- Админ ----------
+
+CMD:roadside(playerid, params[])
+{
+    #pragma unused params
+    Fuel_Roadside(playerid);
+    return 1;
+}
+
+CMD:fuel(playerid, params[])
+{
+    #pragma unused params
+    Fuel_ShowMenu(playerid);
+    return 1;
+}
 
 CMD:addfuel(playerid, params[])
 {

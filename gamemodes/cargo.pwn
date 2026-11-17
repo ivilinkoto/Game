@@ -127,7 +127,6 @@ public Server_Tick()
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;
         PlayerData[i][pPlayTime]++;
-        if (gSecondsCounter % 5 == 0) Company_UpdateIcons(i);
         Fuel_Tick(i);
         Money_Sync(i);
         if (autosave) {
@@ -186,8 +185,6 @@ public OnPlayerSpawn(playerid)
     Garage_OnPlayerSpawn(playerid);
     Hud_Show(playerid);
     Logo_Show(playerid);
-    Company_UpdateIcons(playerid);
-    Dealer_ShowIcons(playerid);
     return 1;
 }
 

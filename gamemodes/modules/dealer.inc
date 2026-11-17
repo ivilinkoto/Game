@@ -23,6 +23,7 @@ static const Float:DealerDefault[MAX_CITIES][3] = {
 static Float:DealerPos[MAX_CITIES][3];
 static DealerPickup[MAX_CITIES] = {-1, ...};
 static Text3D:DealerLabel[MAX_CITIES] = {Text3D:-1, ...};
+static DealerIcon[MAX_CITIES] = {-1, ...};
 
 #define DEALER_MAX_CARDS    12
 
@@ -66,6 +67,8 @@ static stock Dealer_CreateEntrance(c)
 {
     if (DealerPickup[c] != -1) DestroyDynamicPickup(DealerPickup[c]);
     if (DealerLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(DealerLabel[c]);
+    if (DealerIcon[c] != -1) DestroyDynamicMapIcon(DealerIcon[c]);
+    DealerIcon[c] = CreateDynamicMapIcon(DealerPos[c][0], DealerPos[c][1], DealerPos[c][2], 55, 0, 0, 0, -1, MAP_ICON_RANGE, MAPICON_LOCAL);
     DealerPickup[c] = CreateDynamicPickup(1239, 1, DealerPos[c][0], DealerPos[c][1], DealerPos[c][2], 0, 0);
     new text[160];
     format(text, sizeof (text), C_BRAND "АВТОКЪЩА %s\n" C_WHITE "Бусове и камиони\n" C_GREY "ALT или /dealer", CityShort[c]);
@@ -303,12 +306,22 @@ static stock Dealer_Sell(playerid, slot)
 
 // ---------- Събития ----------
 
-// Икона "кола" на картата за трите автокъщи
-stock Dealer_ShowIcons(playerid)
+// Достъп за други модули (GPS)
+stock Dealer_Total()
 {
-    for (new c = 0; c < MAX_CITIES; c++) {
-        SetPlayerMapIcon(playerid, 96 + c, DealerPos[c][0], DealerPos[c][1], DealerPos[c][2], 55, 0, MAPICON_GLOBAL);
-    }
+    return MAX_CITIES;
+}
+
+stock Dealer_GetPos(c, &Float:x, &Float:y, &Float:z)
+{
+    x = DealerPos[c][0];
+    y = DealerPos[c][1];
+    z = DealerPos[c][2];
+}
+
+stock Dealer_GetName(c, dest[], size = sizeof (dest))
+{
+    format(dest, size, "Автокъща %s", CityNames[c]);
 }
 
 stock Dealer_Open(playerid)

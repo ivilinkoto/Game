@@ -1,20 +1,25 @@
-// GPS: точки по категории, подредени по разстояние. Показва чекпойнт на картата.
-// Точките се добавят от админ в играта: /gpsadd, /gpsdel, /gpslist.
+// GPS: категории с места, подредени по разстояние. Показва чекпойнт на картата.
+// Компаниите, бензиностанциите, автокъщите и гаражът се взимат направо от играта.
+// "Други" са ръчни точки от админ: /gpsadd, /gpsdel, /gpslist.
 
 #define GPS_MAX_LIST        40
 #define GPS_CP_RADIUS       8.0
 
 enum {
-    GPS_CAT_INDUSTRY,
+    GPS_CAT_COMPANIES,
     GPS_CAT_FUEL,
-    GPS_CAT_DEPOT,
+    GPS_CAT_DEALERS,
+    GPS_CAT_GARAGE,
     GPS_CAT_OTHER,
     GPS_CAT_COUNT
 }
 
-static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Индустрии", "Бензиностанции", "Депа", "Други"};
+static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други"};
 
-static GpsListIds[MAX_PLAYERS][GPS_MAX_LIST];
+// Списъкът, показан на играча: вид + индекс (за "Други" – ID от базата)
+static GpsListType[MAX_PLAYERS][GPS_MAX_LIST];
+static GpsListIndex[MAX_PLAYERS][GPS_MAX_LIST];
+static GpsListCount[MAX_PLAYERS];
 static bool:GpsActive[MAX_PLAYERS];
 
 stock Gps_Reset(playerid)
@@ -33,17 +38,84 @@ stock Gps_ShowCategories(playerid)
     ShowPlayerDialog(playerid, DIALOG_GPS_CATEGORY, DIALOG_STYLE_LIST, C_BRAND "GPS", "%s", "Избери", "Назад", body);
 }
 
-static stock Gps_ShowPoints(playerid, category)
+// Позиция и име на място от списъка
+static stock Gps_GetPlace(type, index, &Float:x, &Float:y, &Float:z, name[], size)
+{
+    switch (type) {
+        case GPS_CAT_COMPANIES: {
+            Company_GetPos(index, x, y, z);
+            Company_GetName(index, name, size);
+        }
+        case GPS_CAT_FUEL: {
+            Fuel_GetPos(index, x, y, z);
+            format(name, size, "Бензиностанция %d", index + 1);
+        }
+        case GPS_CAT_DEALERS: {
+            Dealer_GetPos(index, x, y, z);
+            Dealer_GetName(index, name, size);
+        }
+        default: return 0;
+    }
+    return 1;
+}
+
+// Компании / бензиностанции / автокъщи – подредени по разстояние
+static stock Gps_ShowGameList(playerid, type)
+{
+    new total;
+    switch (type) {
+        case GPS_CAT_COMPANIES: total = Company_Total();
+        case GPS_CAT_FUEL:      total = Fuel_Total();
+        case GPS_CAT_DEALERS:   total = Dealer_Total();
+        default: return;
+    }
+    if (total > GPS_MAX_LIST) total = GPS_MAX_LIST;
+    if (total == 0) {
+        ShowPlayerDialog(playerid, DIALOG_MENU_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "GPS", C_WHITE "Няма места в тази категория.", "Добре", "");
+        return;
+    }
+
+    new idx[GPS_MAX_LIST], Float:dist[GPS_MAX_LIST], Float:x, Float:y, Float:z, name[48];
+    for (new i = 0; i < total; i++) {
+        Gps_GetPlace(type, i, x, y, z, name, sizeof (name));
+        idx[i] = i;
+        dist[i] = GetPlayerDistanceFromPoint(playerid, x, y, z);
+    }
+    for (new a = 0; a < total - 1; a++) {
+        for (new b = a + 1; b < total; b++) {
+            if (dist[b] < dist[a]) {
+                new t = idx[a]; idx[a] = idx[b]; idx[b] = t;
+                new Float:tf = dist[a]; dist[a] = dist[b]; dist[b] = tf;
+            }
+        }
+    }
+
+    new body[2400], line[112];
+    format(body, sizeof (body), "Място\tРазстояние\n");
+    for (new k = 0; k < total; k++) {
+        Gps_GetPlace(type, idx[k], x, y, z, name, sizeof (name));
+        format(line, sizeof (line), "%s\t" C_GREY "%.1f км\n", name, dist[k] / 1000.0);
+        strcat(body, line);
+        GpsListType[playerid][k] = type;
+        GpsListIndex[playerid][k] = idx[k];
+    }
+    GpsListCount[playerid] = total;
+    new title[64];
+    format(title, sizeof (title), C_BRAND "GPS" C_WHITE " | %s", GpsCategoryNames[type]);
+    ShowPlayerDialog(playerid, DIALOG_GPS_POINTS, DIALOG_STYLE_TABLIST_HEADERS, title, "%s", "Покажи", "Назад", body);
+}
+
+// "Други" – ръчните точки от базата
+static stock Gps_ShowCustom(playerid)
 {
     new Float:px, Float:py, Float:pz;
     GetPlayerPos(playerid, px, py, pz);
 
-    // SQLite подрежда по разстояние (квадрат на разстоянието е достатъчен за реда).
     new q[256];
     format(q, sizeof (q),
-        "SELECT id, name, x, y, z FROM gps_points WHERE category = %d " \
+        "SELECT id, name, x, y, z FROM gps_points " \
         "ORDER BY ((x - %f) * (x - %f) + (y - %f) * (y - %f)) LIMIT %d",
-        category, px, px, py, py, GPS_MAX_LIST);
+        px, px, py, py, GPS_MAX_LIST);
     new DBResult:r = Database_Query(q);
     if (r == DBResult:0) return;
 
@@ -51,14 +123,15 @@ static stock Gps_ShowPoints(playerid, category)
     if (rows == 0) {
         DB_FreeResultSet(r);
         ShowPlayerDialog(playerid, DIALOG_MENU_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "GPS",
-            C_WHITE "В тази категория още няма точки.", "Добре", "");
+            C_WHITE "Още няма други точки.", "Добре", "");
         return;
     }
 
     new body[2048], line[96], name[48], Float:x, Float:y, Float:z;
     format(body, sizeof (body), "Място\tРазстояние\n");
     for (new i = 0; i < rows && i < GPS_MAX_LIST; i++) {
-        GpsListIds[playerid][i] = DB_GetFieldIntByName(r, "id");
+        GpsListType[playerid][i] = GPS_CAT_OTHER;
+        GpsListIndex[playerid][i] = DB_GetFieldIntByName(r, "id");
         DB_GetFieldStringByName(r, "name", name, sizeof (name));
         x = DB_GetFieldFloatByName(r, "x");
         y = DB_GetFieldFloatByName(r, "y");
@@ -68,9 +141,10 @@ static stock Gps_ShowPoints(playerid, category)
         strcat(body, line);
         DB_SelectNextRow(r);
     }
+    GpsListCount[playerid] = (rows < GPS_MAX_LIST) ? rows : GPS_MAX_LIST;
     DB_FreeResultSet(r);
 
-    ShowPlayerDialog(playerid, DIALOG_GPS_POINTS, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "GPS" C_WHITE " | Избери място",
+    ShowPlayerDialog(playerid, DIALOG_GPS_POINTS, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "GPS" C_WHITE " | Други",
         "%s", "Покажи", "Назад", body);
 }
 
@@ -121,8 +195,6 @@ stock Gps_OnEnterCheckpoint(playerid)
     return 1;
 }
 
-static GpsCategory[MAX_PLAYERS];
-
 stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
 {
     switch (dialogid) {
@@ -136,9 +208,15 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
                 SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Изключен.");
                 return 1;
             }
-            if (listitem < 0 || listitem >= GPS_CAT_COUNT) return 1;
-            GpsCategory[playerid] = listitem;
-            Gps_ShowPoints(playerid, listitem);
+            switch (listitem) {
+                case GPS_CAT_GARAGE: {
+                    new Float:x, Float:y, Float:z, Float:a;
+                    City_GetEntrance(PlayerData[playerid][pGarageCity], x, y, z, a);
+                    Gps_SetPoint(playerid, "моят гараж", x, y, z);
+                }
+                case GPS_CAT_OTHER: Gps_ShowCustom(playerid);
+                default: Gps_ShowGameList(playerid, listitem);
+            }
             return 1;
         }
         case DIALOG_GPS_POINTS: {
@@ -146,8 +224,14 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
                 Gps_ShowCategories(playerid);
                 return 1;
             }
-            if (listitem < 0 || listitem >= GPS_MAX_LIST) return 1;
-            Gps_SetTarget(playerid, GpsListIds[playerid][listitem]);
+            if (listitem < 0 || listitem >= GpsListCount[playerid]) return 1;
+            new type = GpsListType[playerid][listitem], index = GpsListIndex[playerid][listitem];
+            if (type == GPS_CAT_OTHER) {
+                Gps_SetTarget(playerid, index);
+            } else {
+                new Float:x, Float:y, Float:z, name[48];
+                if (Gps_GetPlace(type, index, x, y, z, name, sizeof (name))) Gps_SetPoint(playerid, name, x, y, z);
+            }
             return 1;
         }
     }
@@ -166,21 +250,16 @@ CMD:gps(playerid, params[])
 CMD:gpsadd(playerid, params[])
 {
     if (!Admin_Check(playerid, 3)) return 1;
-    new catStr[4], name[48];
-    if (!GetParam(params, 0, catStr) || !IsNumeric(catStr) || !GetParamRest(params, 1, name)) {
-        SendUsage(playerid, "/gpsadd [категория] [име]");
-        SendClientMessage(playerid, COLOR_GREY, "Категории: 0 Индустрии, 1 Бензиностанции, 2 Депа, 3 Други");
-        return 1;
-    }
-    new cat = strval(catStr);
-    if (cat < 0 || cat >= GPS_CAT_COUNT) return SendError(playerid, "Категорията е от 0 до 3.");
+    if (IsNull(params)) return SendUsage(playerid, "/gpsadd [име] - добавя точка тук (категория \"Други\")");
+    new name[48];
+    format(name, sizeof (name), "%s", params);
 
     new Float:x, Float:y, Float:z, safe[96], q[256];
     GetPlayerPos(playerid, x, y, z);
     SQL_Escape(name, safe);
-    format(q, sizeof (q), "INSERT INTO gps_points (category, name, x, y, z) VALUES (%d, '%s', %f, %f, %f)", cat, safe, x, y, z);
+    format(q, sizeof (q), "INSERT INTO gps_points (category, name, x, y, z) VALUES (%d, '%s', %f, %f, %f)", GPS_CAT_OTHER, safe, x, y, z);
     Database_Exec(q);
-    SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Добавена точка " C_BRAND "%s" C_WHITE " в „%s“.", name, GpsCategoryNames[cat]);
+    SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Добавена точка " C_BRAND "%s" C_WHITE " в \"Други\".", name);
     return 1;
 }
 
@@ -188,15 +267,13 @@ CMD:gpslist(playerid, params[])
 {
     #pragma unused params
     if (!Admin_Check(playerid, 3)) return 1;
-    new DBResult:r = Database_Query("SELECT id, category, name FROM gps_points ORDER BY category, id");
+    new DBResult:r = Database_Query("SELECT id, name FROM gps_points ORDER BY id");
     if (r == DBResult:0) return 1;
     new rows = DB_GetRowCount(r), name[48];
     if (rows == 0) SendInfo(playerid, "Няма GPS точки.");
     for (new i = 0; i < rows; i++) {
         DB_GetFieldStringByName(r, "name", name, sizeof (name));
-        new cat = DB_GetFieldIntByName(r, "category");
-        if (cat < 0 || cat >= GPS_CAT_COUNT) cat = GPS_CAT_OTHER;
-        SendClientMessage(playerid, COLOR_GREY, "#%d, %s, %s", DB_GetFieldIntByName(r, "id"), GpsCategoryNames[cat], name);
+        SendClientMessage(playerid, COLOR_GREY, "#%d: %s", DB_GetFieldIntByName(r, "id"), name);
         DB_SelectNextRow(r);
     }
     DB_FreeResultSet(r);

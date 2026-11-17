@@ -38,7 +38,7 @@ stock Engine_Toggle(playerid)
     }
     new Float:fuel = Veh_GetFuel(vehicleid);
     if (fuel >= 0.0 && fuel < 0.5) {
-        SendError(playerid, "Резервоарът е празен. Пътна помощ: Меню (Y) > Гориво.");
+        SendError(playerid, "Резервоарът е празен. Пътна помощ: /roadside (+30 л за $400).");
         return 1;
     }
     Engine_Set(vehicleid, true);
