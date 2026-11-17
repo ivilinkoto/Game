@@ -100,7 +100,15 @@ stock Hud_Update(playerid)
     new percent = floatround((health - 250.0) / 7.5);
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
-    format(text, sizeof (text), "%sENGINE %d%%", (percent < 30) ? ("~r~") : ("~w~"), percent);
+    new Float:fuel = Veh_GetFuel(vehicleid);
+    if (fuel >= 0.0) {
+        new tank = Catalog_GetTank(GetVehicleModel(vehicleid));
+        new bool:low = (tank > 0 && fuel < float(tank) * FUEL_LOW_PERCENT / 100.0);
+        format(text, sizeof (text), "%sENGINE %d%%  %sFUEL %d L", (percent < 30) ? ("~r~") : ("~w~"), percent,
+            low ? ("~r~") : ("~w~"), floatround(fuel, floatround_floor));
+    } else {
+        format(text, sizeof (text), "%sENGINE %d%%", (percent < 30) ? ("~r~") : ("~w~"), percent);
+    }
     PlayerTextDrawSetString(playerid, HudHealth[playerid], text);
 
     if (!HudInVehicle[playerid]) {

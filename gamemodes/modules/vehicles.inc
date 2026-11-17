@@ -14,6 +14,7 @@ enum E_PLAYER_VEH {
     pvColor1,
     pvColor2,
     Float:pvHealth,
+    Float:pvFuel,           // литри
     pvVehicle,              // ID в играта (INVALID_VEHICLE_ID = не е създаден)
     bool:pvOut              // навън ли е (извън гаража)
 }
@@ -47,6 +48,25 @@ stock Veh_Init()
         Database_SetMeta("starter_van", 1);
         print("[VEH] Starter Yankees replaced with Rumpo vans.");
     }
+}
+
+// Гориво по ID на превозното средство (-1.0 = не е на играч, няма ограничение)
+stock Float:Veh_GetFuel(vehicleid)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return -1.0;
+    return PlayerVeh[owner][VehSlot[vehicleid]][pvFuel];
+}
+
+stock Veh_SetFuel(vehicleid, Float:fuel)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return;
+    new slot = VehSlot[vehicleid];
+    new Float:tank = float(Catalog_GetTank(PlayerVeh[owner][slot][pvModel]));
+    if (fuel < 0.0) fuel = 0.0;
+    if (fuel > tank) fuel = tank;
+    PlayerVeh[owner][slot][pvFuel] = fuel;
 }
 
 stock Veh_GetOwner(vehicleid)
@@ -89,6 +109,7 @@ stock Veh_Reset(playerid)
         PlayerVeh[playerid][s][pvVehicle] = INVALID_VEHICLE_ID;
         PlayerVeh[playerid][s][pvOut] = false;
         PlayerVeh[playerid][s][pvHealth] = 1000.0;
+        PlayerVeh[playerid][s][pvFuel] = 0.0;
     }
 }
 
@@ -111,6 +132,10 @@ stock Veh_Load(playerid)
             new Float:hp = DB_GetFieldFloatByName(r, "health");
             if (hp < 300.0) hp = 300.0;     // изгорял камион се връща поправен до минимум
             PlayerVeh[playerid][slot][pvHealth] = hp;
+            new Float:fuel = DB_GetFieldFloatByName(r, "fuel");
+            new tank = Catalog_GetTank(PlayerVeh[playerid][slot][pvModel]);
+            if (fuel < 0.0 || fuel > float(tank)) fuel = float(tank);   // -1 = пълен (стари записи)
+            PlayerVeh[playerid][slot][pvFuel] = fuel;
         }
         DB_SelectNextRow(r);
     }
@@ -185,6 +210,7 @@ stock Veh_Add(playerid, model, color1, color2)
     PlayerVeh[playerid][slot][pvColor1] = color1;
     PlayerVeh[playerid][slot][pvColor2] = color2;
     PlayerVeh[playerid][slot][pvHealth] = 1000.0;
+    PlayerVeh[playerid][slot][pvFuel] = float(Catalog_GetTank(model));
     PlayerVeh[playerid][slot][pvVehicle] = INVALID_VEHICLE_ID;
     PlayerVeh[playerid][slot][pvOut] = false;
     Veh_ParkInGarage(playerid, slot);
@@ -223,7 +249,8 @@ static stock Veh_Save(playerid, slot)
         PlayerVeh[playerid][slot][pvHealth] = hp;
     }
     new q[128];
-    format(q, sizeof (q), "UPDATE player_vehicles SET health = %f WHERE id = %d", PlayerVeh[playerid][slot][pvHealth], PlayerVeh[playerid][slot][pvID]);
+    format(q, sizeof (q), "UPDATE player_vehicles SET health = %f, fuel = %f WHERE id = %d",
+        PlayerVeh[playerid][slot][pvHealth], PlayerVeh[playerid][slot][pvFuel], PlayerVeh[playerid][slot][pvID]);
     Database_Exec(q);
 }
 

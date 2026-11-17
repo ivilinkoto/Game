@@ -688,6 +688,14 @@ stock Delivery_Tick()
     }
 }
 
+// Тегло на товара в превозното средство (0 ако няма натоварен товар)
+stock Delivery_GetLoadKg(playerid)
+{
+    new stage = Job[playerid][jbStage];
+    if (stage == JOB_TO_DROP || stage == JOB_UNLOADING) return Job[playerid][jbKg];
+    return 0;
+}
+
 stock Delivery_GetJobVehicle(playerid)
 {
     return Job[playerid][jbVehicle];

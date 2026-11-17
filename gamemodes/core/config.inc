@@ -35,3 +35,6 @@
 // Нива: нужен опит (общо) за ниво 1..5
 #define MAX_LEVEL           5
 stock const LevelExp[MAX_LEVEL] = {0, 150, 500, 1200, 2500};
+
+// Гориво: под този процент от резервоара – предупреждение и червен HUD
+#define FUEL_LOW_PERCENT    15

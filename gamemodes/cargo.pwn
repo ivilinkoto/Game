@@ -37,6 +37,7 @@ forward bool:Garage_IsInside(playerid);
 forward bool:Delivery_HasJob(playerid);
 forward bool:Engine_IsOn(vehicleid);
 forward bool:Veh_Remove(playerid, slot);
+forward Float:Veh_GetFuel(vehicleid);
 
 #include "maps/garage.inc"
 
@@ -54,6 +55,7 @@ forward bool:Veh_Remove(playerid, slot);
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
 #include "modules/business.inc"
+#include "modules/fuel.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -93,6 +95,7 @@ public OnGameModeInit()
     Company_Init();
     Engine_Init();
     Dealer_Init();
+    Fuel_Init();
     Logo_Init();
     Contracts_Init();
     Business_CheckInactive();
@@ -125,8 +128,12 @@ public Server_Tick()
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;
         PlayerData[i][pPlayTime]++;
         if (gSecondsCounter % 5 == 0) Company_UpdateIcons(i);
+        Fuel_Tick(i);
         Money_Sync(i);
-        if (autosave) Auth_SaveAccount(i);
+        if (autosave) {
+            Auth_SaveAccount(i);
+            Veh_SaveAll(i);
+        }
     }
     return 1;
 }
@@ -141,6 +148,7 @@ public OnPlayerConnect(playerid)
     Garage_OnPlayerConnect(playerid);
     Delivery_OnPlayerConnect(playerid);
     Dealer_OnPlayerConnect(playerid);
+    Fuel_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
     SetPlayerColor(playerid, 0xF5A623FF);
@@ -194,6 +202,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     if (Engine_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Fuel_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
@@ -222,6 +231,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Delivery_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Dealer_OnDialogResponse(playerid, dialogid, response)) return 1;
     if (Business_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }

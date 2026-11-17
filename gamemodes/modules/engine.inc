@@ -36,6 +36,11 @@ stock Engine_Toggle(playerid)
         SendError(playerid, "Двигателят е твърде повреден и не пали.");
         return 1;
     }
+    new Float:fuel = Veh_GetFuel(vehicleid);
+    if (fuel >= 0.0 && fuel < 0.5) {
+        SendError(playerid, "Резервоарът е празен. Пътна помощ: Меню (Y) > Гориво.");
+        return 1;
+    }
     Engine_Set(vehicleid, true);
     GameTextForPlayer(playerid, "~g~ENGINE ON", 1500, 4);
     return 1;

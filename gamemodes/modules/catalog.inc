@@ -16,20 +16,22 @@ enum E_VEH_CLASS {
     vcCargo,            // CARGO_* битове
     bool:vcTrailer,     // влекач - товарът е в ремарке
     vcLevel,            // нужно ниво за покупка
-    vcPrice
+    vcPrice,
+    vcTank,             // резервоар, литри
+    vcFuelUse           // разход: десети от литъра на км (60 = 6 л/км), +50% при пълен товар
 }
 
 stock const VehCatalog[][E_VEH_CLASS] = {
-    {440, "Rumpo",       1500, CARGO_PARCEL,                             false, 1,      0},
-    {482, "Burrito",     1200, CARGO_PARCEL,                             false, 1,   9000},
-    {498, "Boxville",    3000, CARGO_PARCEL | CARGO_BOX,                 false, 2,  18000},
-    {414, "Mule",        5000, CARGO_PARCEL | CARGO_BOX,                 false, 2,  28000},
-    {499, "Benson",      6000, CARGO_BOX,                                false, 3,  35000},
-    {456, "Yankee",      8000, CARGO_BOX,                                false, 3,  45000},
-    {455, "Flatbed",    12000, CARGO_BULK,                               false, 4,  60000},
-    {403, "Linerunner", 25000, CARGO_BOX | CARGO_BULK | CARGO_LIQUID,    true,  4,  90000},
-    {514, "Tanker",     30000, CARGO_BOX | CARGO_BULK | CARGO_LIQUID,    true,  5, 120000},
-    {515, "Roadtrain",  40000, CARGO_BOX | CARGO_BULK | CARGO_LIQUID,    true,  5, 160000}
+    {440, "Rumpo",       1500, CARGO_PARCEL,                             false, 1,      0,  70,  60},
+    {482, "Burrito",     1200, CARGO_PARCEL,                             false, 1,   9000,  65,  55},
+    {498, "Boxville",    3000, CARGO_PARCEL | CARGO_BOX,                 false, 2,  18000,  90,  80},
+    {414, "Mule",        5000, CARGO_PARCEL | CARGO_BOX,                 false, 2,  28000, 110,  90},
+    {499, "Benson",      6000, CARGO_BOX,                                false, 3,  35000, 120, 100},
+    {456, "Yankee",      8000, CARGO_BOX,                                false, 3,  45000, 140, 110},
+    {455, "Flatbed",    12000, CARGO_BULK,                               false, 4,  60000, 160, 120},
+    {403, "Linerunner", 25000, CARGO_BOX | CARGO_BULK | CARGO_LIQUID,    true,  4,  90000, 200, 140},
+    {514, "Tanker",     30000, CARGO_BOX | CARGO_BULK | CARGO_LIQUID,    true,  5, 120000, 220, 150},
+    {515, "Roadtrain",  40000, CARGO_BOX | CARGO_BULK | CARGO_LIQUID,    true,  5, 160000, 250, 160}
 };
 
 stock Catalog_Find(model)
@@ -38,6 +40,18 @@ stock Catalog_Find(model)
         if (VehCatalog[i][vcModel] == model) return i;
     }
     return -1;
+}
+
+stock Catalog_GetTank(model)
+{
+    new i = Catalog_Find(model);
+    return (i == -1) ? 0 : VehCatalog[i][vcTank];
+}
+
+stock Catalog_GetFuelUse(model)
+{
+    new i = Catalog_Find(model);
+    return (i == -1) ? 0 : VehCatalog[i][vcFuelUse];
 }
 
 stock Catalog_GetPayload(model)

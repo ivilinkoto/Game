@@ -142,6 +142,7 @@ stock bool:Database_Init()
     strcat(q, "created_at INTEGER NOT NULL DEFAULT 0)");
     Database_Exec(q);
     Database_Exec("CREATE INDEX IF NOT EXISTS idx_pveh_owner ON player_vehicles(owner_id)");
+    Database_AddColumn("player_vehicles", "fuel", "REAL NOT NULL DEFAULT -1");
 
     Database_Exec("CREATE TABLE IF NOT EXISTS server_meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)");
 

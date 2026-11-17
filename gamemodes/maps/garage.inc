@@ -23,7 +23,7 @@
 
 // Цветове (ARGB) - умножават се по текстурата на бетона
 #define GARAGE_TINT_WALL    0xFF6F7C88      // тъмно сиво-синьо
-#define GARAGE_TINT_BAND    0xFFF5A623      // оранжева ивица (цветът на сървъра)
+#define GARAGE_TINT_BAND    0xFFF5A623      // задната (северна) стена – цветът на сървъра
 #define GARAGE_TINT_FLOOR   0xFFB8B8B0      // светъл бетон
 #define GARAGE_TINT_CEIL    0xFF4A525A      // тъмен таван
 
@@ -64,16 +64,11 @@ stock Garage_CreateMap()
     Garage_Plane(0.0, 0.0, GARAGE_HEIGHT, 180.0, 0.0, GARAGE_TINT_CEIL);
 
     // Стени
-    Garage_Wall(true,  0.0,  GARAGE_HALF_L, 0.0, GARAGE_TINT_WALL);     // север
+    Garage_Wall(true,  0.0,  GARAGE_HALF_L, 0.0, GARAGE_TINT_BAND);     // север – оранжев акцент
     Garage_Wall(true,  0.0, -GARAGE_HALF_L, 0.0, GARAGE_TINT_WALL);     // юг (с вратата)
     Garage_Wall(false, -GARAGE_HALF_W, 0.0, 0.0, GARAGE_TINT_WALL);     // запад
     Garage_Wall(false,  GARAGE_HALF_W, 0.0, 0.0, GARAGE_TINT_WALL);     // изток
 
-    // Оранжева ивица долу по стените (1.2 м), малко пред тях
-    Garage_Wall(true,  0.0,  GARAGE_HALF_L - 0.05, 1.2, GARAGE_TINT_BAND);
-    Garage_Wall(true,  0.0, -GARAGE_HALF_L + 0.05, 1.2, GARAGE_TINT_BAND);
-    Garage_Wall(false, -GARAGE_HALF_W + 0.05, 0.0, 1.2, GARAGE_TINT_BAND);
-    Garage_Wall(false,  GARAGE_HALF_W - 0.05, 0.0, 1.2, GARAGE_TINT_BAND);
 
     // Голяма метална врата на южната стена (отвътре)
     Garage_Obj(980, 0.0, -GARAGE_HALF_L + 0.4, 2.7, 0.0, 0.0, 0.0);
