@@ -32,21 +32,23 @@ stock Menu_Show(playerid)
 
 stock Menu_ShowProfile(playerid)
 {
-    new money[16], toNext[48], hours = PlayerData[playerid][pPlayTime] / 3600, minutes = (PlayerData[playerid][pPlayTime] / 60) % 60;
+    new money[16], toNext[48], lic[24], hours = PlayerData[playerid][pPlayTime] / 3600, minutes = (PlayerData[playerid][pPlayTime] / 60) % 60;
     FormatMoney(PlayerData[playerid][pMoney], money);
     new left = Level_ExpToNext(playerid);
     if (left > 0) format(toNext, sizeof (toNext), "още %d до ниво %d", left, PlayerData[playerid][pLevel] + 1);
     else format(toNext, sizeof (toNext), "максимално ниво");
+    License_Format(License_GetBits(playerid), lic);
 
     ShowPlayerDialog(playerid, DIALOG_MENU_PROFILE, DIALOG_STYLE_MSGBOX, C_BRAND "Моят профил",
         C_WHITE "Ник: " C_BRAND "%s\n" \
         C_WHITE "Пари: " C_GREEN "$%s\n" \
         C_WHITE "Ниво: " C_BRAND "%d" C_WHITE " / %d\n" \
         C_WHITE "Опит: %d " C_GREY "(%s)\n" \
+        C_WHITE "Категории: " C_BRAND "%s\n" \
         C_WHITE "Изиграно време: %d ч. %d мин.\n" \
         C_WHITE "CB канал: %d",
         "Назад", "", PlayerData[playerid][pName], money, PlayerData[playerid][pLevel], MAX_LEVEL,
-        PlayerData[playerid][pExp], toNext, hours, minutes, PlayerData[playerid][pCBChannel]);
+        PlayerData[playerid][pExp], toNext, lic, hours, minutes, PlayerData[playerid][pCBChannel]);
 }
 
 stock Menu_ShowSettings(playerid)

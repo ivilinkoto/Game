@@ -11,10 +11,11 @@ enum {
     GPS_CAT_DEALERS,
     GPS_CAT_GARAGE,
     GPS_CAT_OTHER,
+    GPS_CAT_SCHOOLS,        // след "Други" - номерът на "Други" се пази в базата
     GPS_CAT_COUNT
 }
 
-static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други"};
+static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други", "Автошколи"};
 
 // Списъкът, показан на играча: вид + индекс (за "Други" – ID от базата)
 static GpsListType[MAX_PLAYERS][GPS_MAX_LIST];
@@ -72,6 +73,10 @@ static stock Gps_GetPlace(type, index, &Float:x, &Float:y, &Float:z, name[], siz
             Dealer_GetPos(index, x, y, z);
             Dealer_GetName(index, name, size);
         }
+        case GPS_CAT_SCHOOLS: {
+            Places_GetNthOfType(PLACE_SCHOOL, index, x, y, z);
+            format(name, size, "Автошкола %d", index + 1);
+        }
         default: return 0;
     }
     return 1;
@@ -85,6 +90,7 @@ static stock Gps_ShowGameList(playerid, type)
         case GPS_CAT_COMPANIES: total = Company_Total();
         case GPS_CAT_FUEL:      total = Fuel_Total();
         case GPS_CAT_DEALERS:   total = Dealer_Total();
+        case GPS_CAT_SCHOOLS:   total = Places_CountType(PLACE_SCHOOL);
         default: return;
     }
     if (total > GPS_MAX_LIST) total = GPS_MAX_LIST;

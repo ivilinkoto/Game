@@ -294,6 +294,11 @@ static stock Delivery_Accept(playerid, slot)
         SendError(playerid, "Трябва да си в своето превозно средство, което може да кара този товар.");
         return;
     }
+    // Гориво и други течни товари - нужна е категория ADR
+    if (Goods[Contracts[slot][ctGood]][gdCargo] == CARGO_LIQUID && !License_Has(playerid, LIC_ADR)) {
+        SendError(playerid, "За гориво ти трябва категория ADR (опасни товари). Вземи я в автошкола.");
+        return;
+    }
     // Складът може да се е изпразнил междувременно
     if (!Economy_HasStock(Contracts[slot][ctFrom], Contracts[slot][ctGood], Contracts[slot][ctKg])
         || !Economy_CanAccept(Contracts[slot][ctTo], Contracts[slot][ctGood])) {

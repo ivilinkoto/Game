@@ -241,7 +241,8 @@ enum {
     APE_SLAP,
     APE_KICK,
     APE_BAN,
-    APE_UNBAN
+    APE_UNBAN,
+    APE_LICENSES
 }
 
 static stock AdminPanel_ShowEdit(playerid)
@@ -249,7 +250,7 @@ static stock AdminPanel_ShowEdit(playerid)
     new title[80], bool:online = AdminPanel_TargetOnline(playerid);
     format(title, sizeof (title), C_ADMIN "Промяна" C_WHITE " | %s%s", ApTargetName[playerid], online ? (" (онлайн)") : (" (офлайн)"));
     ShowPlayerDialog(playerid, DIALOG_AP_EDIT, DIALOG_STYLE_LIST, title,
-        "Задай ниво\nЗадай пари\nДай пари\nАдмин ниво\nОтиди при него\nДоведи го при мен\nНахрани и напои\nИзправи превозното му средство\nШамар\nИзритай\nБан\nМахни бан",
+        "Задай ниво\nЗадай пари\nДай пари\nАдмин ниво\nОтиди при него\nДоведи го при мен\nНахрани и напои\nИзправи превозното му средство\nШамар\nИзритай\nБан\nМахни бан\nШофьорски категории",
         "Избери", "Назад");
 }
 
@@ -337,6 +338,45 @@ static stock AdminPanel_DoEdit(playerid, action, const value[])
     }
 }
 
+// ---------- Шофьорски категории ----------
+
+static stock AdminPanel_GetLicenses(playerid)
+{
+    if (AdminPanel_TargetOnline(playerid)) return License_GetBits(ApTarget[playerid]);
+    new q[96], bits = LIC_DEFAULT;
+    format(q, sizeof (q), "SELECT licenses FROM accounts WHERE id = %d", ApTargetAccount[playerid]);
+    new DBResult:r = Database_Query(q);
+    if (r != DBResult:0) {
+        if (DB_GetRowCount(r) > 0) bits = DB_GetFieldIntByName(r, "licenses");
+        DB_FreeResultSet(r);
+    }
+    return bits;
+}
+
+static stock AdminPanel_SetLicenses(playerid, bits)
+{
+    if (AdminPanel_TargetOnline(playerid)) {
+        License_SetBits(ApTarget[playerid], bits);
+        return;
+    }
+    new q[96];
+    format(q, sizeof (q), "UPDATE accounts SET licenses = %d WHERE id = %d", bits | LIC_DEFAULT, ApTargetAccount[playerid]);
+    Database_Exec(q);
+}
+
+static stock AdminPanel_ShowLicenses(playerid)
+{
+    new bits = AdminPanel_GetLicenses(playerid), body[400], line[96], title[80];
+    body[0] = EOS;
+    for (new c = 0; c < MAX_LICENSES; c++) {
+        if (bits & LIC_BIT(c)) format(line, sizeof (line), C_GREEN "[X] " C_BRAND "%s" C_WHITE " - %s\n", LicenseNames[c], LicenseDesc[c]);
+        else format(line, sizeof (line), C_GREY "[  ] " C_BRAND "%s" C_WHITE " - %s\n", LicenseNames[c], LicenseDesc[c]);
+        strcat(body, line);
+    }
+    format(title, sizeof (title), C_ADMIN "Категории" C_WHITE " | %s", ApTargetName[playerid]);
+    ShowPlayerDialog(playerid, DIALOG_AP_LIC, DIALOG_STYLE_LIST, title, "%s", "Смени", "Назад", body);
+}
+
 // ---------- Места на картата ----------
 
 enum {
@@ -354,7 +394,8 @@ enum {
     APP_NEW_COMPANY,
     APP_DEL_COMPANY,
     APP_ADD_REST,
-    APP_ADD_WEIGH
+    APP_ADD_WEIGH,
+    APP_ADD_SCHOOL
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -366,7 +407,7 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_GREEN "+ " C_WHITE "Обществена тоалетна тук\n" \
         C_GREEN "+ " C_WHITE "Бензиностанция тук\n" \
         C_GREEN "+ " C_WHITE "GPS точка тук\n" \
-        C_RED "- " C_WHITE "Изтрий най-близкото място (магазин, тоалетна, паркинг, кантар)\n" \
+        C_RED "- " C_WHITE "Изтрий най-близкото място (магазин, тоалетна, кантар, автошкола...)\n" \
         C_RED "- " C_WHITE "Изтрий най-близката бензиностанция\n" \
         C_BRAND "> " C_WHITE "Премести база на компания тук\n" \
         C_BRAND "> " C_WHITE "Премести входа на гаражите тук\n" \
@@ -374,7 +415,8 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_GREEN "+ " C_WHITE "Нова компания тук\n" \
         C_RED "- " C_WHITE "Закрий компания\n" \
         C_GREEN "+ " C_WHITE "Паркинг за почивка тук\n" \
-        C_GREEN "+ " C_WHITE "Кантар тук (на пътя)",
+        C_GREEN "+ " C_WHITE "Кантар тук (застани в центъра му)\n" \
+        C_GREEN "+ " C_WHITE "Автошкола тук (изпитният камион излиза пред теб)",
         "Избери", "Назад");
 }
 
@@ -411,6 +453,7 @@ static stock AdminPanel_DoPlace(playerid, action)
         case APP_ADD_TOILET: Places_AddHere(playerid, PLACE_TOILET);
         case APP_ADD_REST:   Places_AddHere(playerid, PLACE_REST);
         case APP_ADD_WEIGH:  Places_AddHere(playerid, PLACE_WEIGH);
+        case APP_ADD_SCHOOL: Places_AddHere(playerid, PLACE_SCHOOL);
         case APP_ADD_FUEL:   AdminPanel_RunCmd(playerid, "addfuel", "\1");
         case APP_ADD_GPS: {
             ShowPlayerDialog(playerid, DIALOG_AP_GPSNAME, DIALOG_STYLE_INPUT, C_ADMIN "GPS точка", C_WHITE "Име на точката (категория \"Други\"):", "Добави", "Назад");
@@ -564,7 +607,25 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
                     AdminPanel_RunCmd(playerid, "unban", ApTargetName[playerid]);
                     AdminPanel_ShowEdit(playerid);
                 }
+                case APE_LICENSES: {
+                    if (!AdminPanel_Need(playerid, 3)) return 1;
+                    AdminPanel_ShowLicenses(playerid);
+                }
             }
+            return 1;
+        }
+        case DIALOG_AP_LIC: {
+            if (!response || listitem < 0 || listitem >= MAX_LICENSES) { AdminPanel_ShowEdit(playerid); return 1; }
+            if (listitem == LIC_B) { SendError(playerid, "Категория B е задължителна."); AdminPanel_ShowLicenses(playerid); return 1; }
+            new bits = AdminPanel_GetLicenses(playerid) ^ LIC_BIT(listitem);
+            AdminPanel_SetLicenses(playerid, bits);
+            new list[24];
+            License_Format(bits, list);
+            SendClientMessage(playerid, COLOR_ADMIN, "[A] Категориите на %s: %s.", ApTargetName[playerid], list);
+            if (AdminPanel_TargetOnline(playerid)) {
+                SendClientMessage(ApTarget[playerid], COLOR_ADMIN, "[A] " C_WHITE "Админ промени шофьорските ти категории: " C_BRAND "%s", list);
+            }
+            AdminPanel_ShowLicenses(playerid);
             return 1;
         }
         case DIALOG_AP_VALUE: {

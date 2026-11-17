@@ -129,7 +129,8 @@ stock Dealer_ShowShowroom(playerid)
         new Float:rowWidth = inRow * DEALER_CARD_W + (inRow - 1) * DEALER_GAP;
         new Float:x = 320.0 - rowWidth / 2.0 + col * (DEALER_CARD_W + DEALER_GAP);
         new Float:y = DEALER_TOP + row * DEALER_ROW_H;
-        new bool:locked = (VehCatalog[i][vcLevel] > level);
+        new bool:noLicense = !License_CanDrive(playerid, VehCatalog[i][vcModel]);
+        new bool:locked = (VehCatalog[i][vcLevel] > level) || noLicense;
 
         new PlayerText:c = CreatePlayerTextDraw(playerid, x, y, "_");
         PlayerTextDrawFont(playerid, c, TEXT_DRAW_FONT_MODEL_PREVIEW);
@@ -146,8 +147,10 @@ stock Dealer_ShowShowroom(playerid)
 
         format(text, sizeof (text), "%s%s", locked ? ("~r~") : ("~w~"), VehCatalog[i][vcName]);
         DlName[playerid][i] = Dl_Label(playerid, x + DEALER_CARD_W / 2.0, y + DEALER_CARD_H + 2.0, text, 0.22, TEXT_DRAW_FONT_2);
-        if (locked) {
+        if (VehCatalog[i][vcLevel] > level) {
             format(text, sizeof (text), "~r~LEVEL %d", VehCatalog[i][vcLevel]);
+        } else if (noLicense) {
+            format(text, sizeof (text), "~r~LICENSE %s", LicenseNames[License_ForModel(VehCatalog[i][vcModel])]);
         } else {
             FormatMoney(VehCatalog[i][vcPrice], price);
             Catalog_FormatPayloadLatin(VehCatalog[i][vcModel], payload);
@@ -228,6 +231,8 @@ static stock Dealer_ShowDetails(playerid, i)
 
     if (VehCatalog[i][vcLevel] > PlayerData[playerid][pLevel]) {
         format(status, sizeof (status), C_RED "Нужно ниво %d (ти си ниво %d).", VehCatalog[i][vcLevel], PlayerData[playerid][pLevel]);
+    } else if (!License_CanDrive(playerid, model)) {
+        format(status, sizeof (status), C_RED "Нужна е категория %s. Вземи я в автошкола (GPS > Автошколи).", LicenseNames[License_ForModel(model)]);
     } else if (Veh_FindFreeSlot(playerid) == -1) {
         format(status, sizeof (status), C_RED "Гаражът ти е пълен. Продай превозно средство от Меню > Моят гараж.");
     } else if (Money_Get(playerid) < VehCatalog[i][vcPrice]) {
@@ -249,6 +254,7 @@ static stock Dealer_ShowDetails(playerid, i)
 static stock Dealer_Buy(playerid, i)
 {
     if (VehCatalog[i][vcLevel] > PlayerData[playerid][pLevel]) return SendError(playerid, "Нивото ти не стига за това превозно средство.");
+    if (!License_CanDrive(playerid, VehCatalog[i][vcModel])) return SendError(playerid, "Нямаш нужната шофьорска категория. Вземи я в автошкола.");
     if (Veh_FindFreeSlot(playerid) == -1) return SendError(playerid, "Гаражът ти е пълен.");
     if (!Money_Take(playerid, VehCatalog[i][vcPrice])) return SendError(playerid, "Нямаш достатъчно пари.");
 

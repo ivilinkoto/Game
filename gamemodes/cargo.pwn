@@ -46,6 +46,8 @@ forward bool:Engine_IsOn(vehicleid);
 forward bool:Veh_Remove(playerid, slot);
 forward Float:Veh_GetFuel(vehicleid);
 forward bool:Fuel_IsNearStation(playerid);
+forward bool:License_Has(playerid, cat);
+forward bool:License_CanDrive(playerid, model);
 
 #include "maps/garage.inc"
 
@@ -62,6 +64,7 @@ forward bool:Fuel_IsNearStation(playerid);
 #include "modules/garage.inc"
 #include "modules/companies.inc"
 #include "modules/economy.inc"
+#include "modules/licenses.inc"
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
 #include "modules/business.inc"
@@ -111,6 +114,7 @@ public OnGameModeInit()
     Dealer_Init();
     Fuel_Init();
     Places_Init();
+    Licenses_Init();
     AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
@@ -151,6 +155,7 @@ public Server_Tick()
         Route_Tick(i);
         Tune_ArmorTick(i);
         Needs_Tick(i);
+        License_Tick(i);
         Money_Sync(i);
         if (autosave) {
             Auth_SaveAccount(i);
@@ -174,6 +179,7 @@ public OnPlayerConnect(playerid)
     Fuel_OnPlayerConnect(playerid);
     Route_OnPlayerConnect(playerid);
     Needs_OnPlayerConnect(playerid);
+    License_OnPlayerConnect(playerid);
     Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
@@ -188,6 +194,7 @@ public OnPlayerDisconnect(playerid, reason)
     Needs_Save(playerid);
     Needs_DestroyHud(playerid);
     Delivery_OnPlayerDisconnect(playerid);
+    License_OnPlayerDisconnect(playerid);
     Veh_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
     Hud_Destroy(playerid);
@@ -263,6 +270,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (License_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
@@ -273,7 +281,10 @@ public OnPlayerStateChange(playerid, PLAYER_STATE:newstate, PLAYER_STATE:oldstat
     #pragma unused oldstate
     Veh_OnPlayerStateChange(playerid, newstate);
     Engine_OnPlayerStateChange(playerid, newstate);
-    if (newstate == PLAYER_STATE_DRIVER) Tune_ResetArmor(GetPlayerVehicleID(playerid));
+    if (newstate == PLAYER_STATE_DRIVER) {
+        Tune_ResetArmor(GetPlayerVehicleID(playerid));
+        License_OnDriverEnter(playerid);
+    }
     return 1;
 }
 
@@ -281,6 +292,7 @@ public OnVehicleDeath(vehicleid, killerid)
 {
     #pragma unused killerid
     Delivery_OnVehicleDeath(vehicleid);
+    License_OnVehicleDeath(vehicleid);
     return 1;
 }
 
@@ -294,6 +306,7 @@ public OnPlayerClickMap(playerid, Float:fX, Float:fY, Float:fZ)
 
 public OnPlayerEnterRaceCheckpoint(playerid)
 {
+    if (License_OnEnterRaceCP(playerid)) return 1;
     Delivery_OnEnterRaceCP(playerid);
     return 1;
 }

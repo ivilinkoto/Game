@@ -31,11 +31,12 @@ enum {
     PLACE_TOILET,           // обществена тоалетна
     PLACE_REST,             // паркинг за почивка (умора)
     PLACE_WEIGH,            // кантар (виж delivery.inc) – не се ползва с ALT
+    PLACE_SCHOOL,           // автошкола (виж licenses.inc)
     MAX_PLACE_TYPES
 }
 
-stock const PlaceTypeNames[MAX_PLACE_TYPES][] = {"Магазин", "Закусвалня", "Кафене", "Обществена тоалетна", "Паркинг за почивка", "Кантар"};
-static const PlaceIcons[MAX_PLACE_TYPES] = {17, 10, 17, 0, 0, 0};
+stock const PlaceTypeNames[MAX_PLACE_TYPES][] = {"Магазин", "Закусвалня", "Кафене", "Обществена тоалетна", "Паркинг за почивка", "Кантар", "Автошкола"};
+static const PlaceIcons[MAX_PLACE_TYPES] = {17, 10, 17, 0, 0, 0, 36};
 
 // Артикули: име, цена, +глад, +жажда, +тоалетна, в кои места (битове PLACE_*)
 enum E_ITEM {
@@ -301,6 +302,31 @@ stock Places_GetNearOfType(playerid, type, Float:range)
         if (PlaceType[i] == type && IsPlayerInRangeOfPoint(playerid, range, PlacePos[i][0], PlacePos[i][1], PlacePos[i][2])) return i;
     }
     return -1;
+}
+
+// Брой места от вид (за GPS)
+stock Places_CountType(type)
+{
+    new n = 0;
+    for (new i = 0; i < PlaceCount; i++) {
+        if (PlaceType[i] == type) n++;
+    }
+    return n;
+}
+
+// n-тото място от вид (за GPS); 0 = няма
+stock Places_GetNthOfType(type, n, &Float:x, &Float:y, &Float:z)
+{
+    for (new i = 0; i < PlaceCount; i++) {
+        if (PlaceType[i] != type) continue;
+        if (n-- == 0) {
+            x = PlacePos[i][0];
+            y = PlacePos[i][1];
+            z = PlacePos[i][2];
+            return 1;
+        }
+    }
+    return 0;
 }
 
 // Най-близкият кантар (за delivery.inc, който се зарежда преди този файл)
@@ -637,6 +663,7 @@ stock Needs_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     new p = Places_GetNear(playerid);
     if (p != -1) {
         if (PlaceType[p] == PLACE_REST) Fatigue_StartRest(playerid);
+        else if (PlaceType[p] == PLACE_SCHOOL) License_ShowSchool(playerid, PlacePos[p][0], PlacePos[p][1], PlacePos[p][2], PlaceAngle[p]);
         else Needs_ShowShop(playerid, PlaceType[p]);
         return 1;
     }
