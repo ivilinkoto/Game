@@ -183,13 +183,15 @@ stock Company_GoodsList(mask, dest[], size = sizeof (dest), bool:latin = false)
 stock Company_CreateMarkers(c)
 {
     if (CompanyLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(CompanyLabel[c]);
-    if (CompanyIcon[c] != -1) DestroyDynamicMapIcon(CompanyIcon[c]);
-    // Икона "камион" – само в радиус около играча
-    CompanyIcon[c] = CreateDynamicMapIcon(Company[c][cpX], Company[c][cpY], Company[c][cpZ], COMPANY_ICON_TYPE, 0, 0, 0, -1, MAP_ICON_RANGE, MAPICON_LOCAL);
+    // Икона "камион" – само в радиус около играча (създава се веднъж; при преместване – отново)
+    if (CompanyIcon[c] == -1) {
+        CompanyIcon[c] = CreateDynamicMapIcon(Company[c][cpX], Company[c][cpY], Company[c][cpZ], COMPANY_ICON_TYPE, 0, 0, 0, -1, MAP_ICON_RANGE, MAPICON_LOCAL);
+    }
 
-    new produces[160], accepts[160], owner[96], text[640];
-    Company_GoodsList(CompanyDefs[c][cdProduces], produces);
-    Company_GoodsList(CompanyDefs[c][cdAccepts], accepts);
+    // Наличности в склада (виж modules/economy.inc)
+    new produces[320], accepts[320], owner[96], text[1000];
+    Economy_GoodsLine(c, CompanyDefs[c][cdProduces], false, produces);
+    Economy_GoodsLine(c, CompanyDefs[c][cdAccepts], true, accepts);
     if (Company[c][cpOwner] != 0) {
         format(owner, sizeof (owner), C_WHITE "Собственик: " C_BRAND "%s", Company[c][cpOwnerName]);
     } else {
@@ -198,7 +200,7 @@ stock Company_CreateMarkers(c)
         format(owner, sizeof (owner), C_GREEN "Продава се: $%s", price);
     }
     format(text, sizeof (text),
-        C_BRAND "%s\n" C_GREY "%s\n%s\n" C_WHITE "Дава: " C_GREEN "%s\n" C_WHITE "Приема: " C_BRAND "%s\n" C_GREY "N с превозно средство - поръчки, ALT пеша - компанията",
+        C_BRAND "%s\n" C_GREY "%s\n%s\n" C_GREEN "Дава: " C_WHITE "%s\n" C_BRAND "Приема: " C_WHITE "%s\n" C_GREY "N с превозно средство - поръчки, ALT пеша - компанията",
         CompanyDefs[c][cdName], CompanyDefs[c][cdPlace], owner, produces, accepts);
     CompanyLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, Company[c][cpX], Company[c][cpY], Company[c][cpZ] + 1.5, 30.0,
         INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
@@ -302,6 +304,8 @@ CMD:compos(playerid, params[])
     Company[c][cpZ] = z;
     format(q, sizeof (q), "UPDATE companies SET x = %f, y = %f, z = %f WHERE id = %d", x, y, z, c);
     Database_Exec(q);
+    if (CompanyIcon[c] != -1) DestroyDynamicMapIcon(CompanyIcon[c]);
+    CompanyIcon[c] = -1;
     Company_CreateMarkers(c);
     Contracts_OnCompanyMoved(c);
     SendClientMessage(playerid, COLOR_ADMIN, "[A] Базата на %s е преместена тук.", CompanyDefs[c][cdName]);

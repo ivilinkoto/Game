@@ -67,14 +67,18 @@ static stock Contracts_Generate(slot)
     for (new attempt = 0; attempt < 40; attempt++) {
         new good = random(MAX_GOODS);
 
+        // Само складове, които имат товара / имат място за него
         new producers[MAX_COMPANIES], np = 0, acceptors[MAX_COMPANIES], na = 0;
         for (new c = 0; c < MAX_COMPANIES; c++) {
-            if (Company_Produces(c, good)) producers[np++] = c;
-            if (Company_Accepts(c, good)) acceptors[na++] = c;
+            if (Company_Produces(c, good) && CompanyStock[c][good] >= Goods[good][gdMinKg]) producers[np++] = c;
+            if (Economy_CanAccept(c, good)) acceptors[na++] = c;
         }
         if (np == 0 || na == 0) continue;
 
+        // Получателят: от два случайни – този с по-голямо търсене (по-празен склад)
         new from = producers[random(np)], to = acceptors[random(na)];
+        new other = acceptors[random(na)];
+        if (Economy_FillPercent(other, good) < Economy_FillPercent(to, good)) to = other;
         if (from == to) continue;
         if (Company_Distance(from, to) < 600.0) continue;       // твърде близо
 
@@ -88,6 +92,7 @@ static stock Contracts_Generate(slot)
         new kg = minKg + random(maxKg - minKg + 1);
         kg = (kg / 100) * 100;
         if (kg < 100) kg = 100;
+        if (CompanyStock[from][good] < kg) continue;           // складът няма толкова
 
         Contracts[slot][ctActive] = true;
         Contracts[slot][ctGood] = good;
@@ -119,10 +124,12 @@ stock Contracts_OnCompanyMoved(c)
     // Разстоянията се смятат в момента, така че нищо не трябва да се прави.
 }
 
+// Плащане = база по разстояние, тегло и ценност x търсенето при получателя
 static stock Contracts_GetPay(slot)
 {
-    return Goods_CalcPay(Contracts[slot][ctGood], Contracts[slot][ctKg],
+    new base = Goods_CalcPay(Contracts[slot][ctGood], Contracts[slot][ctKg],
         Company_Distance(Contracts[slot][ctFrom], Contracts[slot][ctTo]));
+    return base * Economy_DemandPercent(Contracts[slot][ctTo], Contracts[slot][ctGood]) / 100;
 }
 
 // ---------- Табло ----------
@@ -187,14 +194,17 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
         return 1;
     }
 
-    new body[2600], line[200], tons[16], payStr[16];
+    new body[3000], line[240], tons[16], payStr[48], money[16];
     format(body, sizeof (body), "Товар\tОт > До\tТегло, разстояние\tПлащане\n");
     BoardCount[playerid] = 0;
     for (new k = 0; k < n && k < CONTRACT_SHOW_MAX; k++) {
         new i = list[k], good = Contracts[i][ctGood];
         FormatTons(Contracts[i][ctKg], tons);
-        new pay = Contracts_GetPay(i);
-        FormatMoney(pay + Company_GetBonusAmount(Contracts[i][ctFrom], pay), payStr);
+        new pay = Contracts_GetPay(i), demand = Economy_DemandPercent(Contracts[i][ctTo], Contracts[i][ctGood]) - 100;
+        FormatMoney(pay + Company_GetBonusAmount(Contracts[i][ctFrom], pay), money);
+        if (demand > 0) format(payStr, sizeof (payStr), "%s " C_GREEN "+%d%%", money, demand);
+        else if (demand < 0) format(payStr, sizeof (payStr), "%s " C_RED "%d%%", money, demand);
+        else format(payStr, sizeof (payStr), "%s", money);
         format(line, sizeof (line), "%s\t%s > %s\t%s, %.1f км\t" C_GREEN "$%s\n",
             Goods[good][gdName], CompanyDefs[Contracts[i][ctFrom]][cdName], CompanyDefs[Contracts[i][ctTo]][cdName],
             tons, Company_Distance(Contracts[i][ctFrom], Contracts[i][ctTo]) / 1000.0, payStr);
@@ -260,6 +270,16 @@ static stock Delivery_Accept(playerid, slot)
         SendError(playerid, "Трябва да си в своето превозно средство, което може да кара този товар.");
         return;
     }
+    // Складът може да се е изпразнил междувременно
+    if (!Economy_HasStock(Contracts[slot][ctFrom], Contracts[slot][ctGood], Contracts[slot][ctKg])
+        || !Economy_CanAccept(Contracts[slot][ctTo], Contracts[slot][ctGood])) {
+        SendError(playerid, "Поръчката вече не е актуална (складът се промени). Избери друга.");
+        Contracts_Generate(slot);
+        Delivery_ShowBoard(playerid);
+        return;
+    }
+    // Товарът се запазва от склада на А веднага
+    Economy_Take(Contracts[slot][ctFrom], Contracts[slot][ctGood], Contracts[slot][ctKg]);
 
     Job[playerid][jbStage] = JOB_TO_PICKUP;
     Job[playerid][jbGood] = Contracts[slot][ctGood];
@@ -309,6 +329,7 @@ stock Delivery_Cancel(playerid, const reason[], bool:fine)
         TogglePlayerControllable(playerid, true);
     }
     Delivery_RefundBonus(playerid);
+    Economy_Put(Job[playerid][jbFrom], Job[playerid][jbGood], Job[playerid][jbKg]);   // товарът се връща в склада
     Delivery_End(playerid);
     if (fine && Money_Take(playerid, DELIVERY_CANCEL_FINE)) {
         SendClientMessage(playerid, COLOR_RED, "[КУРС] " C_WHITE "%s Глоба: $%d.", reason, DELIVERY_CANCEL_FINE);
@@ -404,6 +425,7 @@ static stock Delivery_Complete(playerid)
     Money_Give(playerid, total);
     Level_GiveExp(playerid, exp);
     Company_OnDelivery(from, to, base);
+    Economy_Put(to, good, Job[playerid][jbKg]);
 
     new sBase[16], sBonus[16], sLate[16], sDmg[16], sTotal[16], tons[16], sComp[16];
     FormatMoney(Job[playerid][jbCompanyBonus], sComp);
@@ -506,7 +528,10 @@ stock Delivery_OnPlayerConnect(playerid)
 
 stock Delivery_OnPlayerDisconnect(playerid)
 {
-    if (Job[playerid][jbStage] != JOB_NONE) Delivery_RefundBonus(playerid);
+    if (Job[playerid][jbStage] != JOB_NONE) {
+        Delivery_RefundBonus(playerid);
+        Economy_Put(Job[playerid][jbFrom], Job[playerid][jbGood], Job[playerid][jbKg]);
+    }
     Job[playerid][jbStage] = JOB_NONE;
     Trailer_Destroy(playerid);
     Delivery_DestroyPanel(playerid);

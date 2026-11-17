@@ -60,6 +60,7 @@ forward Float:Veh_GetFuel(vehicleid);
 #include "modules/vehicles.inc"
 #include "modules/garage.inc"
 #include "modules/companies.inc"
+#include "modules/economy.inc"
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
 #include "modules/business.inc"
@@ -102,6 +103,7 @@ public OnGameModeInit()
     City_Init();
     Veh_Init();
     Company_Init();
+    Economy_Init();
     Engine_Init();
     Dealer_Init();
     Fuel_Init();
@@ -121,6 +123,7 @@ public OnGameModeExit()
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerLogged(i)) Auth_SaveAccount(i);
     }
+    Economy_Save();
     Database_Close();
     return 1;
 }
@@ -132,6 +135,8 @@ public Server_Tick()
     gSecondsCounter++;
     new bool:autosave = (gSecondsCounter % AUTOSAVE_SECONDS == 0);
     if (gSecondsCounter % 3600 == 0) Business_CheckInactive();
+    if (gSecondsCounter % ECONOMY_TICK_SECONDS == 0) Economy_Tick();
+    if (autosave) Economy_Save();
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;

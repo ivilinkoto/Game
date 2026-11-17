@@ -46,13 +46,13 @@ stock Business_Show(playerid, c)
 
 static stock Business_ShowInfo(playerid, c)
 {
-    new price[16], sizeName[16], produces[160], accepts[160], owner[96], status[160], button[16];
+    new price[16], sizeName[16], produces[320], accepts[320], owner[96], status[160], button[16];
     FormatMoney(Company_GetPrice(c), price);
     if (Company[c][cpOwner] == 0) format(button, sizeof (button), "Купи");
     else format(button, sizeof (button), "Добре");
     Business_SizeName(c, sizeName);
-    Company_GoodsList(CompanyDefs[c][cdProduces], produces);
-    Company_GoodsList(CompanyDefs[c][cdAccepts], accepts);
+    Economy_GoodsLine(c, CompanyDefs[c][cdProduces], false, produces);
+    Economy_GoodsLine(c, CompanyDefs[c][cdAccepts], true, accepts);
 
     if (Company[c][cpOwner] != 0) {
         format(owner, sizeof (owner), C_WHITE "Собственик: " C_BRAND "%s", Company[c][cpOwnerName]);
