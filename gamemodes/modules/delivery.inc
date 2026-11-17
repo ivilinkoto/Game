@@ -21,6 +21,12 @@
 #define PERISHABLE_SPEED_MS     15.0        // хладилни товари: по-кратък срок
 #define PERISHABLE_LOSS_PER_MIN 15          // хладилни: -15% от плащането за всяка минута закъснение
 #define FRAGILE_BREAK_PERCENT   40          // чупливи: над толкова % щети товарът се чупи
+#define OVERLOAD_MAX_PERCENT    130         // поръчки до толкова % от товароносимостта (претоварване)
+#define WEIGH_RANGE             25.0        // кантар: проверка в този радиус
+#define WEIGH_MAX_SPEED         30          // над тази скорост покрай кантара = неспиране
+#define WEIGH_SKIP_FINE         300
+#define WEIGH_FINE_PER_TON      250
+#define WEIGH_FINE_BASE         200
 #define DELIVERY_EXTRA_TIME     120         // + секунди към срока
 
 enum E_CONTRACT {
@@ -51,6 +57,7 @@ enum E_JOB {
     jbCompanyBonus,         // бонус от компанията А (вече взет от касата й)
     jbVehicle,
     jbTrailer,              // ремаркето (INVALID_VEHICLE_ID = без)
+    jbLastWeigh,            // последният кантар, който е проверил този курс
     bool:jbTrailerLost,     // откачено по пътя
     jbAcceptedAt,
     jbDeadline,             // gettime(), когато трябва да е доставено (след товарене)
@@ -143,7 +150,8 @@ static stock bool:Delivery_CanCarry(model, slot)
     if (!(Catalog_GetCargo(model) & Goods[good][gdCargo])) return false;
     // Влекачите взимат само тежки товари (с ремарке)
     if (Catalog_HasTrailer(model) && Contracts[slot][ctKg] < TRAILER_MIN_KG) return false;
-    return (Contracts[slot][ctKg] <= Catalog_GetPayload(model));
+    // До 130% от товароносимостта (претоварване – риск от глоба на кантар)
+    return (Contracts[slot][ctKg] <= Catalog_GetPayload(model) * OVERLOAD_MAX_PERCENT / 100);
 }
 
 // onlyFrom = -1: всички (подредени по близост до базата А); иначе само от тази компания
@@ -197,12 +205,13 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
         return 1;
     }
 
-    new body[3000], line[240], tons[16], payStr[48], money[16];
+    new body[3200], line[260], tons[48], payStr[48], money[16];
     format(body, sizeof (body), "Товар\tОт > До\tТегло, разстояние\tПлащане\n");
     BoardCount[playerid] = 0;
     for (new k = 0; k < n && k < CONTRACT_SHOW_MAX; k++) {
         new i = list[k], good = Contracts[i][ctGood];
         FormatTons(Contracts[i][ctKg], tons);
+        if (Contracts[i][ctKg] > Catalog_GetPayload(model)) strcat(tons, " " C_RED "претов." C_WHITE);
         new pay = Contracts_GetPay(i), demand = Economy_DemandPercent(Contracts[i][ctTo], Contracts[i][ctGood]) - 100;
         FormatMoney(pay + Company_GetBonusAmount(Contracts[i][ctFrom], pay), money);
         if (demand > 0) format(payStr, sizeof (payStr), "%s " C_GREEN "+%d%%", money, demand);
@@ -307,6 +316,7 @@ static stock Delivery_Accept(playerid, slot)
     Job[playerid][jbVehicle] = vehicleid;
     Job[playerid][jbTrailer] = INVALID_VEHICLE_ID;
     Job[playerid][jbTrailerLost] = false;
+    Job[playerid][jbLastWeigh] = -1;
     Job[playerid][jbAcceptedAt] = gettime();
     Job[playerid][jbDeadline] = 0;
 
@@ -720,9 +730,10 @@ stock Delivery_UpdatePanel(playerid)
 
     // 1: товар, тегло, ценност
     format(stars, sizeof (stars), "%d/5", Goods[good][gdStars]);
-    new mark[16];
+    new mark[40];
     if (Goods[good][gdFlags] & GOODFLAG_PERISHABLE) format(mark, sizeof (mark), "  ~b~COLD");
     else if (Goods[good][gdFlags] & GOODFLAG_FRAGILE) format(mark, sizeof (mark), "  ~r~FRAGILE");
+    if (Job[playerid][jbKg] > Catalog_GetPayload(GetVehicleModel(Job[playerid][jbVehicle]))) strcat(mark, "  ~r~OVER");
     format(text, sizeof (text), "~w~CARGO  ~y~%s  ~w~%d.%d T  ~y~%s%s", Goods[good][gdNameEN], Job[playerid][jbKg] / 1000, (Job[playerid][jbKg] % 1000) / 100, stars, mark);
     PlayerTextDrawSetString(playerid, DpLine[playerid][0], text);
 
@@ -774,6 +785,7 @@ stock Delivery_Tick()
         Delivery_SpeedLimit(i);
         Delivery_CheckSpill(i);
         if (Job[i][jbStage] != JOB_NONE) Delivery_CheckFragile(i);
+        if (Job[i][jbStage] != JOB_NONE) Delivery_CheckWeigh(i);
         if (Job[i][jbStage] != JOB_NONE) Delivery_UpdatePanel(i);
     }
 }
@@ -901,6 +913,38 @@ static stock Delivery_GoodLabel(good, dest[], size = sizeof (dest))
     if (Goods[good][gdFlags] & GOODFLAG_PERISHABLE) format(dest, size, "%s " C_CB "(хладилен)" C_WHITE, Goods[good][gdName]);
     else if (Goods[good][gdFlags] & GOODFLAG_FRAGILE) format(dest, size, "%s " C_RED "(чуплив)" C_WHITE, Goods[good][gdName]);
     else format(dest, size, "%s", Goods[good][gdName]);
+}
+
+// Кантар: с натоварен товар покрай кантар -> проверка (веднъж на кантар за курса)
+static stock Delivery_CheckWeigh(playerid)
+{
+    if (Job[playerid][jbStage] != JOB_TO_DROP) return;
+    new vehicleid = Job[playerid][jbVehicle];
+    if (GetPlayerVehicleID(playerid) != vehicleid) return;
+    new w = Places_GetNearOfType(playerid, PLACE_WEIGH, WEIGH_RANGE);
+    if (w == -1 || w == Job[playerid][jbLastWeigh]) return;
+    Job[playerid][jbLastWeigh] = w;
+
+    new Float:vx, Float:vy, Float:vz;
+    GetVehicleVelocity(vehicleid, vx, vy, vz);
+    new kmh = floatround(VectorSize(vx, vy, vz) * 180.0);
+    if (kmh > WEIGH_MAX_SPEED) {
+        Money_Take(playerid, WEIGH_SKIP_FINE);
+        GameTextForPlayer(playerid, "~r~WEIGH STATION~n~~w~FINE $%d", 3000, 1, WEIGH_SKIP_FINE);
+        SendClientMessage(playerid, COLOR_RED, "[КАНТАР] " C_WHITE "Не спря на кантара (%d км/ч)! Глоба $%d. Минавай под %d км/ч.", kmh, WEIGH_SKIP_FINE, WEIGH_MAX_SPEED);
+        return;
+    }
+    new payload = Catalog_GetPayload(GetVehicleModel(vehicleid)), kg = Job[playerid][jbKg];
+    if (kg > payload) {
+        new overTons = (kg - payload + 999) / 1000;
+        new fine = WEIGH_FINE_BASE + overTons * WEIGH_FINE_PER_TON;
+        Money_Take(playerid, fine);
+        GameTextForPlayer(playerid, "~r~OVERLOADED!", 3000, 1);
+        SendClientMessage(playerid, COLOR_RED, "[КАНТАР] " C_WHITE "Претоварен си с %d т! Глоба $%d.", overTons, fine);
+    } else {
+        GameTextForPlayer(playerid, "~g~WEIGH STATION~n~~w~OK", 2000, 1);
+        SendClientMessage(playerid, COLOR_GREEN, "[КАНТАР] " C_WHITE "Теглото е в норма. Приятен път!");
+    }
 }
 
 // Чуплив товар: при силен удар се чупи

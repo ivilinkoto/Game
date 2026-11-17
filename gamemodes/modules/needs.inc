@@ -14,18 +14,28 @@
 #define NEEDS_ACCIDENT_FINE     50
 #define TOILET_PRICE            2
 #define PLACE_RANGE             4.0
-#define MAX_PLACES              80
+#define MAX_PLACES              120
+
+// Умора
+#define FATIGUE_DRIVE_SECONDS   30      // +1 умора на толкова секунди каране
+#define FATIGUE_FOOT_SECONDS    20      // -1 умора на толкова секунди пеша
+#define FATIGUE_WARN            70
+#define FATIGUE_SWAY            85      // от тук картината се люшка
+#define FATIGUE_SEVERE          95
+#define REST_SECONDS            15
 
 enum {
     PLACE_SHOP,             // магазин: всичко
     PLACE_DINER,            // закусвалня: храна + безалкохолни
     PLACE_CAFE,             // кафене: напитки + сандвич
     PLACE_TOILET,           // обществена тоалетна
+    PLACE_REST,             // паркинг за почивка (умора)
+    PLACE_WEIGH,            // кантар (виж delivery.inc) – не се ползва с ALT
     MAX_PLACE_TYPES
 }
 
-stock const PlaceTypeNames[MAX_PLACE_TYPES][] = {"Магазин", "Закусвалня", "Кафене", "Обществена тоалетна"};
-static const PlaceIcons[MAX_PLACE_TYPES] = {17, 10, 17, 0};
+stock const PlaceTypeNames[MAX_PLACE_TYPES][] = {"Магазин", "Закусвалня", "Кафене", "Обществена тоалетна", "Паркинг за почивка", "Кантар"};
+static const PlaceIcons[MAX_PLACE_TYPES] = {17, 10, 17, 0, 0, 0};
 
 // Артикули: име, цена, +глад, +жажда, +тоалетна, в кои места (битове PLACE_*)
 enum E_ITEM {
@@ -34,16 +44,17 @@ enum E_ITEM {
     itFood,
     itDrink,
     itBladder,
-    itWhere
+    itWhere,
+    itRest              // намалява умората с толкова
 }
 static const ShopItems[][E_ITEM] = {
-    {"Сандвич",          15, 30,  0,  0, (1 << PLACE_SHOP) | (1 << PLACE_DINER) | (1 << PLACE_CAFE)},
-    {"Бургер",           25, 45,  0,  0, (1 << PLACE_SHOP) | (1 << PLACE_DINER)},
-    {"Пица",             40, 70,  0,  0, (1 << PLACE_DINER)},
-    {"Вода",              5,  0, 35, 10, (1 << PLACE_SHOP) | (1 << PLACE_DINER) | (1 << PLACE_CAFE)},
-    {"Кола",              6,  0, 30, 12, (1 << PLACE_SHOP) | (1 << PLACE_DINER)},
-    {"Кафе",              8,  0, 20, 10, (1 << PLACE_SHOP) | (1 << PLACE_CAFE)},
-    {"Енергийна напитка", 12, 5, 30, 15, (1 << PLACE_SHOP) | (1 << PLACE_CAFE)}
+    {"Сандвич",          15, 30,  0,  0, (1 << PLACE_SHOP) | (1 << PLACE_DINER) | (1 << PLACE_CAFE), 0},
+    {"Бургер",           25, 45,  0,  0, (1 << PLACE_SHOP) | (1 << PLACE_DINER), 0},
+    {"Пица",             40, 70,  0,  0, (1 << PLACE_DINER), 0},
+    {"Вода",              5,  0, 35, 10, (1 << PLACE_SHOP) | (1 << PLACE_DINER) | (1 << PLACE_CAFE), 0},
+    {"Кола",              6,  0, 30, 12, (1 << PLACE_SHOP) | (1 << PLACE_DINER), 5},
+    {"Кафе",              8,  0, 20, 10, (1 << PLACE_SHOP) | (1 << PLACE_CAFE), 15},
+    {"Енергийна напитка", 12, 5, 30, 15, (1 << PLACE_SHOP) | (1 << PLACE_CAFE), 25}
 };
 
 // Специалните "места" при показване на менюто
@@ -58,6 +69,9 @@ static PlaceIcon[MAX_PLACES] = {-1, ...};
 static PlaceCount;
 
 static NeedHunger[MAX_PLAYERS], NeedThirst[MAX_PLAYERS], NeedBladder[MAX_PLAYERS];
+static NeedFatigue[MAX_PLAYERS];
+static FatigueDrive[MAX_PLAYERS], FatigueRestTick[MAX_PLAYERS];
+static bool:Resting[MAX_PLAYERS];
 static NeedTick[MAX_PLAYERS];
 static bool:NeedWarned[MAX_PLAYERS][3];
 static ShopKind[MAX_PLAYERS];
@@ -73,6 +87,7 @@ stock Places_Init()
     Database_AddColumn("accounts", "hunger", "INTEGER NOT NULL DEFAULT 100");
     Database_AddColumn("accounts", "thirst", "INTEGER NOT NULL DEFAULT 100");
     Database_AddColumn("accounts", "bladder", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("accounts", "fatigue", "INTEGER NOT NULL DEFAULT 0");
     Places_Load();
 }
 
@@ -96,7 +111,8 @@ static stock Places_Load()
         PlacePos[k][0] = DB_GetFieldFloatByName(r, "x");
         PlacePos[k][1] = DB_GetFieldFloatByName(r, "y");
         PlacePos[k][2] = DB_GetFieldFloatByName(r, "z");
-        format(text, sizeof (text), C_BRAND "%s\n" C_GREY "ALT", PlaceTypeNames[PlaceType[k]]);
+        if (PlaceType[k] == PLACE_WEIGH) format(text, sizeof (text), C_BRAND "КАНТАР\n" C_WHITE "С товар - мини под %d км/ч", 30);
+        else format(text, sizeof (text), C_BRAND "%s\n" C_GREY "ALT", PlaceTypeNames[PlaceType[k]]);
         PlaceLabel[k] = CreateDynamic3DTextLabel(text, COLOR_WHITE, PlacePos[k][0], PlacePos[k][1], PlacePos[k][2] + 0.6, 20.0,
             INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, 0, 0);
         if (PlaceIcons[PlaceType[k]] != 0) {
@@ -139,10 +155,21 @@ stock Places_DeleteNearest(playerid)
     return 1;
 }
 
+// Най-близкото място от даден вид в радиус (или -1)
+stock Places_GetNearOfType(playerid, type, Float:range)
+{
+    if (GetPlayerVirtualWorld(playerid) != 0) return -1;
+    for (new i = 0; i < PlaceCount; i++) {
+        if (PlaceType[i] == type && IsPlayerInRangeOfPoint(playerid, range, PlacePos[i][0], PlacePos[i][1], PlacePos[i][2])) return i;
+    }
+    return -1;
+}
+
 static stock Places_GetNear(playerid)
 {
     if (GetPlayerVirtualWorld(playerid) != 0) return -1;
     for (new i = 0; i < PlaceCount; i++) {
+        if (PlaceType[i] == PLACE_WEIGH) continue;
         if (IsPlayerInRangeOfPoint(playerid, PLACE_RANGE, PlacePos[i][0], PlacePos[i][1], PlacePos[i][2])) return i;
     }
     return -1;
@@ -153,7 +180,7 @@ static stock Places_GetNear(playerid)
 stock Needs_OnLogin(playerid)
 {
     new q[96];
-    format(q, sizeof (q), "SELECT hunger, thirst, bladder FROM accounts WHERE id = %d", PlayerData[playerid][pID]);
+    format(q, sizeof (q), "SELECT hunger, thirst, bladder, fatigue FROM accounts WHERE id = %d", PlayerData[playerid][pID]);
     new DBResult:r = Database_Query(q);
     NeedHunger[playerid] = 100;
     NeedThirst[playerid] = 100;
@@ -163,6 +190,7 @@ stock Needs_OnLogin(playerid)
             NeedHunger[playerid] = DB_GetFieldIntByName(r, "hunger");
             NeedThirst[playerid] = DB_GetFieldIntByName(r, "thirst");
             NeedBladder[playerid] = DB_GetFieldIntByName(r, "bladder");
+            NeedFatigue[playerid] = DB_GetFieldIntByName(r, "fatigue");
         }
         DB_FreeResultSet(r);
     }
@@ -174,8 +202,8 @@ stock Needs_Save(playerid)
 {
     if (!PlayerData[playerid][pLogged] || PlayerData[playerid][pID] <= 0) return;
     new q[160];
-    format(q, sizeof (q), "UPDATE accounts SET hunger = %d, thirst = %d, bladder = %d WHERE id = %d",
-        NeedHunger[playerid], NeedThirst[playerid], NeedBladder[playerid], PlayerData[playerid][pID]);
+    format(q, sizeof (q), "UPDATE accounts SET hunger = %d, thirst = %d, bladder = %d, fatigue = %d WHERE id = %d",
+        NeedHunger[playerid], NeedThirst[playerid], NeedBladder[playerid], NeedFatigue[playerid], PlayerData[playerid][pID]);
     Database_Exec(q);
 }
 
@@ -187,6 +215,8 @@ static stock Needs_Clamp(playerid)
     if (NeedThirst[playerid] > 100) NeedThirst[playerid] = 100;
     if (NeedBladder[playerid] < 0) NeedBladder[playerid] = 0;
     if (NeedBladder[playerid] > 100) NeedBladder[playerid] = 100;
+    if (NeedFatigue[playerid] < 0) NeedFatigue[playerid] = 0;
+    if (NeedFatigue[playerid] > 100) NeedFatigue[playerid] = 100;
 }
 
 // Всяка секунда (за спаунати играчи)
@@ -224,6 +254,7 @@ stock Needs_Tick(playerid)
         GameTextForPlayer(playerid, "~y~OOPS...", 3000, 1);
         SendClientMessage(playerid, COLOR_RED, "[НУЖДИ] " C_WHITE "Не издържа до тоалетна... Глоба за замърсяване: $%d.", NEEDS_ACCIDENT_FINE);
     }
+    Fatigue_Tick(playerid, t);
     Needs_UpdateHud(playerid);
 }
 
@@ -255,12 +286,80 @@ stock Needs_DestroyHud(playerid)
 static stock Needs_UpdateHud(playerid)
 {
     if (NeedsTD[playerid] == INVALID_PLAYER_TEXT_DRAW) return;
-    new text[96];
-    format(text, sizeof (text), "%sFOOD %d%%   %sWATER %d%%   %sWC %d%%",
+    new text[128];
+    format(text, sizeof (text), "%sFOOD %d%%   %sWATER %d%%   %sWC %d%%   %sTIRED %d%%",
         (NeedHunger[playerid] <= NEEDS_WARN) ? ("~r~") : ("~w~"), NeedHunger[playerid],
         (NeedThirst[playerid] <= NEEDS_WARN) ? ("~r~") : ("~w~"), NeedThirst[playerid],
-        (NeedBladder[playerid] >= 100 - NEEDS_WARN) ? ("~r~") : ("~w~"), NeedBladder[playerid]);
+        (NeedBladder[playerid] >= 100 - NEEDS_WARN) ? ("~r~") : ("~w~"), NeedBladder[playerid],
+        (NeedFatigue[playerid] >= FATIGUE_WARN) ? ("~r~") : ("~w~"), NeedFatigue[playerid]);
     PlayerTextDrawSetString(playerid, NeedsTD[playerid], text);
+}
+
+// ---------- Умора ----------
+
+// Вика се всяка секунда от Needs_Tick
+static stock Fatigue_Tick(playerid, t)
+{
+    if (Resting[playerid]) return;
+    new vehicleid = GetPlayerVehicleID(playerid);
+    if (vehicleid != 0 && GetPlayerState(playerid) == PLAYER_STATE_DRIVER && Engine_IsOn(vehicleid)) {
+        new Float:vx, Float:vy, Float:vz;
+        GetVehicleVelocity(vehicleid, vx, vy, vz);
+        if (VectorSize(vx, vy, vz) * 180.0 > 10.0 && ++FatigueDrive[playerid] >= FATIGUE_DRIVE_SECONDS) {
+            FatigueDrive[playerid] = 0;
+            NeedFatigue[playerid]++;
+        }
+    } else if (vehicleid == 0 && ++FatigueRestTick[playerid] >= FATIGUE_FOOT_SECONDS) {
+        FatigueRestTick[playerid] = 0;
+        NeedFatigue[playerid]--;
+    }
+    Needs_Clamp(playerid);
+
+    new f = NeedFatigue[playerid];
+    if (f >= FATIGUE_WARN && t % 120 == 0) {
+        SendClientMessage(playerid, COLOR_BRAND, "[УМОРА] " C_WHITE "Уморен си (%d%%). Почини в гаража, на бензиностанция или паркинг (ALT), или изпий кафе.", f);
+    }
+    if (vehicleid != 0 && f >= FATIGUE_SWAY && t % 5 == 0) {
+        SetPlayerDrunkLevel(playerid, (f >= FATIGUE_SEVERE) ? 6000 : 2600);
+        if (f >= FATIGUE_SEVERE && t % 30 == 0) GameTextForPlayer(playerid, "~r~WAKE UP!", 1500, 3);
+    }
+}
+
+stock Fatigue_StartRest(playerid)
+{
+    if (Resting[playerid]) return;
+    new vehicleid = GetPlayerVehicleID(playerid);
+    if (vehicleid != 0 && Engine_IsOn(vehicleid)) {
+        SendError(playerid, "Изгаси двигателя (CTRL), за да почиваш.");
+        return;
+    }
+    if (NeedFatigue[playerid] < 5) {
+        SendInfo(playerid, "Не си уморен.");
+        return;
+    }
+    Resting[playerid] = true;
+    TogglePlayerControllable(playerid, false);
+    GameTextForPlayer(playerid, "~b~RESTING...", REST_SECONDS * 1000, 3);
+    SetTimerEx("Fatigue_RestDone", REST_SECONDS * 1000, false, "ii", playerid, PlayerData[playerid][pConnSeq]);
+}
+
+forward Fatigue_RestDone(playerid, seq);
+public Fatigue_RestDone(playerid, seq)
+{
+    if (!IsPlayerConnected(playerid) || PlayerData[playerid][pConnSeq] != seq) return 0;
+    Resting[playerid] = false;
+    TogglePlayerControllable(playerid, true);
+    NeedFatigue[playerid] = 0;
+    FatigueDrive[playerid] = 0;
+    SetPlayerDrunkLevel(playerid, 0);
+    Needs_UpdateHud(playerid);
+    SendClientMessage(playerid, COLOR_BRAND, "[УМОРА] " C_WHITE "Отпочинал си. Приятен път!");
+    return 1;
+}
+
+stock Fatigue_Get(playerid)
+{
+    return NeedFatigue[playerid];
 }
 
 // ---------- Пазаруване и тоалетна ----------
@@ -284,6 +383,7 @@ stock Needs_ShowShop(playerid, kind)
         new effect[48];
         if (ShopItems[i][itFood] > 0 && ShopItems[i][itDrink] > 0) format(effect, sizeof (effect), "храна +%d, жажда +%d", ShopItems[i][itFood], ShopItems[i][itDrink]);
         else if (ShopItems[i][itFood] > 0) format(effect, sizeof (effect), "храна +%d", ShopItems[i][itFood]);
+        else if (ShopItems[i][itRest] > 0) format(effect, sizeof (effect), "жажда +%d, умора -%d", ShopItems[i][itDrink], ShopItems[i][itRest]);
         else format(effect, sizeof (effect), "жажда +%d", ShopItems[i][itDrink]);
         if (price == 0) format(line, sizeof (line), "%s\t" C_GREY "%s\t" C_GREEN "безплатно\n", ShopItems[i][itName], effect);
         else format(line, sizeof (line), "%s\t" C_GREY "%s\t" C_GREEN "$%d\n", ShopItems[i][itName], effect, price);
@@ -294,7 +394,10 @@ stock Needs_ShowShop(playerid, kind)
         if (kind == SHOP_KIND_GARAGE) format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "безплатно\n");
         else format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "$%d\n", TOILET_PRICE);
         strcat(body, line);
-        ShopMap[playerid][n] = -1;
+        ShopMap[playerid][n++] = -1;
+        format(line, sizeof (line), C_BRAND "Почивка\t" C_GREY "умора 0 (%d сек)\t" C_GREEN "безплатно\n", REST_SECONDS);
+        strcat(body, line);
+        ShopMap[playerid][n] = -2;
     }
     new title[64];
     switch (kind) {
@@ -323,6 +426,7 @@ static stock Needs_Buy(playerid, item)
     NeedHunger[playerid] += ShopItems[item][itFood];
     NeedThirst[playerid] += ShopItems[item][itDrink];
     NeedBladder[playerid] += ShopItems[item][itBladder];
+    NeedFatigue[playerid] -= ShopItems[item][itRest];
     Needs_Clamp(playerid);
     Needs_UpdateHud(playerid);
     if (ShopItems[item][itFood] > 0) PlayerPlaySound(playerid, 32200, 0.0, 0.0, 0.0);
@@ -343,7 +447,8 @@ stock Needs_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     }
     new p = Places_GetNear(playerid);
     if (p != -1) {
-        Needs_ShowShop(playerid, PlaceType[p]);
+        if (PlaceType[p] == PLACE_REST) Fatigue_StartRest(playerid);
+        else Needs_ShowShop(playerid, PlaceType[p]);
         return 1;
     }
     if (Fuel_IsNearStation(playerid)) {
@@ -362,6 +467,10 @@ stock Needs_OnDialogResponse(playerid, dialogid, response, listitem)
         Needs_UseToilet(playerid, (ShopKind[playerid] == SHOP_KIND_GARAGE) ? 0 : TOILET_PRICE);
         return 1;
     }
+    if (item == -2) {
+        Fatigue_StartRest(playerid);
+        return 1;
+    }
     Needs_Buy(playerid, item);
     Needs_ShowShop(playerid, ShopKind[playerid]);
     return 1;
@@ -370,6 +479,10 @@ stock Needs_OnDialogResponse(playerid, dialogid, response, listitem)
 stock Needs_OnPlayerConnect(playerid)
 {
     NeedsTD[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    NeedFatigue[playerid] = 0;
+    FatigueDrive[playerid] = 0;
+    FatigueRestTick[playerid] = 0;
+    Resting[playerid] = false;
     NeedHunger[playerid] = 100;
     NeedThirst[playerid] = 100;
     NeedBladder[playerid] = 0;

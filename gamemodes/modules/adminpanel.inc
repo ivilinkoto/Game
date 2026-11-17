@@ -350,7 +350,9 @@ enum {
     APP_MOVE_GARAGE,
     APP_MOVE_DEALER,
     APP_NEW_COMPANY,
-    APP_DEL_COMPANY
+    APP_DEL_COMPANY,
+    APP_ADD_REST,
+    APP_ADD_WEIGH
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -362,13 +364,15 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_GREEN "+ " C_WHITE "Обществена тоалетна тук\n" \
         C_GREEN "+ " C_WHITE "Бензиностанция тук\n" \
         C_GREEN "+ " C_WHITE "GPS точка тук\n" \
-        C_RED "- " C_WHITE "Изтрий най-близкия магазин/тоалетна\n" \
+        C_RED "- " C_WHITE "Изтрий най-близкото място (магазин, тоалетна, паркинг, кантар)\n" \
         C_RED "- " C_WHITE "Изтрий най-близката бензиностанция\n" \
         C_BRAND "> " C_WHITE "Премести база на компания тук\n" \
         C_BRAND "> " C_WHITE "Премести входа на гаражите тук\n" \
         C_BRAND "> " C_WHITE "Премести автокъща тук\n" \
         C_GREEN "+ " C_WHITE "Нова компания тук\n" \
-        C_RED "- " C_WHITE "Закрий компания",
+        C_RED "- " C_WHITE "Закрий компания\n" \
+        C_GREEN "+ " C_WHITE "Паркинг за почивка тук\n" \
+        C_GREEN "+ " C_WHITE "Кантар тук (на пътя)",
         "Избери", "Назад");
 }
 
@@ -403,6 +407,8 @@ static stock AdminPanel_DoPlace(playerid, action)
         case APP_ADD_DINER:  Places_AddHere(playerid, PLACE_DINER);
         case APP_ADD_CAFE:   Places_AddHere(playerid, PLACE_CAFE);
         case APP_ADD_TOILET: Places_AddHere(playerid, PLACE_TOILET);
+        case APP_ADD_REST:   Places_AddHere(playerid, PLACE_REST);
+        case APP_ADD_WEIGH:  Places_AddHere(playerid, PLACE_WEIGH);
         case APP_ADD_FUEL:   AdminPanel_RunCmd(playerid, "addfuel", "\1");
         case APP_ADD_GPS: {
             ShowPlayerDialog(playerid, DIALOG_AP_GPSNAME, DIALOG_STYLE_INPUT, C_ADMIN "GPS точка", C_WHITE "Име на точката (категория \"Други\"):", "Добави", "Назад");
