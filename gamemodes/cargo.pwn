@@ -142,6 +142,7 @@ public Server_Tick()
     if (gSecondsCounter % 3600 == 0) Business_CheckInactive();
     if (gSecondsCounter % ECONOMY_TICK_SECONDS == 0) Economy_Tick();
     if (autosave) Economy_Save();
+    Places_GateTick();
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;

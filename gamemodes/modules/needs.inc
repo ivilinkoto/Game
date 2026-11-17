@@ -67,16 +67,27 @@ static PlaceID[MAX_PLACES];
 static Text3D:PlaceLabel[MAX_PLACES] = {Text3D:-1, ...};
 static PlaceIcon[MAX_PLACES] = {-1, ...};
 
-// Обекти към местата (тоалетна кабина, конуси на кантара)
-#define PLACE_MAX_OBJECTS   8
+// Обекти към местата (тоалетна кабина, сглобен кантар)
+#define PLACE_MAX_OBJECTS   16
 #define OBJ_PORTALOO        2984
 #define PORTALOO_Z_OFFSET   1.2         // моделът е центриран ниско, иначе потъва в земята
-#define OBJ_CONE            1238
-#define OBJ_WEIGH_PLATE     19377       // тънка плоскост 10.5 x 10.5 м, легнала
-#define WEIGH_PLATE_Z       0.03        // на нивото на пътя, колкото да не трепти с него
+
+// Кантар (координати спрямо мястото: напред = по посоката на движение)
+#define OBJ_WALL_LONG       19447       // стена 10.5 x 3.5 м (легнала = плоча)
+#define OBJ_WALL_SMALL      19353       // стена 3.5 x 3.5 м
+#define OBJ_GATE_BOX        966         // кутия на бариерата
+#define OBJ_GATE_BAR        968         // рамо на бариерата
+#define WEIGH_HEIGHT        0.30        // височина на платформата над пътя
+#define WEIGH_HALF_LEN      10.5        // платформата е 21 м дълга, 3.5 м широка
+#define WEIGH_BOOTH_DX      4.4         // будката е вдясно от платформата
+#define WEIGH_GATE_DX       2.3         // бариерата - вдясно на изхода
+#define WEIGH_GATE_Z        0.85
+#define WEIGH_GATE_OPEN_SEC 12
+#define WEIGH_BAR_SLOT      15          // индексът на рамото в PlaceObj
 static PlaceObj[MAX_PLACES][PLACE_MAX_OBJECTS];
 static Float:PlaceAngle[MAX_PLACES];
 static PlaceCount;
+static PlaceGateClose[MAX_PLACES];         // gettime() за затваряне на бариерата (0 = затворена)
 
 static NeedHunger[MAX_PLAYERS], NeedThirst[MAX_PLAYERS], NeedBladder[MAX_PLAYERS];
 static NeedFatigue[MAX_PLAYERS];
@@ -156,23 +167,95 @@ static stock Places_CreateObjects(k)
             Places_Offset(k, 0.0, 1.8, x, y);
             PlaceObj[k][0] = CreateDynamicObject(OBJ_PORTALOO, x, y, z + PORTALOO_Z_OFFSET, 0.0, 0.0, a + 270.0, 0, 0, -1, 200.0, 200.0);
         }
-        case PLACE_WEIGH: {
-            // Коридор от конуси по пътя (6 конуса: по 3 от двете страни)
-            for (new side = -1; side <= 1; side += 2) {
-                for (new f = -1; f <= 1; f++) {
-                    Places_Offset(k, side * 5.8, f * 9.0, x, y);
-                    PlaceObj[k][((side + 1) / 2) * 3 + (f + 1)] = CreateDynamicObject(OBJ_CONE, x, y, z + 0.05, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
-                }
-            }
-            // Платформа: две стоманени плочи на нивото на пътя по дължината на коридора
-            for (new f = 0; f < 2; f++) {
-                Places_Offset(k, 0.0, (f == 0) ? (-5.25) : (5.25), x, y);
-                new obj = CreateDynamicObject(OBJ_WEIGH_PLATE, x, y, z + WEIGH_PLATE_Z, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
-                SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFFB0B4B8);
-                PlaceObj[k][6 + f] = obj;
-            }
+        case PLACE_WEIGH: Places_BuildWeigh(k);
+    }
+}
+
+// Обект на кантара на dx/dy от центъра, на височина dz над пътя
+static stock Places_WeighObj(k, slot, model, Float:dx, Float:dy, Float:dz, Float:rx, Float:ry, Float:rzAdd, colour = 0)
+{
+    new Float:x, Float:y, Float:z = PlacePos[k][2] - 1.0;
+    Places_Offset(k, dx, dy, x, y);
+    new obj = CreateDynamicObject(model, x, y, z + dz, rx, ry, PlaceAngle[k] + rzAdd, 0, 0, -1, 250.0, 250.0);
+    if (colour != 0) SetDynamicObjectMaterial(obj, 0, -1, "none", "none", colour);
+    PlaceObj[k][slot] = obj;
+    return obj;
+}
+
+// Сглобен кантар: стоманена платформа с рампи, жълти бордюри, будка и бариера на изхода
+static stock Places_BuildWeigh(k)
+{
+    new slot = 0, obj;
+    new Float:ramp = 4.9;                  // наклон на рампата: 0.30 м на 3.5 м
+
+    // Платформа: 2 легнали дълги стени
+    for (new i = -1; i <= 1; i += 2) {
+        obj = Places_WeighObj(k, slot++, OBJ_WALL_LONG, 0.0, i * WEIGH_HALF_LEN / 2.0, WEIGH_HEIGHT - 0.15, 0.0, 90.0, 0.0);
+        SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFFC8CCD0);
+    }
+    // Рампи на двата края (качват от пътя до платформата)
+    for (new i = -1; i <= 1; i += 2) {
+        obj = Places_WeighObj(k, slot++, OBJ_WALL_SMALL, 0.0, i * (WEIGH_HALF_LEN + 1.75), WEIGH_HEIGHT / 2.0 - 0.15, -i * ramp, 90.0, 0.0);
+        SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFF9AA0A6);
+    }
+    // Жълти бордюри от двете страни (стърчат 25 см над платформата)
+    for (new side = -1; side <= 1; side += 2) {
+        for (new i = -1; i <= 1; i += 2) {
+            Places_WeighObj(k, slot++, OBJ_WALL_LONG, side * 1.9, i * WEIGH_HALF_LEN / 2.0, WEIGH_HEIGHT + 0.25 - 1.75, 0.0, 0.0, 0.0, 0xFFF2C200);
         }
     }
+    // Будка 3.5 x 3.5 вдясно: 4 стени и покрив
+    Places_WeighObj(k, slot++, OBJ_WALL_SMALL, WEIGH_BOOTH_DX - 1.75, 0.0, 1.75, 0.0, 0.0, 0.0, 0xFFE8E8E8);
+    Places_WeighObj(k, slot++, OBJ_WALL_SMALL, WEIGH_BOOTH_DX + 1.75, 0.0, 1.75, 0.0, 0.0, 0.0, 0xFFE8E8E8);
+    Places_WeighObj(k, slot++, OBJ_WALL_SMALL, WEIGH_BOOTH_DX, -1.75, 1.75, 0.0, 0.0, 90.0, 0xFFE8E8E8);
+    Places_WeighObj(k, slot++, OBJ_WALL_SMALL, WEIGH_BOOTH_DX, 1.75, 1.75, 0.0, 0.0, 90.0, 0xFF2E6DB4);
+    Places_WeighObj(k, slot++, OBJ_WALL_SMALL, WEIGH_BOOTH_DX, 0.0, 3.6, 0.0, 90.0, 0.0, 0xFF3A3A3A);
+    // Бариера на изхода: кутия вдясно и рамо през платното (затворена)
+    Places_WeighObj(k, slot, OBJ_GATE_BOX, WEIGH_GATE_DX, WEIGH_HALF_LEN + 0.5, 0.0, 0.0, 0.0, 0.0);
+    Places_WeighObj(k, WEIGH_BAR_SLOT, OBJ_GATE_BAR, WEIGH_GATE_DX, WEIGH_HALF_LEN + 0.5, WEIGH_GATE_Z, 0.0, -90.0, 0.0);
+    PlaceGateClose[k] = 0;
+}
+
+// Отваря бариерата на кантар k (затваря се сама след WEIGH_GATE_OPEN_SEC)
+stock Places_OpenWeighGate(k)
+{
+    if (k < 0 || k >= PlaceCount || PlaceType[k] != PLACE_WEIGH) return;
+    new bar = PlaceObj[k][WEIGH_BAR_SLOT];
+    if (bar == 0) return;
+    if (PlaceGateClose[k] == 0) {
+        new Float:x, Float:y, Float:z;
+        GetDynamicObjectPos(bar, x, y, z);
+        MoveDynamicObject(bar, x, y, z + 0.01, 0.02, 0.0, 0.0, PlaceAngle[k]);
+    }
+    PlaceGateClose[k] = gettime() + WEIGH_GATE_OPEN_SEC;
+}
+
+// Всяка секунда: затваря бариерите, чието време е изтекло
+stock Places_GateTick()
+{
+    new now = gettime();
+    for (new k = 0; k < PlaceCount; k++) {
+        if (PlaceGateClose[k] == 0 || now < PlaceGateClose[k]) continue;
+        PlaceGateClose[k] = 0;
+        new bar = PlaceObj[k][WEIGH_BAR_SLOT];
+        if (bar == 0) continue;
+        new Float:x, Float:y, Float:z;
+        GetDynamicObjectPos(bar, x, y, z);
+        MoveDynamicObject(bar, x, y, z - 0.01, 0.02, 0.0, -90.0, PlaceAngle[k]);
+    }
+}
+
+// Без товар за претегляне: бариерата се вдига, щом спре на платформата
+static stock Places_WeighFreePass(playerid)
+{
+    if (GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return;
+    new w = Places_GetNearWeigh(playerid, 9.0);
+    if (w == -1 || Delivery_MustWeigh(playerid, w)) return;
+    new vehicleid = GetPlayerVehicleID(playerid), Float:vx, Float:vy, Float:vz;
+    GetVehicleVelocity(vehicleid, vx, vy, vz);
+    if (VectorSize(vx, vy, vz) * 180.0 > 8.0) return;
+    if (PlaceGateClose[w] == 0) GameTextForPlayer(playerid, "~g~NO CARGO~n~~w~GO AHEAD", 2000, 3);
+    Places_OpenWeighGate(w);
 }
 
 stock Places_AddHere(playerid, type)
@@ -287,6 +370,7 @@ stock Needs_Tick(playerid)
     if (t % NEEDS_THIRST_SECONDS == 0) NeedThirst[playerid]--;
     if (t % NEEDS_BLADDER_SECONDS == 0) NeedBladder[playerid]++;
     Needs_Clamp(playerid);
+    Places_WeighFreePass(playerid);
 
     // Предупреждения
     if (NeedHunger[playerid] <= NEEDS_WARN && !NeedWarned[playerid][0]) {

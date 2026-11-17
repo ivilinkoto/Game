@@ -921,6 +921,12 @@ static stock Delivery_GoodLabel(good, dest[], size = sizeof (dest))
     else format(dest, size, "%s", Goods[good][gdName]);
 }
 
+// Трябва ли играчът да се претегли на кантар w (натоварен, в своя камион, още непретеглен там)
+stock bool:Delivery_MustWeigh(playerid, w)
+{
+    return (Job[playerid][jbStage] == JOB_TO_DROP && GetPlayerVehicleID(playerid) == Job[playerid][jbVehicle] && Job[playerid][jbLastWeigh] != w);
+}
+
 // Кантар: с натоварен товар в района на кантар трябва да спре на платформата за 10 сек.
 // Ако напусне района без претегляне - глоба. Всеки кантар проверява веднъж на курс.
 static stock Delivery_CheckWeigh(playerid)
@@ -970,8 +976,9 @@ static stock Delivery_CheckWeigh(playerid)
         return;
     }
 
-    // Претеглен
+    // Претеглен: бариерата се вдига
     Job[playerid][jbLastWeigh] = w;
+    Places_OpenWeighGate(w);
     Job[playerid][jbWeighPending] = -1;
     Job[playerid][jbWeighWait] = 0;
     new payload = Catalog_GetPayload(GetVehicleModel(vehicleid)), kg = Job[playerid][jbKg];
