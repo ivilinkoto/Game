@@ -25,6 +25,8 @@ static const AdminCmds[][E_ADMIN_CMD] = {
     {"a",         1, "[текст]",                             "Админ чат"},
     {"goto",      1, "[ID или ник]",                        "Отиди при играч"},
     {"gethere",   1, "[ID или ник]",                        "Доведи играч при себе си"},
+    {"flip",      1, "[ID] (или празно - ти)",              "Изправи превозното средство на играч"},
+    {"slap",      1, "[ID]",                                "Шамар: подхвърля играча и -5 здраве"},
     {"kick",      1, "[ID] [причина]",                      "Изритай играч"},
     {"ban",       2, "[ID] [дни, 0 = завинаги] [причина]",  "Бан на играч"},
     {"unban",     2, "[ник]",                               "Махни бан"},
@@ -437,6 +439,53 @@ CMD:tpmap(playerid, params[])
     AdminMapTeleport[playerid] = !AdminMapTeleport[playerid];
     if (AdminMapTeleport[playerid]) SendClientMessage(playerid, COLOR_ADMIN, "[A] Отметката на картата те телепортира.");
     else SendClientMessage(playerid, COLOR_ADMIN, "[A] Отметката на картата показва маршрут (като при играчите).");
+    return 1;
+}
+
+// Изправя превозното средство (на себе си или на играч)
+CMD:flip(playerid, params[])
+{
+    if (!Admin_Check(playerid, 1)) return 1;
+    new targetid = playerid;
+    if (!IsNull(params)) {
+        targetid = FindPlayer(params);
+        if (targetid == INVALID_PLAYER_ID) return SendError(playerid, "Няма такъв играч.");
+    }
+    new vehicleid = GetPlayerVehicleID(targetid);
+    if (vehicleid == 0) return SendError(playerid, "Играчът не е в превозно средство.");
+    new Float:x, Float:y, Float:z, Float:a;
+    GetVehiclePos(vehicleid, x, y, z);
+    GetVehicleZAngle(vehicleid, a);
+    SetVehiclePos(vehicleid, x, y, z + 1.5);
+    SetVehicleZAngle(vehicleid, a);
+    SetVehicleVelocity(vehicleid, 0.0, 0.0, 0.0);
+    if (targetid != playerid) {
+        SendClientMessage(targetid, COLOR_ADMIN, "Администратор %s изправи превозното ти средство.", PlayerData[playerid][pName]);
+        SendClientMessage(playerid, COLOR_ADMIN, "[A] Превозното средство на %s е изправено.", PlayerData[targetid][pName]);
+    }
+    return 1;
+}
+
+// Шамар: подхвърля играча нагоре и маха 5 здраве
+CMD:slap(playerid, params[])
+{
+    if (!Admin_Check(playerid, 1)) return 1;
+    if (IsNull(params)) return SendUsage(playerid, "/slap [ID]");
+    new targetid = FindPlayer(params);
+    if (targetid == INVALID_PLAYER_ID) return SendError(playerid, "Няма такъв играч.");
+    if (PlayerData[targetid][pAdmin] > PlayerData[playerid][pAdmin]) return SendError(playerid, "Не можеш да удариш по-висш админ.");
+    new Float:x, Float:y, Float:z, Float:hp;
+    if (IsPlayerInAnyVehicle(targetid)) RemovePlayerFromVehicle(targetid);
+    GetPlayerPos(targetid, x, y, z);
+    SetPlayerPos(targetid, x, y, z + 5.0);
+    GetPlayerHealth(targetid, hp);
+    SetPlayerHealth(targetid, (hp > 5.0) ? (hp - 5.0) : 1.0);
+    PlayerPlaySound(targetid, 1190, 0.0, 0.0, 0.0);
+    PlayerPlaySound(playerid, 1190, 0.0, 0.0, 0.0);
+    new msg[96];
+    format(msg, sizeof (msg), "%s удари шамар на %s.", PlayerData[playerid][pName], PlayerData[targetid][pName]);
+    Admin_Broadcast(1, msg);
+    SendClientMessage(targetid, COLOR_ADMIN, "Администратор %s ти удари шамар.", PlayerData[playerid][pName]);
     return 1;
 }
 

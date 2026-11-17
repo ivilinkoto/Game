@@ -66,6 +66,13 @@ static PlaceType[MAX_PLACES];
 static PlaceID[MAX_PLACES];
 static Text3D:PlaceLabel[MAX_PLACES] = {Text3D:-1, ...};
 static PlaceIcon[MAX_PLACES] = {-1, ...};
+
+// Обекти към местата (тоалетна кабина, конуси на кантара)
+#define PLACE_MAX_OBJECTS   6
+#define OBJ_PORTALOO        2984
+#define OBJ_CONE            1238
+static PlaceObj[MAX_PLACES][PLACE_MAX_OBJECTS];
+static Float:PlaceAngle[MAX_PLACES];
 static PlaceCount;
 
 static NeedHunger[MAX_PLAYERS], NeedThirst[MAX_PLAYERS], NeedBladder[MAX_PLAYERS];
@@ -77,13 +84,13 @@ static bool:NeedWarned[MAX_PLAYERS][3];
 static ShopKind[MAX_PLAYERS];
 static ShopMap[MAX_PLAYERS][16];
 
-static PlayerText:NeedsTD[MAX_PLAYERS] = {INVALID_PLAYER_TEXT_DRAW, ...};
 
 // ---------- Места ----------
 
 stock Places_Init()
 {
     Database_Exec("CREATE TABLE IF NOT EXISTS places (id INTEGER PRIMARY KEY AUTOINCREMENT, type INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL)");
+    Database_AddColumn("places", "a", "REAL NOT NULL DEFAULT 0");
     Database_AddColumn("accounts", "hunger", "INTEGER NOT NULL DEFAULT 100");
     Database_AddColumn("accounts", "thirst", "INTEGER NOT NULL DEFAULT 100");
     Database_AddColumn("accounts", "bladder", "INTEGER NOT NULL DEFAULT 0");
@@ -98,9 +105,13 @@ static stock Places_Load()
         if (PlaceIcon[i] != -1) DestroyDynamicMapIcon(PlaceIcon[i]);
         PlaceLabel[i] = Text3D:-1;
         PlaceIcon[i] = -1;
+        for (new o = 0; o < PLACE_MAX_OBJECTS; o++) {
+            if (PlaceObj[i][o] != 0) DestroyDynamicObject(PlaceObj[i][o]);
+            PlaceObj[i][o] = 0;
+        }
     }
     PlaceCount = 0;
-    new DBResult:r = Database_Query("SELECT id, type, x, y, z FROM places ORDER BY id");
+    new DBResult:r = Database_Query("SELECT id, type, x, y, z, a FROM places ORDER BY id");
     if (r == DBResult:0) return;
     new rows = DB_GetRowCount(r), text[160];
     for (new i = 0; i < rows && PlaceCount < MAX_PLACES; i++) {
@@ -111,6 +122,8 @@ static stock Places_Load()
         PlacePos[k][0] = DB_GetFieldFloatByName(r, "x");
         PlacePos[k][1] = DB_GetFieldFloatByName(r, "y");
         PlacePos[k][2] = DB_GetFieldFloatByName(r, "z");
+        PlaceAngle[k] = DB_GetFieldFloatByName(r, "a");
+        Places_CreateObjects(k);
         if (PlaceType[k] == PLACE_WEIGH) format(text, sizeof (text), C_BRAND "КАНТАР\n" C_WHITE "С товар - мини под %d км/ч", 30);
         else format(text, sizeof (text), C_BRAND "%s\n" C_GREY "ALT", PlaceTypeNames[PlaceType[k]]);
         PlaceLabel[k] = CreateDynamic3DTextLabel(text, COLOR_WHITE, PlacePos[k][0], PlacePos[k][1], PlacePos[k][2] + 0.6, 20.0,
@@ -123,13 +136,44 @@ static stock Places_Load()
     DB_FreeResultSet(r);
 }
 
+// Точка на dx (надясно) и dy (напред) спрямо мястото и посоката му
+static stock Places_Offset(k, Float:dx, Float:dy, &Float:x, &Float:y)
+{
+    new Float:a = PlaceAngle[k];
+    x = PlacePos[k][0] + dy * floatsin(-a, degrees) + dx * floatcos(-a, degrees);
+    y = PlacePos[k][1] + dy * floatcos(-a, degrees) - dx * floatsin(-a, degrees);
+}
+
+static stock Places_CreateObjects(k)
+{
+    new Float:x, Float:y, Float:z = PlacePos[k][2] - 1.0, Float:a = PlaceAngle[k];
+    switch (PlaceType[k]) {
+        case PLACE_TOILET: {
+            // Кабина на 1.8 м пред мястото, с вратата към него
+            Places_Offset(k, 0.0, 1.8, x, y);
+            PlaceObj[k][0] = CreateDynamicObject(OBJ_PORTALOO, x, y, z, 0.0, 0.0, a + 180.0, 0, 0, -1, 200.0, 200.0);
+        }
+        case PLACE_WEIGH: {
+            // Коридор от конуси по пътя (6 конуса: по 3 от двете страни)
+            for (new side = -1; side <= 1; side += 2) {
+                for (new f = -1; f <= 1; f++) {
+                    Places_Offset(k, side * 4.5, f * 8.0, x, y);
+                    PlaceObj[k][((side + 1) / 2) * 3 + (f + 1)] = CreateDynamicObject(OBJ_CONE, x, y, z + 0.05, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
+                }
+            }
+        }
+    }
+}
+
 stock Places_AddHere(playerid, type)
 {
     if (type < 0 || type >= MAX_PLACE_TYPES) return 0;
     if (PlaceCount >= MAX_PLACES) { SendError(playerid, "Достигнат е максимумът места."); return 0; }
-    new Float:x, Float:y, Float:z, q[160];
+    new Float:x, Float:y, Float:z, Float:a, q[200];
     GetPlayerPos(playerid, x, y, z);
-    format(q, sizeof (q), "INSERT INTO places (type, x, y, z) VALUES (%d, %f, %f, %f)", type, x, y, z);
+    if (IsPlayerInAnyVehicle(playerid)) GetVehicleZAngle(GetPlayerVehicleID(playerid), a);
+    else GetPlayerFacingAngle(playerid, a);
+    format(q, sizeof (q), "INSERT INTO places (type, x, y, z, a) VALUES (%d, %f, %f, %f, %f)", type, x, y, z, a);
     Database_Exec(q);
     Places_Load();
     SendClientMessage(playerid, COLOR_ADMIN, "[A] Добавено: %s (общо %d места).", PlaceTypeNames[type], PlaceCount);
@@ -264,41 +308,83 @@ stock Needs_Tick(playerid)
     Needs_UpdateHud(playerid);
 }
 
-// ---------- HUD ----------
+// ---------- HUD: иконки под парите (вдясно горе) ----------
+// Храна, вода, тоалетна, умора: иконка + стойност. Червено, когато е зле.
+
+#define NEEDS_HUD_X     492.0
+#define NEEDS_HUD_Y     98.0
+#define NEEDS_HUD_STEP  22.0
+
+static PlayerText:NeedsIcon[MAX_PLAYERS][4];
+static PlayerText:NeedsValue[MAX_PLAYERS][4];
+static bool:NeedsHudOn[MAX_PLAYERS];
+
+// Иконите са от картата на играта (hud.txd); тоалетната е надпис "WC"
+static const NeedsSprites[4][] = {"hud:radar_burgerShot", "hud:radar_dateDrink", "", "hud:radar_saveGame"};
 
 stock Needs_CreateHud(playerid)
 {
-    if (NeedsTD[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, NeedsTD[playerid]);
-    new PlayerText:t = CreatePlayerTextDraw(playerid, 320.0, 384.0, "_");
-    PlayerTextDrawFont(playerid, t, TEXT_DRAW_FONT_2);
-    PlayerTextDrawLetterSize(playerid, t, 0.2, 0.9);
-    PlayerTextDrawAlignment(playerid, t, TEXT_DRAW_ALIGN_CENTRE);
-    PlayerTextDrawColour(playerid, t, COLOR_WHITE);
-    PlayerTextDrawSetOutline(playerid, t, 1);
-    PlayerTextDrawSetShadow(playerid, t, 0);
-    PlayerTextDrawBackgroundColour(playerid, t, 0x000000AA);
-    PlayerTextDrawSetProportional(playerid, t, true);
-    NeedsTD[playerid] = t;
+    Needs_DestroyHud(playerid);
+    for (new k = 0; k < 4; k++) {
+        new Float:x = NEEDS_HUD_X + k * NEEDS_HUD_STEP;
+        new PlayerText:icon;
+        if (NeedsSprites[k][0] != EOS) {
+            icon = CreatePlayerTextDraw(playerid, x, NEEDS_HUD_Y, NeedsSprites[k]);
+            PlayerTextDrawFont(playerid, icon, TEXT_DRAW_FONT_SPRITE_DRAW);
+            PlayerTextDrawTextSize(playerid, icon, 9.0, 9.0);
+            PlayerTextDrawColour(playerid, icon, 0xFFFFFFFF);
+        } else {
+            icon = CreatePlayerTextDraw(playerid, x, NEEDS_HUD_Y, "WC");
+            PlayerTextDrawFont(playerid, icon, TEXT_DRAW_FONT_2);
+            PlayerTextDrawLetterSize(playerid, icon, 0.16, 0.9);
+            PlayerTextDrawColour(playerid, icon, 0x8FC8FFFF);
+            PlayerTextDrawSetOutline(playerid, icon, 1);
+            PlayerTextDrawBackgroundColour(playerid, icon, 0x000000AA);
+            PlayerTextDrawSetProportional(playerid, icon, true);
+        }
+        NeedsIcon[playerid][k] = icon;
+
+        new PlayerText:t = CreatePlayerTextDraw(playerid, x + 4.5, NEEDS_HUD_Y + 9.5, "_");
+        PlayerTextDrawFont(playerid, t, TEXT_DRAW_FONT_2);
+        PlayerTextDrawLetterSize(playerid, t, 0.15, 0.75);
+        PlayerTextDrawAlignment(playerid, t, TEXT_DRAW_ALIGN_CENTRE);
+        PlayerTextDrawColour(playerid, t, COLOR_WHITE);
+        PlayerTextDrawSetOutline(playerid, t, 1);
+        PlayerTextDrawSetShadow(playerid, t, 0);
+        PlayerTextDrawBackgroundColour(playerid, t, 0x000000AA);
+        PlayerTextDrawSetProportional(playerid, t, true);
+        NeedsValue[playerid][k] = t;
+    }
+    NeedsHudOn[playerid] = true;
     Needs_UpdateHud(playerid);
-    PlayerTextDrawShow(playerid, t);
+    for (new k = 0; k < 4; k++) {
+        PlayerTextDrawShow(playerid, NeedsIcon[playerid][k]);
+        PlayerTextDrawShow(playerid, NeedsValue[playerid][k]);
+    }
 }
 
 stock Needs_DestroyHud(playerid)
 {
-    if (NeedsTD[playerid] != INVALID_PLAYER_TEXT_DRAW) PlayerTextDrawDestroy(playerid, NeedsTD[playerid]);
-    NeedsTD[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    if (!NeedsHudOn[playerid]) return;
+    for (new k = 0; k < 4; k++) {
+        PlayerTextDrawDestroy(playerid, NeedsIcon[playerid][k]);
+        PlayerTextDrawDestroy(playerid, NeedsValue[playerid][k]);
+    }
+    NeedsHudOn[playerid] = false;
 }
 
 static stock Needs_UpdateHud(playerid)
 {
-    if (NeedsTD[playerid] == INVALID_PLAYER_TEXT_DRAW) return;
-    new text[128];
-    format(text, sizeof (text), "%sFOOD %d%%   %sWATER %d%%   %sWC %d%%   %sTIRED %d%%",
-        (NeedHunger[playerid] <= NEEDS_WARN) ? ("~r~") : ("~w~"), NeedHunger[playerid],
-        (NeedThirst[playerid] <= NEEDS_WARN) ? ("~r~") : ("~w~"), NeedThirst[playerid],
-        (NeedBladder[playerid] >= 100 - NEEDS_WARN) ? ("~r~") : ("~w~"), NeedBladder[playerid],
-        (NeedFatigue[playerid] >= FATIGUE_WARN) ? ("~r~") : ("~w~"), NeedFatigue[playerid]);
-    PlayerTextDrawSetString(playerid, NeedsTD[playerid], text);
+    if (!NeedsHudOn[playerid]) return;
+    new values[4], bool:bad[4], text[16];
+    values[0] = NeedHunger[playerid];  bad[0] = (values[0] <= NEEDS_WARN);
+    values[1] = NeedThirst[playerid];  bad[1] = (values[1] <= NEEDS_WARN);
+    values[2] = NeedBladder[playerid]; bad[2] = (values[2] >= 100 - NEEDS_WARN);
+    values[3] = NeedFatigue[playerid]; bad[3] = (values[3] >= FATIGUE_WARN);
+    for (new k = 0; k < 4; k++) {
+        format(text, sizeof (text), "%s%d", bad[k] ? ("~r~") : ("~w~"), values[k]);
+        PlayerTextDrawSetString(playerid, NeedsValue[playerid][k], text);
+    }
 }
 
 // ---------- Умора ----------
@@ -484,7 +570,7 @@ stock Needs_OnDialogResponse(playerid, dialogid, response, listitem)
 
 stock Needs_OnPlayerConnect(playerid)
 {
-    NeedsTD[playerid] = INVALID_PLAYER_TEXT_DRAW;
+    NeedsHudOn[playerid] = false;
     NeedFatigue[playerid] = 0;
     FatigueDrive[playerid] = 0;
     FatigueRestTick[playerid] = 0;

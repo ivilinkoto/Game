@@ -237,6 +237,8 @@ enum {
     APE_GOTO,
     APE_GETHERE,
     APE_FEED,
+    APE_FLIP,
+    APE_SLAP,
     APE_KICK,
     APE_BAN,
     APE_UNBAN
@@ -247,7 +249,7 @@ static stock AdminPanel_ShowEdit(playerid)
     new title[80], bool:online = AdminPanel_TargetOnline(playerid);
     format(title, sizeof (title), C_ADMIN "Промяна" C_WHITE " | %s%s", ApTargetName[playerid], online ? (" (онлайн)") : (" (офлайн)"));
     ShowPlayerDialog(playerid, DIALOG_AP_EDIT, DIALOG_STYLE_LIST, title,
-        "Задай ниво\nЗадай пари\nДай пари\nАдмин ниво\nОтиди при него\nДоведи го при мен\nНахрани и напои\nИзритай\nБан\nМахни бан",
+        "Задай ниво\nЗадай пари\nДай пари\nАдмин ниво\nОтиди при него\nДоведи го при мен\nНахрани и напои\nИзправи превозното му средство\nШамар\nИзритай\nБан\nМахни бан",
         "Избери", "Назад");
 }
 
@@ -536,7 +538,7 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
                 case APE_SETMONEY:  AdminPanel_AskValue(playerid, "Нова сума пари:");
                 case APE_GIVEMONEY: AdminPanel_AskValue(playerid, "Колко пари да дам (може и минус):");
                 case APE_ADMIN:     AdminPanel_AskValue(playerid, "Ново админ ниво (0-5):");
-                case APE_GOTO, APE_GETHERE, APE_FEED, APE_KICK: {
+                case APE_GOTO, APE_GETHERE, APE_FEED, APE_FLIP, APE_SLAP, APE_KICK: {
                     if (!online) {
                         SendError(playerid, "Играчът не е онлайн.");
                         AdminPanel_ShowEdit(playerid);
@@ -545,6 +547,10 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
                     format(params, sizeof (params), "%d", t);
                     if (listitem == APE_GOTO) AdminPanel_RunCmd(playerid, "goto", params);
                     else if (listitem == APE_GETHERE) AdminPanel_RunCmd(playerid, "gethere", params);
+                    else if (listitem == APE_FLIP || listitem == APE_SLAP) {
+                        AdminPanel_RunCmd(playerid, (listitem == APE_FLIP) ? ("flip") : ("slap"), params);
+                        AdminPanel_ShowEdit(playerid);
+                    }
                     else if (listitem == APE_FEED) {
                         Needs_Set(t, 100, 100, 0);
                         SendClientMessage(playerid, COLOR_ADMIN, "[A] %s е нахранен и напоен.", ApTargetName[playerid]);
