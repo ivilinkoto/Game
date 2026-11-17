@@ -14,8 +14,8 @@
 #include <streamer>
 
 // Маршрут по картата (modules/route.inc) – нужен е плъгинът GPS на сървъра.
-// Разкоментирай реда, след като plugins/GPS.so и scriptfiles/GPS.dat са инсталирани.
-// #define ROUTE_ENABLED
+// ROUTE_ENABLED се задава от scripts/build.sh, когато plugins/GPS.so съществува
+// (deploy го инсталира чрез scripts/install-gps.sh).
 #if defined ROUTE_ENABLED
     #include <gps_plugin>
 #endif

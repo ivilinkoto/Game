@@ -8,8 +8,9 @@
 #endif
 #define _gps_plugin_included
 
-#define INVALID_MAP_NODE_ID     (MapNode:-1)
-#define INVALID_PATH_ID         (Path:-1)
+// Имената и подписите са сверени с GPS.inc на плъгина (издание 1.4.1).
+const MapNode:INVALID_MAP_NODE_ID = MapNode:-1;
+const Path:INVALID_GPS_PATH_ID = Path:-1;
 
 native GetClosestMapNodeToPoint(Float:x, Float:y, Float:z, &MapNode:nodeid, MapNode:ignorednode = INVALID_MAP_NODE_ID);
 native FindPathThreaded(MapNode:source, MapNode:target, const callback[], const format[] = "", {Float, _}:...);

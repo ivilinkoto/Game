@@ -30,13 +30,23 @@ main() {
         SERVER_DIR="$SERVER_DIR" bash "$REPO_DIR/scripts/install-bcrypt.sh"
     fi
 
+    # Маршрути по картата: плъгинът GPS. Ако инсталацията не успее, продължаваме
+    # без него – build.sh включва маршрута само когато plugins/GPS.so съществува.
+    if [ ! -f "$SERVER_DIR/plugins/GPS.so" ] || [ ! -f "$SERVER_DIR/scriptfiles/GPS.dat" ]; then
+        echo "==> Инсталиране на GPS плъгина (маршрути)"
+        if ! SERVER_DIR="$SERVER_DIR" bash "$REPO_DIR/scripts/install-gps.sh"; then
+            echo "    ВНИМАНИЕ: GPS плъгинът не се инсталира – маршрутът остава изключен."
+        fi
+    fi
+
     echo "==> Компилиране"
     SERVER_DIR="$SERVER_DIR" runuser -u omp -- bash "$REPO_DIR/scripts/build.sh"
 
     echo "==> Настройки на сървъра"
-    python3 - "$SERVER_DIR/config.json" <<'PY'
-import json, sys
+    python3 - "$SERVER_DIR/config.json" "$SERVER_DIR" <<'PY'
+import json, os, sys
 path = sys.argv[1]
+server_dir = sys.argv[2]
 with open(path, encoding="utf-8") as f:
     cfg = json.load(f)
 before = json.dumps(cfg, sort_keys=True)
@@ -48,6 +58,12 @@ plugins = pawn.setdefault("legacy_plugins", [])
 for plugin in ("streamer", "samp_bcrypt"):
     if plugin not in plugins:
         plugins.append(plugin)
+# GPS – само ако е инсталиран
+if os.path.isfile(os.path.join(server_dir, "plugins", "GPS.so")):
+    if "GPS" not in plugins:
+        plugins.append("GPS")
+elif "GPS" in plugins:
+    plugins.remove("GPS")
 if json.dumps(cfg, sort_keys=True) != before:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=4, ensure_ascii=False)

@@ -23,11 +23,19 @@ done
 # ОТ конвертираното копие – иначе модулите се взимат от оригиналите в UTF-8.
 cd "$SRC"
 
+# Маршрутът по картата се включва само ако GPS плъгинът е на сървъра
+# (без него сървърът не би заредил скрипта). FORCE_ROUTE=1 – за проверка в CI.
+EXTRA=()
+if [ -f "$SERVER_DIR/plugins/GPS.so" ] || [ "${FORCE_ROUTE:-0}" = "1" ]; then
+    EXTRA+=("ROUTE_ENABLED=1")
+    echo "Маршрут по картата: включен (GPS плъгин)"
+fi
+
 # Компилираме във временен файл, за да не се развали работещият .amx при грешка.
 LD_LIBRARY_PATH="$QAWNO" "$QAWNO/pawncc" "$SRC/$GM.pwn" \
     "-i$QAWNO/include" "-i$SRC/include" "-i$SRC" \
     "-o$SRC/$GM.amx" \
-    -d3 '-;+' -O1
+    -d3 '-;+' -O1 "${EXTRA[@]}"
 
 install -m 644 "$SRC/$GM.amx" "$SERVER_DIR/gamemodes/$GM.amx"
 echo "Компилирано: $SERVER_DIR/gamemodes/$GM.amx"
