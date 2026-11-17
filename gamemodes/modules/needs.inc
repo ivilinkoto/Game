@@ -72,8 +72,8 @@ static PlaceIcon[MAX_PLACES] = {-1, ...};
 #define OBJ_PORTALOO        2984
 #define PORTALOO_Z_OFFSET   1.2         // моделът е центриран ниско, иначе потъва в земята
 #define OBJ_CONE            1238
-#define OBJ_WEIGH_PLATE     3095        // плоска метална плоча ~9x9 м
-#define WEIGH_PLATE_Z       (-0.12)     // плочата е почти на нивото на пътя
+#define OBJ_WEIGH_PLATE     19377       // тънка плоскост 10.5 x 10.5 м, легнала
+#define WEIGH_PLATE_Z       0.03        // на нивото на пътя, колкото да не трепти с него
 static PlaceObj[MAX_PLACES][PLACE_MAX_OBJECTS];
 static Float:PlaceAngle[MAX_PLACES];
 static PlaceCount;
@@ -154,20 +154,22 @@ static stock Places_CreateObjects(k)
         case PLACE_TOILET: {
             // Кабина на 1.8 м пред мястото, с вратата към него
             Places_Offset(k, 0.0, 1.8, x, y);
-            PlaceObj[k][0] = CreateDynamicObject(OBJ_PORTALOO, x, y, z + PORTALOO_Z_OFFSET, 0.0, 0.0, a + 180.0, 0, 0, -1, 200.0, 200.0);
+            PlaceObj[k][0] = CreateDynamicObject(OBJ_PORTALOO, x, y, z + PORTALOO_Z_OFFSET, 0.0, 0.0, a + 270.0, 0, 0, -1, 200.0, 200.0);
         }
         case PLACE_WEIGH: {
             // Коридор от конуси по пътя (6 конуса: по 3 от двете страни)
             for (new side = -1; side <= 1; side += 2) {
                 for (new f = -1; f <= 1; f++) {
-                    Places_Offset(k, side * 4.5, f * 8.0, x, y);
+                    Places_Offset(k, side * 5.8, f * 9.0, x, y);
                     PlaceObj[k][((side + 1) / 2) * 3 + (f + 1)] = CreateDynamicObject(OBJ_CONE, x, y, z + 0.05, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
                 }
             }
-            // Платформа: две метални плочи по дължината на коридора
+            // Платформа: две стоманени плочи на нивото на пътя по дължината на коридора
             for (new f = 0; f < 2; f++) {
-                Places_Offset(k, 0.0, (f == 0) ? (-4.5) : (4.5), x, y);
-                PlaceObj[k][6 + f] = CreateDynamicObject(OBJ_WEIGH_PLATE, x, y, z + WEIGH_PLATE_Z, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
+                Places_Offset(k, 0.0, (f == 0) ? (-5.25) : (5.25), x, y);
+                new obj = CreateDynamicObject(OBJ_WEIGH_PLATE, x, y, z + WEIGH_PLATE_Z, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
+                SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFFB0B4B8);
+                PlaceObj[k][6 + f] = obj;
             }
         }
     }
