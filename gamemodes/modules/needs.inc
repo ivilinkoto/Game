@@ -78,9 +78,10 @@ static PlaceIcon[MAX_PLACES] = {-1, ...};
 #define OBJ_GATE_BOX        966         // кутия на бариерата
 #define OBJ_GATE_BAR        968         // рамо на бариерата
 #define WEIGH_HEIGHT        0.30        // височина на платформата над пътя
-#define WEIGH_HALF_LEN      10.0        // платформата е ~20 м дълга, 3.5 м широка (2 плочи по ~10 м)
+#define WEIGH_SEG_Y         4.75        // центровете на двете плочи (плочата е ~9.6 м, леко се застъпват)
+#define WEIGH_HALF_LEN      9.55        // краят на платформата (~19 м дълга, 3.5 м широка)
 #define WEIGH_BOOTH_DX      4.4         // будката е вдясно от платформата
-#define WEIGH_GATE_DX       2.3         // бариерата - вдясно на изхода
+#define WEIGH_GATE_DX       2.9         // кутията на бариерата вдясно; рамото стига до центъра и малко отвъд
 #define WEIGH_GATE_Z        0.85
 #define WEIGH_GATE_OPEN_SEC 12
 #define WEIGH_BAR_SLOT      15          // индексът на рамото в PlaceObj
@@ -190,7 +191,7 @@ static stock Places_BuildWeigh(k)
 
     // Платформа: 2 легнали дълги стени
     for (new i = -1; i <= 1; i += 2) {
-        obj = Places_WeighObj(k, slot++, OBJ_WALL_LONG, 0.0, i * WEIGH_HALF_LEN / 2.0, WEIGH_HEIGHT - 0.15 + ((i > 0) ? 0.01 : 0.0), 0.0, 90.0, 0.0);
+        obj = Places_WeighObj(k, slot++, OBJ_WALL_LONG, 0.0, i * WEIGH_SEG_Y, WEIGH_HEIGHT - 0.15 + ((i > 0) ? 0.01 : 0.0), 0.0, 90.0, 0.0);
         SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFFC8CCD0);
     }
     // Рампи на двата края (качват от пътя до платформата)
@@ -201,7 +202,7 @@ static stock Places_BuildWeigh(k)
     // Жълти бордюри от двете страни (стърчат 25 см над платформата)
     for (new side = -1; side <= 1; side += 2) {
         for (new i = -1; i <= 1; i += 2) {
-            Places_WeighObj(k, slot++, OBJ_WALL_LONG, side * 1.9, i * WEIGH_HALF_LEN / 2.0, WEIGH_HEIGHT + 0.25 - 1.75, 0.0, 0.0, 0.0, 0xFFF2C200);
+            Places_WeighObj(k, slot++, OBJ_WALL_LONG, side * (1.9 + ((i > 0) ? 0.01 : 0.0)), i * WEIGH_SEG_Y, WEIGH_HEIGHT + 0.25 - 1.75, 0.0, 0.0, 0.0, 0xFFF2C200);
         }
     }
     // Будка 3.5 x 3.5 вдясно: 4 стени и покрив
