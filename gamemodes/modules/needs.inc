@@ -319,8 +319,10 @@ static PlayerText:NeedsIcon[MAX_PLAYERS][4];
 static PlayerText:NeedsValue[MAX_PLAYERS][4];
 static bool:NeedsHudOn[MAX_PLAYERS];
 
-// Иконите са от картата на играта (hud.txd); тоалетната е надпис "WC"
-static const NeedsSprites[4][] = {"hud:radar_burgerShot", "hud:radar_dateDrink", "", "hud:radar_saveGame"};
+// Иконите са от картата на играта (hud.txd); тоалетната и умората са надписи
+static const NeedsSprites[4][] = {"hud:radar_burgerShot", "hud:radar_dateDrink", "", ""};
+static const NeedsLabels[4][] = {"", "", "WC", "Zz"};
+static const NeedsLabelColours[4] = {0, 0, 0x8FC8FFFF, 0xC8A8FFFF};
 
 stock Needs_CreateHud(playerid)
 {
@@ -334,10 +336,10 @@ stock Needs_CreateHud(playerid)
             PlayerTextDrawTextSize(playerid, icon, 9.0, 9.0);
             PlayerTextDrawColour(playerid, icon, 0xFFFFFFFF);
         } else {
-            icon = CreatePlayerTextDraw(playerid, x, NEEDS_HUD_Y, "WC");
+            icon = CreatePlayerTextDraw(playerid, x, NEEDS_HUD_Y, NeedsLabels[k]);
             PlayerTextDrawFont(playerid, icon, TEXT_DRAW_FONT_2);
             PlayerTextDrawLetterSize(playerid, icon, 0.16, 0.9);
-            PlayerTextDrawColour(playerid, icon, 0x8FC8FFFF);
+            PlayerTextDrawColour(playerid, icon, NeedsLabelColours[k]);
             PlayerTextDrawSetOutline(playerid, icon, 1);
             PlayerTextDrawBackgroundColour(playerid, icon, 0x000000AA);
             PlayerTextDrawSetProportional(playerid, icon, true);
