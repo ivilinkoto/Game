@@ -18,6 +18,9 @@
 #define DELIVERY_FREE_CANCEL    120         // секунди без глоба
 #define DELIVERY_CANCEL_FINE    100
 #define DELIVERY_SPEED_MS       12.0        // за срока: м/с средно
+#define PERISHABLE_SPEED_MS     15.0        // хладилни товари: по-кратък срок
+#define PERISHABLE_LOSS_PER_MIN 15          // хладилни: -15% от плащането за всяка минута закъснение
+#define FRAGILE_BREAK_PERCENT   40          // чупливи: над толкова % щети товарът се чупи
 #define DELIVERY_EXTRA_TIME     120         // + секунди към срока
 
 enum E_CONTRACT {
@@ -205,8 +208,10 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
         if (demand > 0) format(payStr, sizeof (payStr), "%s " C_GREEN "+%d%%", money, demand);
         else if (demand < 0) format(payStr, sizeof (payStr), "%s " C_RED "%d%%", money, demand);
         else format(payStr, sizeof (payStr), "%s", money);
+        new gname[64];
+        Delivery_GoodLabel(good, gname);
         format(line, sizeof (line), "%s\t%s > %s\t%s, %.1f км\t" C_GREEN "$%s\n",
-            Goods[good][gdName], CompanyDefs[Contracts[i][ctFrom]][cdName], CompanyDefs[Contracts[i][ctTo]][cdName],
+            gname, CompanyDefs[Contracts[i][ctFrom]][cdName], CompanyDefs[Contracts[i][ctTo]][cdName],
             tons, Company_Distance(Contracts[i][ctFrom], Contracts[i][ctTo]) / 1000.0, payStr);
         strcat(body, line);
         BoardMap[playerid][BoardCount[playerid]++] = i;
@@ -232,19 +237,25 @@ static stock Delivery_ShowDetails(playerid, slot)
     Goods_Stars(good, stars);
     new Float:toA = GetPlayerDistanceFromPoint(playerid, Company[from][cpX], Company[from][cpY], Company[from][cpZ]);
     new Float:ab = Company_Distance(from, to);
-    new limit = floatround(ab / DELIVERY_SPEED_MS) + DELIVERY_EXTRA_TIME;
+    new limit = Delivery_TimeLimit(good, ab);
+    new rules[160];
+    if (Goods[good][gdFlags] & GOODFLAG_PERISHABLE) {
+        format(rules, sizeof (rules), "\n" C_CB "Хладилен товар: кратък срок; за всяка минута закъснение -%d%% (разваля се).", PERISHABLE_LOSS_PER_MIN);
+    } else if (Goods[good][gdFlags] & GOODFLAG_FRAGILE) {
+        format(rules, sizeof (rules), "\n" C_RED "Чуплив товар: щетите тежат двойно, над %d%% щети се чупи.", FRAGILE_BREAK_PERCENT);
+    }
 
     ShowPlayerDialog(playerid, DIALOG_JOB_DETAILS, DIALOG_STYLE_MSGBOX, C_BRAND "Поръчка",
         C_WHITE "Товар: " C_BRAND "%s" C_WHITE ", %s, ценност %s\n\n" \
         C_WHITE "Взимаш от: " C_BRAND "%s" C_GREY " (%s) - на %.1f км от теб\n" \
         C_WHITE "Караш до: " C_BRAND "%s" C_GREY " (%s) - %.1f км\n\n" \
         C_WHITE "Плащане: " C_GREEN "$%s" C_WHITE ", срок след товарене: %d:%02d мин\n%s" \
-        C_GREY "Навреме +10%%, закъснял -20%%, щети до -50%%.",
+        C_GREY "Навреме +10%%, закъснял -20%%, щети до -50%%.%s",
         "Приеми", "Назад",
         Goods[good][gdName], tons, stars,
         CompanyDefs[from][cdName], CompanyDefs[from][cdPlace], toA / 1000.0,
         CompanyDefs[to][cdName], CompanyDefs[to][cdPlace], ab / 1000.0,
-        payStr, limit / 60, limit % 60, bonusLine);
+        payStr, limit / 60, limit % 60, bonusLine, rules);
 }
 
 // ---------- Курс ----------
@@ -356,7 +367,7 @@ public Delivery_TimerDone(playerid, seq, stage)
     if (stage == JOB_LOADING) {
         if (Catalog_HasTrailer(GetVehicleModel(Job[playerid][jbVehicle]))) Trailer_Spawn(playerid);
         new Float:ab = Company_Distance(Job[playerid][jbFrom], Job[playerid][jbTo]);
-        Job[playerid][jbDeadline] = gettime() + floatround(ab / DELIVERY_SPEED_MS) + DELIVERY_EXTRA_TIME;
+        Job[playerid][jbDeadline] = gettime() + Delivery_TimeLimit(Job[playerid][jbGood], ab);
         GetVehicleHealth(Job[playerid][jbVehicle], Job[playerid][jbStartHealth]);
         Job[playerid][jbStage] = JOB_TO_DROP;
         Delivery_SetCheckpoint(playerid, Job[playerid][jbTo], true);
@@ -399,12 +410,22 @@ static stock Delivery_CurrentPay(playerid, &bonus = 0, &late = 0, &damage = 0)
     new base = Job[playerid][jbBasePay];
     bonus = 0;
     late = 0;
+    new flags = Goods[Job[playerid][jbGood]][gdFlags];
     if (Job[playerid][jbDeadline] != 0) {
-        if (gettime() <= Job[playerid][jbDeadline]) bonus = base / 10;
+        new over = gettime() - Job[playerid][jbDeadline];
+        if (over <= 0) bonus = base / 10;
+        else if (flags & GOODFLAG_PERISHABLE) {
+            // Разваля се: -15% за всяка започната минута закъснение
+            new pct = ((over + 59) / 60) * PERISHABLE_LOSS_PER_MIN;
+            if (pct > 100) pct = 100;
+            late = base * pct / 100;
+        }
         else late = base / 5;
     }
     new dmg = Delivery_DamagePercent(playerid);
-    if (dmg > 50) dmg = 50;
+    if (flags & GOODFLAG_FRAGILE) dmg *= 2;
+    if (dmg > 50 && !(flags & GOODFLAG_FRAGILE)) dmg = 50;
+    if (dmg > 100) dmg = 100;
     damage = base * dmg / 100;
     new total = base + bonus - late - damage;
     if (total < 0) total = 0;
@@ -699,7 +720,10 @@ stock Delivery_UpdatePanel(playerid)
 
     // 1: товар, тегло, ценност
     format(stars, sizeof (stars), "%d/5", Goods[good][gdStars]);
-    format(text, sizeof (text), "~w~CARGO  ~y~%s  ~w~%d.%d T  ~y~%s", Goods[good][gdNameEN], Job[playerid][jbKg] / 1000, (Job[playerid][jbKg] % 1000) / 100, stars);
+    new mark[16];
+    if (Goods[good][gdFlags] & GOODFLAG_PERISHABLE) format(mark, sizeof (mark), "  ~b~COLD");
+    else if (Goods[good][gdFlags] & GOODFLAG_FRAGILE) format(mark, sizeof (mark), "  ~r~FRAGILE");
+    format(text, sizeof (text), "~w~CARGO  ~y~%s  ~w~%d.%d T  ~y~%s%s", Goods[good][gdNameEN], Job[playerid][jbKg] / 1000, (Job[playerid][jbKg] % 1000) / 100, stars, mark);
     PlayerTextDrawSetString(playerid, DpLine[playerid][0], text);
 
     // 2-3: откъде, докъде
@@ -749,6 +773,7 @@ stock Delivery_Tick()
         Trailer_Check(i);
         Delivery_SpeedLimit(i);
         Delivery_CheckSpill(i);
+        if (Job[i][jbStage] != JOB_NONE) Delivery_CheckFragile(i);
         if (Job[i][jbStage] != JOB_NONE) Delivery_UpdatePanel(i);
     }
 }
@@ -863,6 +888,34 @@ static stock Delivery_SpeedLimit(playerid)
 }
 
 // Гориво: при силен удар -> разлив, курсът пропада
+// Срок за доставка (секунди) според разстоянието и товара
+static stock Delivery_TimeLimit(good, Float:meters)
+{
+    if (Goods[good][gdFlags] & GOODFLAG_PERISHABLE) return floatround(meters / PERISHABLE_SPEED_MS) + DELIVERY_EXTRA_TIME / 2;
+    return floatround(meters / DELIVERY_SPEED_MS) + DELIVERY_EXTRA_TIME;
+}
+
+// Име на товара с отметка (хладилен) / (чуплив) – за таблото
+static stock Delivery_GoodLabel(good, dest[], size = sizeof (dest))
+{
+    if (Goods[good][gdFlags] & GOODFLAG_PERISHABLE) format(dest, size, "%s " C_CB "(хладилен)" C_WHITE, Goods[good][gdName]);
+    else if (Goods[good][gdFlags] & GOODFLAG_FRAGILE) format(dest, size, "%s " C_RED "(чуплив)" C_WHITE, Goods[good][gdName]);
+    else format(dest, size, "%s", Goods[good][gdName]);
+}
+
+// Чуплив товар: при силен удар се чупи
+static stock Delivery_CheckFragile(playerid)
+{
+    if (Job[playerid][jbStage] != JOB_TO_DROP) return;
+    if (!(Goods[Job[playerid][jbGood]][gdFlags] & GOODFLAG_FRAGILE)) return;
+    if (Delivery_DamagePercent(playerid) <= FRAGILE_BREAK_PERCENT) return;
+
+    Delivery_RefundBonus(playerid);
+    Delivery_End(playerid);
+    GameTextForPlayer(playerid, "~r~CARGO BROKEN!", 4000, 1);
+    SendClientMessage(playerid, COLOR_RED, "[КУРС] " C_WHITE "Чупливият товар се счупи! Курсът е провален (без глоба, но без плащане).");
+}
+
 static stock Delivery_CheckSpill(playerid)
 {
     if (Job[playerid][jbStage] != JOB_TO_DROP) return;

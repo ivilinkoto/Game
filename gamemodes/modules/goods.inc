@@ -15,8 +15,15 @@ enum {
     GOOD_ORE,
     GOOD_WOOD,
     GOOD_FUEL,
+    GOOD_FROZEN,            // хладилни
+    GOOD_DAIRY,
+    GOOD_GLASS,             // чупливи
     MAX_GOODS
 }
+
+// Особености на товара
+#define GOODFLAG_PERISHABLE (1 << 0)    // хладилен: по-кратък срок, закъснението го разваля
+#define GOODFLAG_FRAGILE    (1 << 1)    // чуплив: щетите тежат двойно, над 40% се чупи
 
 #define GOOD_BIT(%0)    (1 << (%0))
 
@@ -27,23 +34,27 @@ enum E_GOOD {
     gdRate,             // $ за тон и км
     gdMinKg,
     gdMaxKg,
-    gdStars             // ценност 1-5
+    gdStars,            // ценност 1-5
+    gdFlags             // GOODFLAG_*
 }
 
 stock const Goods[MAX_GOODS][E_GOOD] = {
-    {"Пратки",          "PARCELS",      CARGO_PARCEL, 150,  200,  1500, 3},
-    {"Медикаменти",     "MEDICINE",     CARGO_PARCEL, 190,  100,   800, 5},
-    {"Храни",           "FOOD",         CARGO_BOX,     40, 1000,  8000, 2},
-    {"Напитки",         "DRINKS",       CARGO_BOX,     36, 1000,  8000, 2},
-    {"Електроника",     "ELECTRONICS",  CARGO_BOX,     62, 1000,  6000, 4},
-    {"Мебели",          "FURNITURE",    CARGO_BOX,     45, 1000,  7000, 3},
-    {"Метални изделия", "METAL GOODS",  CARGO_BOX,     38, 2000,  8000, 2},
-    {"Резервни части",  "SPARE PARTS",  CARGO_BOX,     50, 1000,  6000, 3},
-    {"Пясък",           "SAND",         CARGO_BULK,    26, 4000, 12000, 1},
-    {"Чакъл",           "GRAVEL",       CARGO_BULK,    26, 4000, 12000, 1},
-    {"Руда",            "ORE",          CARGO_BULK,    30, 4000, 12000, 1},
-    {"Дърва",           "TIMBER",       CARGO_BULK,    32, 4000, 12000, 2},
-    {"Гориво",          "FUEL",         CARGO_LIQUID,  34, 8000, 25000, 3}
+    {"Пратки",          "PARCELS",      CARGO_PARCEL, 150,  200,  1500, 3, 0},
+    {"Медикаменти",     "MEDICINE",     CARGO_PARCEL, 190,  100,   800, 5, GOODFLAG_PERISHABLE | GOODFLAG_FRAGILE},
+    {"Храни",           "FOOD",         CARGO_BOX,     40, 1000,  8000, 2, 0},
+    {"Напитки",         "DRINKS",       CARGO_BOX,     36, 1000,  8000, 2, 0},
+    {"Електроника",     "ELECTRONICS",  CARGO_BOX,     62, 1000,  6000, 4, GOODFLAG_FRAGILE},
+    {"Мебели",          "FURNITURE",    CARGO_BOX,     45, 1000,  7000, 3, 0},
+    {"Метални изделия", "METAL GOODS",  CARGO_BOX,     38, 2000,  8000, 2, 0},
+    {"Резервни части",  "SPARE PARTS",  CARGO_BOX,     50, 1000,  6000, 3, 0},
+    {"Пясък",           "SAND",         CARGO_BULK,    26, 4000, 12000, 1, 0},
+    {"Чакъл",           "GRAVEL",       CARGO_BULK,    26, 4000, 12000, 1, 0},
+    {"Руда",            "ORE",          CARGO_BULK,    30, 4000, 12000, 1, 0},
+    {"Дърва",           "TIMBER",       CARGO_BULK,    32, 4000, 12000, 2, 0},
+    {"Гориво",          "FUEL",         CARGO_LIQUID,  34, 8000, 25000, 3, 0},
+    {"Замразени храни", "FROZEN FOOD",  CARGO_BOX,     58, 1000,  8000, 4, GOODFLAG_PERISHABLE},
+    {"Млечни продукти", "DAIRY",        CARGO_BOX,     52, 1000,  7000, 3, GOODFLAG_PERISHABLE},
+    {"Стъкло",          "GLASS",        CARGO_BOX,     55, 1000,  6000, 4, GOODFLAG_FRAGILE}
 };
 
 #define DELIVERY_BASE_PAY   150
