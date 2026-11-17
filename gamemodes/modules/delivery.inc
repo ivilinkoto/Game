@@ -937,6 +937,19 @@ stock Delivery_GetLoadKg(playerid)
     return 0;
 }
 
+// Компанията е изтрита: поръчките от/до нея изчезват, текущите курсове се прекратяват
+stock Delivery_OnCompanyRemoved(c)
+{
+    for (new i = 0; i < MAX_CONTRACTS; i++) {
+        if (Contracts[i][ctActive] && (Contracts[i][ctFrom] == c || Contracts[i][ctTo] == c)) Contracts_Generate(i);
+    }
+    for (new p = 0; p < MAX_PLAYERS; p++) {
+        if (IsPlayerConnected(p) && Job[p][jbStage] != JOB_NONE && (Job[p][jbFrom] == c || Job[p][jbTo] == c)) {
+            Delivery_Cancel(p, "Компанията беше закрита - курсът е прекратен.", false);
+        }
+    }
+}
+
 stock Delivery_GetJobVehicle(playerid)
 {
     return Job[playerid][jbVehicle];

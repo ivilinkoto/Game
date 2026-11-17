@@ -28,6 +28,13 @@ static ApTargetName[MAX_PLAYERS][MAX_PLAYER_NAME + 1];
 static ApLookupFor[MAX_PLAYERS];                    // AP_STATS или AP_EDIT
 static ApEditAction[MAX_PLAYERS];
 static ApPlaceAction[MAX_PLAYERS];
+static ApPickMap[MAX_PLAYERS][MAX_COMPANIES];
+static ApNewName[MAX_PLAYERS][32];
+static ApNewPlace[MAX_PLAYERS][24];
+static ApNewSize[MAX_PLAYERS];
+static ApNewProduces[MAX_PLAYERS];
+static ApNewAccepts[MAX_PLAYERS];
+static bool:ApGoodsAccepts[MAX_PLAYERS];     // false = избираме "дава", true = "приема"
 static bool:ApRestarting;
 static ApRestartLeft;
 
@@ -341,7 +348,9 @@ enum {
     APP_DEL_FUEL,
     APP_MOVE_COMPANY,
     APP_MOVE_GARAGE,
-    APP_MOVE_DEALER
+    APP_MOVE_DEALER,
+    APP_NEW_COMPANY,
+    APP_DEL_COMPANY
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -357,7 +366,9 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_RED "- " C_WHITE "Изтрий най-близката бензиностанция\n" \
         C_BRAND "> " C_WHITE "Премести база на компания тук\n" \
         C_BRAND "> " C_WHITE "Премести входа на гаражите тук\n" \
-        C_BRAND "> " C_WHITE "Премести автокъща тук",
+        C_BRAND "> " C_WHITE "Премести автокъща тук\n" \
+        C_GREEN "+ " C_WHITE "Нова компания тук\n" \
+        C_RED "- " C_WHITE "Закрий компания",
         "Избери", "Назад");
 }
 
@@ -368,13 +379,15 @@ static stock AdminPanel_ShowCityPick(playerid)
 
 static stock AdminPanel_ShowCompanyPick(playerid)
 {
-    new body[1400], line[96];
+    new body[2400], line[96], n = 0;
     body[0] = EOS;
     for (new c = 0; c < MAX_COMPANIES; c++) {
+        if (!Company_IsValid(c)) continue;
         format(line, sizeof (line), "%s" C_GREY " (%s)\n", CompanyDefs[c][cdName], CompanyDefs[c][cdPlace]);
         strcat(body, line);
+        ApPickMap[playerid][n++] = c;
     }
-    ShowPlayerDialog(playerid, DIALOG_AP_PICK, DIALOG_STYLE_LIST, C_ADMIN "Коя компания?", "%s", "Премести", "Назад", body);
+    ShowPlayerDialog(playerid, DIALOG_AP_PICK, DIALOG_STYLE_LIST, C_ADMIN "Коя компания?", "%s", "Избери", "Назад", body);
 }
 
 static stock AdminPanel_DoPlace(playerid, action)
@@ -402,6 +415,19 @@ static stock AdminPanel_DoPlace(playerid, action)
             AdminPanel_ShowCompanyPick(playerid);
             return;
         }
+        case APP_NEW_COMPANY: {
+            if (!AdminPanel_Need(playerid, 5)) return;
+            ApNewProduces[playerid] = 0;
+            ApNewAccepts[playerid] = 0;
+            ShowPlayerDialog(playerid, DIALOG_AP_CNAME, DIALOG_STYLE_INPUT, C_ADMIN "Нова компания (1/5)",
+                C_WHITE "Име на компанията (до 30 символа).\n" C_GREY "Препоръчително на латиница - вижда се и в панела на курса.", "Напред", "Назад");
+            return;
+        }
+        case APP_DEL_COMPANY: {
+            if (!AdminPanel_Need(playerid, 5)) return;
+            AdminPanel_ShowCompanyPick(playerid);
+            return;
+        }
         case APP_MOVE_GARAGE, APP_MOVE_DEALER: {
             if (!AdminPanel_Need(playerid, 5)) return;
             AdminPanel_ShowCityPick(playerid);
@@ -409,6 +435,22 @@ static stock AdminPanel_DoPlace(playerid, action)
         }
     }
     AdminPanel_ShowPlaces(playerid);
+}
+
+// Избор на товари с отметки (за нова компания)
+static stock AdminPanel_ShowGoodsPick(playerid)
+{
+    new body[1400], line[96], mask = ApGoodsAccepts[playerid] ? ApNewAccepts[playerid] : ApNewProduces[playerid];
+    body[0] = EOS;
+    for (new g = 0; g < MAX_GOODS; g++) {
+        if (mask & GOOD_BIT(g)) format(line, sizeof (line), C_GREEN "[X] " C_WHITE "%s\n", Goods[g][gdName]);
+        else format(line, sizeof (line), C_GREY "[  ] " C_WHITE "%s\n", Goods[g][gdName]);
+        strcat(body, line);
+    }
+    strcat(body, C_BRAND ">> Готово");
+    ShowPlayerDialog(playerid, DIALOG_AP_CGOODS, DIALOG_STYLE_LIST,
+        ApGoodsAccepts[playerid] ? (C_ADMIN "Нова компания (5/5): ПРИЕМА") : (C_ADMIN "Нова компания (4/5): ДАВА  "),
+        "%s", "Избери", "Отказ", body);
 }
 
 // ---------- Рестарт ----------
@@ -527,10 +569,98 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
             if (!response) { AdminPanel_ShowPlaces(playerid); return 1; }
             new params[8];
             format(params, sizeof (params), "%d", listitem);
+            if (ApPlaceAction[playerid] == APP_MOVE_COMPANY || ApPlaceAction[playerid] == APP_DEL_COMPANY) {
+                if (listitem < 0 || listitem >= MAX_COMPANIES) return 1;
+                format(params, sizeof (params), "%d", ApPickMap[playerid][listitem]);
+            }
             switch (ApPlaceAction[playerid]) {
+                case APP_DEL_COMPANY: {
+                    new c = ApPickMap[playerid][listitem];
+                    ApNewSize[playerid] = c;        // запомняме коя (за потвърждението)
+                    ShowPlayerDialog(playerid, DIALOG_AP_CDELETE, DIALOG_STYLE_MSGBOX, C_RED "Закриване на компания",
+                        C_WHITE "Да закрия ли " C_BRAND "%s" C_WHITE "?\n\nПоръчките и курсовете с нея изчезват, складът се нулира.\nАко има собственик, получава 60%% от цената + касата.",
+                        "Закрий", "Отказ", CompanyDefs[c][cdName]);
+                    return 1;
+                }
                 case APP_MOVE_COMPANY: AdminPanel_RunCmd(playerid, "compos", params);
                 case APP_MOVE_GARAGE:  AdminPanel_RunCmd(playerid, "garagepos", params);
                 case APP_MOVE_DEALER:  AdminPanel_RunCmd(playerid, "dealerpos", params);
+            }
+            AdminPanel_ShowPlaces(playerid);
+            return 1;
+        }
+        // ----- Нова компания -----
+        case DIALOG_AP_CNAME: {
+            if (!response) { AdminPanel_ShowPlaces(playerid); return 1; }
+            if (inputtext[0] == EOS || strlen(inputtext) > 30) {
+                SendError(playerid, "Името трябва да е от 1 до 30 символа.");
+                AdminPanel_DoPlace(playerid, APP_NEW_COMPANY);
+                return 1;
+            }
+            format(ApNewName[playerid], 32, "%s", inputtext);
+            ShowPlayerDialog(playerid, DIALOG_AP_CPLACE, DIALOG_STYLE_INPUT, C_ADMIN "Нова компания (2/5)",
+                C_WHITE "Къде е (град/район), напр. Los Santos:", "Напред", "Назад");
+            return 1;
+        }
+        case DIALOG_AP_CPLACE: {
+            if (!response) { AdminPanel_DoPlace(playerid, APP_NEW_COMPANY); return 1; }
+            if (inputtext[0] == EOS) format(ApNewPlace[playerid], 24, "San Andreas");
+            else format(ApNewPlace[playerid], 24, "%s", inputtext);
+            ShowPlayerDialog(playerid, DIALOG_AP_CSIZE, DIALOG_STYLE_LIST, C_ADMIN "Нова компания (3/5): размер",
+                "Малка ($50 000, склад 60 т)\nСредна ($120 000, склад 100 т)\nГоляма ($250 000, склад 200 т)", "Напред", "Назад");
+            return 1;
+        }
+        case DIALOG_AP_CSIZE: {
+            if (!response) { AdminPanel_DoPlace(playerid, APP_NEW_COMPANY); return 1; }
+            ApNewSize[playerid] = (listitem < 0 || listitem > 2) ? 0 : listitem;
+            ApGoodsAccepts[playerid] = false;
+            AdminPanel_ShowGoodsPick(playerid);
+            return 1;
+        }
+        case DIALOG_AP_CGOODS: {
+            if (!response) { AdminPanel_DoPlace(playerid, APP_NEW_COMPANY); return 1; }
+            if (listitem >= 0 && listitem < MAX_GOODS) {
+                if (ApGoodsAccepts[playerid]) ApNewAccepts[playerid] ^= GOOD_BIT(listitem);
+                else ApNewProduces[playerid] ^= GOOD_BIT(listitem);
+                AdminPanel_ShowGoodsPick(playerid);
+                return 1;
+            }
+            // "Готово"
+            if (!ApGoodsAccepts[playerid]) {
+                ApGoodsAccepts[playerid] = true;
+                AdminPanel_ShowGoodsPick(playerid);
+                return 1;
+            }
+            if (ApNewProduces[playerid] == 0 && ApNewAccepts[playerid] == 0) {
+                SendError(playerid, "Компанията трябва да дава или приема поне един товар.");
+                ApGoodsAccepts[playerid] = false;
+                AdminPanel_ShowGoodsPick(playerid);
+                return 1;
+            }
+            new produces[320], accepts[320];
+            Company_GoodsList(ApNewProduces[playerid], produces);
+            Company_GoodsList(ApNewAccepts[playerid], accepts);
+            ShowPlayerDialog(playerid, DIALOG_AP_CCONFIRM, DIALOG_STYLE_MSGBOX, C_ADMIN "Нова компания: потвърди",
+                C_BRAND "%s" C_GREY " (%s)\n\n" C_WHITE "Дава: " C_GREEN "%s\n" C_WHITE "Приема: " C_BRAND "%s\n\n" C_WHITE "Базата ще е там, където стоиш.",
+                "Създай", "Отказ", ApNewName[playerid], ApNewPlace[playerid], produces, accepts);
+            return 1;
+        }
+        case DIALOG_AP_CCONFIRM: {
+            if (response) {
+                new Float:x, Float:y, Float:z;
+                GetPlayerPos(playerid, x, y, z);
+                new c = Company_Create(ApNewName[playerid], ApNewPlace[playerid], ApNewSize[playerid], ApNewProduces[playerid], ApNewAccepts[playerid], x, y, z);
+                if (c == -1) SendError(playerid, "Няма свободно място за нова компания (максимум 30).");
+                else SendClientMessage(playerid, COLOR_ADMIN, "[A] Създадена е компания #%d: %s.", c, ApNewName[playerid]);
+            }
+            AdminPanel_ShowPlaces(playerid);
+            return 1;
+        }
+        case DIALOG_AP_CDELETE: {
+            if (response) {
+                new c = ApNewSize[playerid], name[32];
+                format(name, sizeof (name), "%s", CompanyDefs[c][cdName]);
+                if (Company_Delete(c)) SendClientMessage(playerid, COLOR_ADMIN, "[A] Компанията %s е закрита.", name);
             }
             AdminPanel_ShowPlaces(playerid);
             return 1;

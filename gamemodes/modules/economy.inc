@@ -63,6 +63,22 @@ stock Economy_Put(c, good, kg)
     if (CompanyStock[c][good] > cap) CompanyStock[c][good] = cap;
 }
 
+// Нова компания: начални наличности (както при старта)
+stock Economy_OnCompanyCreated(c)
+{
+    new cap = Economy_Capacity(c);
+    for (new g = 0; g < MAX_GOODS; g++) {
+        if (Company_Produces(c, g)) CompanyStock[c][g] = cap / 2;
+        else if (Company_Accepts(c, g)) CompanyStock[c][g] = cap * 2 / 5;
+        else CompanyStock[c][g] = 0;
+    }
+}
+
+stock Economy_ClearCompany(c)
+{
+    for (new g = 0; g < MAX_GOODS; g++) CompanyStock[c][g] = 0;
+}
+
 // ---------- Начало и запис ----------
 
 stock Economy_Init()

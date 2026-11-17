@@ -93,12 +93,15 @@ static stock Gps_ShowGameList(playerid, type)
         return;
     }
 
-    new idx[GPS_MAX_LIST], Float:dist[GPS_MAX_LIST], Float:x, Float:y, Float:z, name[48];
+    new idx[GPS_MAX_LIST], Float:dist[GPS_MAX_LIST], Float:x, Float:y, Float:z, name[48], n = 0;
     for (new i = 0; i < total; i++) {
+        if (type == GPS_CAT_COMPANIES && !Company_IsValid(i)) continue;
         Gps_GetPlace(type, i, x, y, z, name, sizeof (name));
-        idx[i] = i;
-        dist[i] = GetPlayerDistanceFromPoint(playerid, x, y, z);
+        idx[n] = i;
+        dist[n] = GetPlayerDistanceFromPoint(playerid, x, y, z);
+        n++;
     }
+    total = n;
     for (new a = 0; a < total - 1; a++) {
         for (new b = a + 1; b < total; b++) {
             if (dist[b] < dist[a]) {

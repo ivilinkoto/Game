@@ -3,7 +3,8 @@
 // Базите имат приблизителни позиции; админ ги мести на място: /compos [номер].
 // Списък: /complist
 
-#define MAX_COMPANIES       13
+#define MAX_COMPANIES       30          // капацитет (компаниите се пазят в базата)
+#define DEFAULT_COMPANIES   13          // началните компании (засяват се в базата веднъж)
 #define COMPANY_COMMISSION  10          // % от всеки курс в касата на собственика
 #define COMPANY_RANGE       12.0        // колко близо до базата се брои "в базата"
 #define COMPANY_ICON_TYPE   51          // икона "камион" на картата
@@ -26,7 +27,7 @@ enum E_COMPANY_DEF {
     Float:cdDefZ
 }
 
-stock const CompanyDefs[MAX_COMPANIES][E_COMPANY_DEF] = {
+static const CompanyDefaults[DEFAULT_COMPANIES][E_COMPANY_DEF] = {
     {"Ocean Docks Shipping", "Los Santos",   COMPANY_LARGE,
         GOOD_BIT(GOOD_ELECTRONICS) | GOOD_BIT(GOOD_FURNITURE) | GOOD_BIT(GOOD_PARTS) | GOOD_BIT(GOOD_DRINKS) | GOOD_BIT(GOOD_PARCELS) | GOOD_BIT(GOOD_FROZEN) | GOOD_BIT(GOOD_GLASS),
         GOOD_BIT(GOOD_METAL) | GOOD_BIT(GOOD_FOOD),
@@ -97,6 +98,9 @@ enum E_COMPANY {
 }
 
 new Company[MAX_COMPANIES][E_COMPANY];
+// Дефинициите по време на работа (от таблица company_defs). Празно име = свободно място.
+new CompanyDefs[MAX_COMPANIES][E_COMPANY_DEF];
+
 static Text3D:CompanyLabel[MAX_COMPANIES] = {Text3D:-1, ...};
 static CompanyIcon[MAX_COMPANIES] = {-1, ...};
 
@@ -137,11 +141,23 @@ stock Company_Init()
         print("[COMPANY] Fuel Station LS removed.");
     }
 
-    for (new c = 0; c < MAX_COMPANIES; c++) {
-        format(q, sizeof (q), "INSERT OR IGNORE INTO companies (id, x, y, z) VALUES (%d, %f, %f, %f)",
-            c, CompanyDefs[c][cdDefX], CompanyDefs[c][cdDefY], CompanyDefs[c][cdDefZ]);
-        Database_Exec(q);
+    // Дефинициите на компаниите (име, място, размер, какво дават/приемат) – в базата
+    Database_Exec("CREATE TABLE IF NOT EXISTS company_defs (id INTEGER PRIMARY KEY, name TEXT NOT NULL, place TEXT NOT NULL, size INTEGER NOT NULL, produces INTEGER NOT NULL, accepts INTEGER NOT NULL)");
+    if (!Database_GetMeta("company_defs_seeded")) {
+        new safeName[64], safePlace[48];
+        for (new c = 0; c < DEFAULT_COMPANIES; c++) {
+            SQL_Escape(CompanyDefaults[c][cdName], safeName);
+            SQL_Escape(CompanyDefaults[c][cdPlace], safePlace);
+            format(q, sizeof (q), "INSERT OR IGNORE INTO company_defs (id, name, place, size, produces, accepts) VALUES (%d, '%s', '%s', %d, %d, %d)",
+                c, safeName, safePlace, CompanyDefaults[c][cdSize], CompanyDefaults[c][cdProduces], CompanyDefaults[c][cdAccepts]);
+            Database_Exec(q);
+            format(q, sizeof (q), "INSERT OR IGNORE INTO companies (id, x, y, z) VALUES (%d, %f, %f, %f)",
+                c, CompanyDefaults[c][cdDefX], CompanyDefaults[c][cdDefY], CompanyDefaults[c][cdDefZ]);
+            Database_Exec(q);
+        }
+        Database_SetMeta("company_defs_seeded", 1);
     }
+    Company_LoadDefs();
 
     new DBResult:r = Database_Query("SELECT * FROM companies");
     if (r != DBResult:0) {
@@ -167,6 +183,117 @@ stock Company_Init()
     for (new c = 0; c < MAX_COMPANIES; c++) Company_CreateMarkers(c);
 }
 
+static stock Company_LoadDefs()
+{
+    for (new c = 0; c < MAX_COMPANIES; c++) {
+        CompanyDefs[c][cdName][0] = EOS;
+        CompanyDefs[c][cdProduces] = 0;
+        CompanyDefs[c][cdAccepts] = 0;
+        Company[c][cpZ] = -10000.0;             // празните места са далеч от всичко
+    }
+    new DBResult:r = Database_Query("SELECT * FROM company_defs");
+    if (r == DBResult:0) return;
+    new rows = DB_GetRowCount(r);
+    for (new i = 0; i < rows; i++) {
+        new c = DB_GetFieldIntByName(r, "id");
+        if (c >= 0 && c < MAX_COMPANIES) {
+            DB_GetFieldStringByName(r, "name", CompanyDefs[c][cdName], 32);
+            DB_GetFieldStringByName(r, "place", CompanyDefs[c][cdPlace], 24);
+            CompanyDefs[c][cdSize] = DB_GetFieldIntByName(r, "size");
+            if (CompanyDefs[c][cdSize] < COMPANY_SMALL || CompanyDefs[c][cdSize] > COMPANY_LARGE) CompanyDefs[c][cdSize] = COMPANY_SMALL;
+            CompanyDefs[c][cdProduces] = DB_GetFieldIntByName(r, "produces");
+            CompanyDefs[c][cdAccepts] = DB_GetFieldIntByName(r, "accepts");
+        }
+        DB_SelectNextRow(r);
+    }
+    DB_FreeResultSet(r);
+}
+
+stock bool:Company_IsValid(c)
+{
+    return (c >= 0 && c < MAX_COMPANIES && CompanyDefs[c][cdName][0] != EOS);
+}
+
+// Нова компания на дадена позиция. Връща номера или -1.
+stock Company_Create(const name[], const place[], size, produces, accepts, Float:x, Float:y, Float:z)
+{
+    new c = -1;
+    for (new i = 0; i < MAX_COMPANIES; i++) {
+        if (!Company_IsValid(i)) {
+            c = i;
+            break;
+        }
+    }
+    if (c == -1) return -1;
+
+    new safeName[64], safePlace[48], q[320];
+    SQL_Escape(name, safeName);
+    SQL_Escape(place, safePlace);
+    format(q, sizeof (q), "INSERT OR REPLACE INTO company_defs (id, name, place, size, produces, accepts) VALUES (%d, '%s', '%s', %d, %d, %d)",
+        c, safeName, safePlace, size, produces, accepts);
+    Database_Exec(q);
+    format(q, sizeof (q), "DELETE FROM companies WHERE id = %d", c);
+    Database_Exec(q);
+    format(q, sizeof (q), "INSERT INTO companies (id, x, y, z) VALUES (%d, %f, %f, %f)", c, x, y, z);
+    Database_Exec(q);
+
+    format(CompanyDefs[c][cdName], 32, "%s", name);
+    format(CompanyDefs[c][cdPlace], 24, "%s", place);
+    CompanyDefs[c][cdSize] = size;
+    CompanyDefs[c][cdProduces] = produces;
+    CompanyDefs[c][cdAccepts] = accepts;
+    Company[c][cpX] = x;
+    Company[c][cpY] = y;
+    Company[c][cpZ] = z;
+    Company[c][cpOwner] = 0;
+    Company[c][cpOwnerName][0] = EOS;
+    Company[c][cpCash] = 0;
+    Company[c][cpDeliveries] = 0;
+    Company[c][cpEarned] = 0;
+    Company[c][cpBonus] = 0;
+    Economy_OnCompanyCreated(c);
+    Company_CreateMarkers(c);
+    return c;
+}
+
+// Изтрива компания (собственикът получава 60% от цената + касата)
+stock Company_Delete(c)
+{
+    if (!Company_IsValid(c)) return 0;
+    Delivery_OnCompanyRemoved(c);
+    if (Company[c][cpOwner] != 0) {
+        new q0[128];
+        format(q0, sizeof (q0), "UPDATE accounts SET money = money + %d WHERE id = %d", Company_GetPrice(c) * 60 / 100 + Company[c][cpCash], Company[c][cpOwner]);
+        Database_Exec(q0);
+        for (new i = 0; i < MAX_PLAYERS; i++) {
+            if (IsPlayerLogged(i) && PlayerData[i][pID] == Company[c][cpOwner]) {
+                // Онлайн – и в паметта
+                Money_Give(i, Company_GetPrice(c) * 60 / 100 + Company[c][cpCash]);
+                SendClientMessage(i, COLOR_BRAND, "[КОМПАНИЯ] " C_WHITE "Компанията ти беше закрита от администратор. Получаваш обезщетение.");
+            }
+        }
+    }
+    new q[96];
+    format(q, sizeof (q), "DELETE FROM company_defs WHERE id = %d", c);
+    Database_Exec(q);
+    format(q, sizeof (q), "DELETE FROM companies WHERE id = %d", c);
+    Database_Exec(q);
+    format(q, sizeof (q), "DELETE FROM economy_stock WHERE company = %d", c);
+    Database_Exec(q);
+
+    if (CompanyLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(CompanyLabel[c]);
+    if (CompanyIcon[c] != -1) DestroyDynamicMapIcon(CompanyIcon[c]);
+    CompanyLabel[c] = Text3D:-1;
+    CompanyIcon[c] = -1;
+    CompanyDefs[c][cdName][0] = EOS;
+    CompanyDefs[c][cdProduces] = 0;
+    CompanyDefs[c][cdAccepts] = 0;
+    Company[c][cpOwner] = 0;
+    Company[c][cpZ] = -10000.0;
+    Economy_ClearCompany(c);
+    return 1;
+}
+
 // Списък с товари: "пратки, медикаменти"
 stock Company_GoodsList(mask, dest[], size = sizeof (dest), bool:latin = false)
 {
@@ -182,6 +309,7 @@ stock Company_GoodsList(mask, dest[], size = sizeof (dest), bool:latin = false)
 
 stock Company_CreateMarkers(c)
 {
+    if (!Company_IsValid(c)) return;
     if (CompanyLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(CompanyLabel[c]);
     // Икона "камион" – само в радиус около играча (създава се веднъж; при преместване – отново)
     if (CompanyIcon[c] == -1) {
@@ -243,6 +371,7 @@ stock Float:Company_Distance(a, b)
 stock Company_GetNear(playerid, Float:range = COMPANY_RANGE)
 {
     for (new c = 0; c < MAX_COMPANIES; c++) {
+        if (!Company_IsValid(c)) continue;
         if (IsPlayerInRangeOfPoint(playerid, range, Company[c][cpX], Company[c][cpY], Company[c][cpZ])) return c;
     }
     return -1;
@@ -294,7 +423,7 @@ CMD:compos(playerid, params[])
     if (!Admin_Check(playerid, 5)) return 1;
     if (IsNull(params) || !IsNumeric(params)) return SendUsage(playerid, "/compos [номер от /complist] - премества базата тук");
     new c = strval(params);
-    if (c < 0 || c >= MAX_COMPANIES) return SendError(playerid, "Няма такава компания.");
+    if (!Company_IsValid(c)) return SendError(playerid, "Няма такава компания.");
     if (GetPlayerVirtualWorld(playerid) != 0) return SendError(playerid, "Трябва да си навън (свят 0).");
 
     new Float:x, Float:y, Float:z, q[160];
@@ -317,6 +446,7 @@ CMD:complist(playerid, params[])
     #pragma unused params
     if (!Admin_Check(playerid, 3)) return 1;
     for (new c = 0; c < MAX_COMPANIES; c++) {
+        if (!Company_IsValid(c)) continue;
         SendClientMessage(playerid, COLOR_GREY, "#%d, %s (%s), %.1f км от теб", c, CompanyDefs[c][cdName], CompanyDefs[c][cdPlace],
             GetPlayerDistanceFromPoint(playerid, Company[c][cpX], Company[c][cpY], Company[c][cpZ]) / 1000.0);
     }
@@ -328,7 +458,7 @@ CMD:gotocomp(playerid, params[])
     if (!Admin_Check(playerid, 3)) return 1;
     if (IsNull(params) || !IsNumeric(params)) return SendUsage(playerid, "/gotocomp [номер от /complist]");
     new c = strval(params);
-    if (c < 0 || c >= MAX_COMPANIES) return SendError(playerid, "Няма такава компания.");
+    if (!Company_IsValid(c)) return SendError(playerid, "Няма такава компания.");
     SetPlayerVirtualWorld(playerid, 0);
     SetPlayerInterior(playerid, 0);
     PlayerData[playerid][pInGarage] = false;
