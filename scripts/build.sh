@@ -19,6 +19,10 @@ find . -type f \( -name '*.pwn' -o -name '*.inc' \) | while read -r f; do
     iconv -f UTF-8 -t CP1251 "$f" > "$SRC/$f"
 done
 
+# Компилаторът търси #include "..." първо в текущата папка, затова компилираме
+# ОТ конвертираното копие – иначе модулите се взимат от оригиналите в UTF-8.
+cd "$SRC"
+
 # Компилираме във временен файл, за да не се развали работещият .amx при грешка.
 LD_LIBRARY_PATH="$QAWNO" "$QAWNO/pawncc" "$SRC/$GM.pwn" \
     "-i$QAWNO/include" "-i$SRC/include" "-i$SRC" \
