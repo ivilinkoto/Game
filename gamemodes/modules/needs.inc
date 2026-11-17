@@ -165,6 +165,12 @@ stock Places_GetNearOfType(playerid, type, Float:range)
     return -1;
 }
 
+// Най-близкият кантар (за delivery.inc, който се зарежда преди този файл)
+stock Places_GetNearWeigh(playerid, Float:range)
+{
+    return Places_GetNearOfType(playerid, PLACE_WEIGH, range);
+}
+
 static stock Places_GetNear(playerid)
 {
     if (GetPlayerVirtualWorld(playerid) != 0) return -1;

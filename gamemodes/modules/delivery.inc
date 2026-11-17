@@ -921,7 +921,7 @@ static stock Delivery_CheckWeigh(playerid)
     if (Job[playerid][jbStage] != JOB_TO_DROP) return;
     new vehicleid = Job[playerid][jbVehicle];
     if (GetPlayerVehicleID(playerid) != vehicleid) return;
-    new w = Places_GetNearOfType(playerid, PLACE_WEIGH, WEIGH_RANGE);
+    new w = Places_GetNearWeigh(playerid, WEIGH_RANGE);
     if (w == -1 || w == Job[playerid][jbLastWeigh]) return;
     Job[playerid][jbLastWeigh] = w;
 
