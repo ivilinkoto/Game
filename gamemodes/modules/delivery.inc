@@ -22,8 +22,10 @@
 #define PERISHABLE_LOSS_PER_MIN 15          // хладилни: -15% от плащането за всяка минута закъснение
 #define FRAGILE_BREAK_PERCENT   40          // чупливи: над толкова % щети товарът се чупи
 #define OVERLOAD_MAX_PERCENT    130         // поръчки до толкова % от товароносимостта (претоварване)
-#define WEIGH_RANGE             25.0        // кантар: проверка в този радиус
-#define WEIGH_MAX_SPEED         30          // над тази скорост покрай кантара = неспиране
+#define WEIGH_RANGE             25.0        // кантар: в този радиус започва проверката
+#define WEIGH_PLATFORM_RANGE    9.0         // колко близо до центъра = на платформата
+#define WEIGH_STOP_SECONDS      10          // толкова секунди трябва да стои на платформата
+#define WEIGH_STILL_KMH         3           // под тази скорост = стои
 #define WEIGH_SKIP_FINE         300
 #define WEIGH_FINE_PER_TON      250
 #define WEIGH_FINE_BASE         200
@@ -58,6 +60,8 @@ enum E_JOB {
     jbVehicle,
     jbTrailer,              // ремаркето (INVALID_VEHICLE_ID = без)
     jbLastWeigh,            // последният кантар, който е проверил този курс
+    jbWeighPending,         // кантарът, в чийто район е влязъл (-1 = никой)
+    jbWeighWait,            // секунди престой на платформата
     bool:jbTrailerLost,     // откачено по пътя
     jbAcceptedAt,
     jbDeadline,             // gettime(), когато трябва да е доставено (след товарене)
@@ -317,6 +321,8 @@ static stock Delivery_Accept(playerid, slot)
     Job[playerid][jbTrailer] = INVALID_VEHICLE_ID;
     Job[playerid][jbTrailerLost] = false;
     Job[playerid][jbLastWeigh] = -1;
+    Job[playerid][jbWeighPending] = -1;
+    Job[playerid][jbWeighWait] = 0;
     Job[playerid][jbAcceptedAt] = gettime();
     Job[playerid][jbDeadline] = 0;
 
@@ -915,25 +921,59 @@ static stock Delivery_GoodLabel(good, dest[], size = sizeof (dest))
     else format(dest, size, "%s", Goods[good][gdName]);
 }
 
-// Кантар: с натоварен товар покрай кантар -> проверка (веднъж на кантар за курса)
+// Кантар: с натоварен товар в района на кантар трябва да спре на платформата за 10 сек.
+// Ако напусне района без претегляне - глоба. Всеки кантар проверява веднъж на курс.
 static stock Delivery_CheckWeigh(playerid)
 {
     if (Job[playerid][jbStage] != JOB_TO_DROP) return;
     new vehicleid = Job[playerid][jbVehicle];
     if (GetPlayerVehicleID(playerid) != vehicleid) return;
+
     new w = Places_GetNearWeigh(playerid, WEIGH_RANGE);
+    new pending = Job[playerid][jbWeighPending];
+
+    // Напусна района на кантар, без да се претегли
+    if (pending != -1 && w != pending) {
+        Job[playerid][jbLastWeigh] = pending;
+        Job[playerid][jbWeighPending] = -1;
+        Job[playerid][jbWeighWait] = 0;
+        Money_Take(playerid, WEIGH_SKIP_FINE);
+        GameTextForPlayer(playerid, "~r~WEIGH STATION~n~~w~FINE $%d", 3000, 1, WEIGH_SKIP_FINE);
+        SendClientMessage(playerid, COLOR_RED, "[КАНТАР] " C_WHITE "Не спря за претегляне! Глоба $%d.", WEIGH_SKIP_FINE);
+        return;
+    }
     if (w == -1 || w == Job[playerid][jbLastWeigh]) return;
-    Job[playerid][jbLastWeigh] = w;
+
+    // Влиза в района
+    if (pending == -1) {
+        Job[playerid][jbWeighPending] = w;
+        Job[playerid][jbWeighWait] = 0;
+        GameTextForPlayer(playerid, "~y~WEIGH STATION~n~~w~STOP ON THE PLATFORM", 3000, 3);
+        SendClientMessage(playerid, COLOR_BRAND, "[КАНТАР] " C_WHITE "Кантар! Спри на платформата и изчакай %d секунди.", WEIGH_STOP_SECONDS);
+        return;
+    }
 
     new Float:vx, Float:vy, Float:vz;
     GetVehicleVelocity(vehicleid, vx, vy, vz);
     new kmh = floatround(VectorSize(vx, vy, vz) * 180.0);
-    if (kmh > WEIGH_MAX_SPEED) {
-        Money_Take(playerid, WEIGH_SKIP_FINE);
-        GameTextForPlayer(playerid, "~r~WEIGH STATION~n~~w~FINE $%d", 3000, 1, WEIGH_SKIP_FINE);
-        SendClientMessage(playerid, COLOR_RED, "[КАНТАР] " C_WHITE "Не спря на кантара (%d км/ч)! Глоба $%d. Минавай под %d км/ч.", kmh, WEIGH_SKIP_FINE, WEIGH_MAX_SPEED);
+    if (Places_GetNearWeigh(playerid, WEIGH_PLATFORM_RANGE) != w || kmh > WEIGH_STILL_KMH) {
+        if (Job[playerid][jbWeighWait] > 0) {
+            Job[playerid][jbWeighWait] = 0;
+            GameTextForPlayer(playerid, "~r~WEIGHING STOPPED~n~~w~STAND STILL", 1500, 3);
+        }
         return;
     }
+
+    Job[playerid][jbWeighWait]++;
+    if (Job[playerid][jbWeighWait] < WEIGH_STOP_SECONDS) {
+        GameTextForPlayer(playerid, "~y~WEIGHING... ~w~%d", 1100, 3, WEIGH_STOP_SECONDS - Job[playerid][jbWeighWait]);
+        return;
+    }
+
+    // Претеглен
+    Job[playerid][jbLastWeigh] = w;
+    Job[playerid][jbWeighPending] = -1;
+    Job[playerid][jbWeighWait] = 0;
     new payload = Catalog_GetPayload(GetVehicleModel(vehicleid)), kg = Job[playerid][jbKg];
     if (kg > payload) {
         new overTons = (kg - payload + 999) / 1000;
@@ -943,7 +983,7 @@ static stock Delivery_CheckWeigh(playerid)
         SendClientMessage(playerid, COLOR_RED, "[КАНТАР] " C_WHITE "Претоварен си с %d т! Глоба $%d.", overTons, fine);
     } else {
         GameTextForPlayer(playerid, "~g~WEIGH STATION~n~~w~OK", 2000, 1);
-        SendClientMessage(playerid, COLOR_GREEN, "[КАНТАР] " C_WHITE "Теглото е в норма. Приятен път!");
+        SendClientMessage(playerid, COLOR_GREEN, "[КАНТАР] " C_WHITE "Теглото е %d кг, в норма. Приятен път!", kg);
     }
 }
 

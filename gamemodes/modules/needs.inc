@@ -68,10 +68,12 @@ static Text3D:PlaceLabel[MAX_PLACES] = {Text3D:-1, ...};
 static PlaceIcon[MAX_PLACES] = {-1, ...};
 
 // Обекти към местата (тоалетна кабина, конуси на кантара)
-#define PLACE_MAX_OBJECTS   6
+#define PLACE_MAX_OBJECTS   8
 #define OBJ_PORTALOO        2984
 #define PORTALOO_Z_OFFSET   1.2         // моделът е центриран ниско, иначе потъва в земята
 #define OBJ_CONE            1238
+#define OBJ_WEIGH_PLATE     3095        // плоска метална плоча ~9x9 м
+#define WEIGH_PLATE_Z       (-0.12)     // плочата е почти на нивото на пътя
 static PlaceObj[MAX_PLACES][PLACE_MAX_OBJECTS];
 static Float:PlaceAngle[MAX_PLACES];
 static PlaceCount;
@@ -125,7 +127,7 @@ static stock Places_Load()
         PlacePos[k][2] = DB_GetFieldFloatByName(r, "z");
         PlaceAngle[k] = DB_GetFieldFloatByName(r, "a");
         Places_CreateObjects(k);
-        if (PlaceType[k] == PLACE_WEIGH) format(text, sizeof (text), C_BRAND "КАНТАР\n" C_WHITE "С товар - мини под %d км/ч", 30);
+        if (PlaceType[k] == PLACE_WEIGH) format(text, sizeof (text), C_BRAND "КАНТАР\n" C_WHITE "С товар - спри на платформата за %d сек", 10);
         else format(text, sizeof (text), C_BRAND "%s\n" C_GREY "ALT", PlaceTypeNames[PlaceType[k]]);
         PlaceLabel[k] = CreateDynamic3DTextLabel(text, COLOR_WHITE, PlacePos[k][0], PlacePos[k][1], PlacePos[k][2] + 0.6, 20.0,
             INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, 0, 0);
@@ -161,6 +163,11 @@ static stock Places_CreateObjects(k)
                     Places_Offset(k, side * 4.5, f * 8.0, x, y);
                     PlaceObj[k][((side + 1) / 2) * 3 + (f + 1)] = CreateDynamicObject(OBJ_CONE, x, y, z + 0.05, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
                 }
+            }
+            // Платформа: две метални плочи по дължината на коридора
+            for (new f = 0; f < 2; f++) {
+                Places_Offset(k, 0.0, (f == 0) ? (-4.5) : (4.5), x, y);
+                PlaceObj[k][6 + f] = CreateDynamicObject(OBJ_WEIGH_PLATE, x, y, z + WEIGH_PLATE_Z, 0.0, 0.0, a, 0, 0, -1, 200.0, 200.0);
             }
         }
     }
