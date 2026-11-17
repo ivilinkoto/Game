@@ -19,7 +19,7 @@ static const UpgradeNames[MAX_UPGRADES][] = {"Икономичен двигат�
 enum E_TUNE_COLOR {
     tcID,
     tcName[24],
-    tcHex[8]
+    tcHex[10]
 }
 static const TuneColors[][E_TUNE_COLOR] = {
     {0,  "Черен",          "{333333}"},
@@ -40,7 +40,7 @@ static const TuneColors[][E_TUNE_COLOR] = {
 enum E_TUNE_NEON {
     tnModel,
     tnName[24],
-    tnHex[8]
+    tnHex[10]
 }
 static const TuneNeons[][E_TUNE_NEON] = {
     {18647, "Червен",   "{FF3030}"},
