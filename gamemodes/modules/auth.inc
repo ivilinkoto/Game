@@ -287,6 +287,8 @@ stock Auth_SpawnPlayer(playerid)
     PlayerData[playerid][pLogged] = true;
     SetPlayerScore(playerid, PlayerData[playerid][pLevel]);
 
+    Needs_OnLogin(playerid);
+
     // Спаунът е винаги в личния гараж (виж Garage_OnPlayerSpawn).
     Auth_SetGarageSpawn(playerid);
     TogglePlayerSpectating(playerid, false);

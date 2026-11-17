@@ -99,7 +99,7 @@ stock Tune_ShowStation(playerid, vehicleid)
     if (cost == 0) format(repair, sizeof (repair), C_GREY "Ремонт (не е нужен)");
     else format(repair, sizeof (repair), C_WHITE "Ремонт - " C_GREEN "$%d", cost);
     ShowPlayerDialog(playerid, DIALOG_STATION, DIALOG_STYLE_LIST, C_BRAND "Бензиностанция",
-        C_WHITE "Зареди гориво\n%s", "Избери", "Затвори", repair);
+        C_WHITE "Зареди гориво\n%s\n" C_WHITE "Магазин и тоалетна", "Избери", "Затвори", repair);
 }
 
 // ---------- Тунинг в гаража ----------
@@ -231,7 +231,8 @@ stock Tune_OnDialogResponse(playerid, dialogid, response, listitem)
             if (!response) return 1;
             if (GetPlayerVehicleID(playerid) != vehicleid) return 1;
             if (listitem == 0) Fuel_ShowRefuel(playerid, vehicleid);
-            else Repair_Do(playerid, vehicleid);
+            else if (listitem == 1) Repair_Do(playerid, vehicleid);
+            else Needs_ShowShop(playerid, SHOP_KIND_STATION);
             return 1;
         }
         case DIALOG_TUNE_MAIN: {

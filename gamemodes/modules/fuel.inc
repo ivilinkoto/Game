@@ -80,7 +80,7 @@ static stock Fuel_LoadStations()
         FuelStation[k][1] = DB_GetFieldFloatByName(r, "y");
         FuelStation[k][2] = DB_GetFieldFloatByName(r, "z");
         new text[160];
-        format(text, sizeof (text), C_BRAND "БЕНЗИНОСТАНЦИЯ\n" C_WHITE "$%d за литър\n" C_GREY "ALT в превозното средство - зареждане", FUEL_PRICE);
+        format(text, sizeof (text), C_BRAND "БЕНЗИНОСТАНЦИЯ\n" C_WHITE "$%d за литър\n" C_GREY "ALT в превозното средство - гориво, ремонт, магазин\nALT пеша - магазин и тоалетна", FUEL_PRICE);
         FuelLabel[k] = CreateDynamic3DTextLabel(text,
             COLOR_WHITE, FuelStation[k][0], FuelStation[k][1], FuelStation[k][2] + 1.0, 30.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
         // Червено квадратче на радара – само наблизо, за да не претрупва картата
@@ -102,6 +102,13 @@ stock Fuel_GetPos(i, &Float:x, &Float:y, &Float:z)
     x = FuelStation[i][0];
     y = FuelStation[i][1];
     z = FuelStation[i][2];
+}
+
+stock bool:Fuel_IsNearStation(playerid)
+{
+    if (GetPlayerVirtualWorld(playerid) != 0) return false;
+    new Float:dist;
+    return (Fuel_GetNearestStation(playerid, dist) != -1 && dist <= FUEL_RANGE);
 }
 
 static stock Fuel_GetNearestStation(playerid, &Float:dist)

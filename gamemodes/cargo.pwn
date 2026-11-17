@@ -45,6 +45,7 @@ forward bool:Delivery_HasJob(playerid);
 forward bool:Engine_IsOn(vehicleid);
 forward bool:Veh_Remove(playerid, slot);
 forward Float:Veh_GetFuel(vehicleid);
+forward bool:Fuel_IsNearStation(playerid);
 
 #include "maps/garage.inc"
 
@@ -65,6 +66,7 @@ forward Float:Veh_GetFuel(vehicleid);
 #include "modules/dealer.inc"
 #include "modules/business.inc"
 #include "modules/fuel.inc"
+#include "modules/needs.inc"
 #include "modules/tuning.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
@@ -107,6 +109,7 @@ public OnGameModeInit()
     Engine_Init();
     Dealer_Init();
     Fuel_Init();
+    Places_Init();
     Logo_Init();
     Contracts_Init();
     Business_CheckInactive();
@@ -144,10 +147,12 @@ public Server_Tick()
         Fuel_Tick(i);
         Route_Tick(i);
         Tune_ArmorTick(i);
+        Needs_Tick(i);
         Money_Sync(i);
         if (autosave) {
             Auth_SaveAccount(i);
             Veh_SaveAll(i);
+            Needs_Save(i);
         }
     }
     return 1;
@@ -165,6 +170,7 @@ public OnPlayerConnect(playerid)
     Dealer_OnPlayerConnect(playerid);
     Fuel_OnPlayerConnect(playerid);
     Route_OnPlayerConnect(playerid);
+    Needs_OnPlayerConnect(playerid);
     Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
@@ -176,6 +182,8 @@ public OnPlayerDisconnect(playerid, reason)
 {
     #pragma unused reason
     Auth_SaveAccount(playerid);
+    Needs_Save(playerid);
+    Needs_DestroyHud(playerid);
     Delivery_OnPlayerDisconnect(playerid);
     Veh_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
@@ -203,6 +211,7 @@ public OnPlayerSpawn(playerid)
     Garage_OnPlayerSpawn(playerid);
     Hud_Show(playerid);
     Logo_Show(playerid);
+    Needs_CreateHud(playerid);
     return 1;
 }
 
@@ -222,6 +231,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Needs_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
 }
@@ -249,6 +259,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Business_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }

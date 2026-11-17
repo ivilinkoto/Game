@@ -99,6 +99,7 @@ stock Garage_CreateMap()
 
     // Надписи
     CreateDynamic3DTextLabel(C_BRAND "ТУНИНГ И РЕМОНТ\n" C_WHITE "Седни в превозното средство и натисни " C_BRAND "ALT", COLOR_WHITE, GARAGE_X, GARAGE_Y + 2.0, GARAGE_Z + 3.5, 25.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1);
+    CreateDynamic3DTextLabel(C_BRAND "ХЛАДИЛНИК И ТОАЛЕТНА\n" C_WHITE "пеша " C_BRAND "ALT", COLOR_WHITE, GARAGE_X - 8.5, GARAGE_Y + GARAGE_HALF_L - 2.0, GARAGE_Z + 1.5, 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1);
     CreateDynamic3DTextLabel(C_BRAND "МЯСТО 1", COLOR_WHITE, GARAGE_X - 5.0, GARAGE_Y + 10.5, GARAGE_Z + 0.5, 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1);
     CreateDynamic3DTextLabel(C_BRAND "МЯСТО 2", COLOR_WHITE, GARAGE_X + 5.0, GARAGE_Y + 10.5, GARAGE_Z + 0.5, 15.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1);
     CreateDynamic3DTextLabel(C_WHITE "ИЗХОД\n" C_BRAND "ALT" C_WHITE " пеша / " C_BRAND "H" C_WHITE " с камион", COLOR_WHITE, GARAGE_X, GARAGE_Y - 13.0, GARAGE_Z + 1.5, 10.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1);
