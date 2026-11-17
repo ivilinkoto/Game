@@ -42,6 +42,12 @@ stock Catalog_Find(model)
     return -1;
 }
 
+stock bool:Catalog_HasTrailer(model)
+{
+    new i = Catalog_Find(model);
+    return (i != -1 && VehCatalog[i][vcTrailer]);
+}
+
 stock Catalog_GetTank(model)
 {
     new i = Catalog_Find(model);

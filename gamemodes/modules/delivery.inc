@@ -4,7 +4,13 @@
 // Плащане = $150 + км x тонове x ставка на товара (виж modules/goods.inc).
 // Таблото показва само поръчки, които превозното средство кара и побира.
 
-#define MAX_CONTRACTS           40
+#define MAX_CONTRACTS           50
+#define TRAILER_MIN_KG          10000       // поръчки за влекачи (с ремарке): 10-38 т
+#define TRAILER_MAX_KG          38000
+#define TRAILER_CHANCE          35          // % от поръчките за кутии/насипни са тежки (с ремарке)
+#define TRAILER_REATTACH_RANGE  15.0
+#define SPILL_DAMAGE_PERCENT    25          // гориво: над толкова % щети -> разлив
+#define SPILL_FINE              300
 #define CONTRACT_SHOW_MAX       15
 #define DELIVERY_CP_SIZE        6.0
 #define DELIVERY_LOAD_MS        10000
@@ -41,6 +47,8 @@ enum E_JOB {
     jbBasePay,
     jbCompanyBonus,         // бонус от компанията А (вече взет от касата й)
     jbVehicle,
+    jbTrailer,              // ремаркето (INVALID_VEHICLE_ID = без)
+    bool:jbTrailerLost,     // откачено по пътя
     jbAcceptedAt,
     jbDeadline,             // gettime(), когато трябва да е доставено (след товарене)
     Float:jbStartHealth,
@@ -58,7 +66,6 @@ static stock Contracts_Generate(slot)
     // Опитваме няколко пъти да намерим двойка дава/приема
     for (new attempt = 0; attempt < 40; attempt++) {
         new good = random(MAX_GOODS);
-        if (Goods[good][gdCargo] == CARGO_LIQUID) continue;     // гориво - с ремаркета, по-късно
 
         new producers[MAX_COMPANIES], np = 0, acceptors[MAX_COMPANIES], na = 0;
         for (new c = 0; c < MAX_COMPANIES; c++) {
@@ -72,6 +79,12 @@ static stock Contracts_Generate(slot)
         if (Company_Distance(from, to) < 600.0) continue;       // твърде близо
 
         new minKg = Goods[good][gdMinKg], maxKg = Goods[good][gdMaxKg];
+        new cargo = Goods[good][gdCargo];
+        // Горивото е само с ремарке; кутии и насипни – понякога тежки (с ремарке)
+        if (cargo == CARGO_LIQUID || ((cargo == CARGO_BOX || cargo == CARGO_BULK) && random(100) < TRAILER_CHANCE)) {
+            minKg = TRAILER_MIN_KG;
+            maxKg = TRAILER_MAX_KG;
+        }
         new kg = minKg + random(maxKg - minKg + 1);
         kg = (kg / 100) * 100;
         if (kg < 100) kg = 100;
@@ -118,6 +131,8 @@ static stock bool:Delivery_CanCarry(model, slot)
 {
     new good = Contracts[slot][ctGood];
     if (!(Catalog_GetCargo(model) & Goods[good][gdCargo])) return false;
+    // Влекачите взимат само тежки товари (с ремарке)
+    if (Catalog_HasTrailer(model) && Contracts[slot][ctKg] < TRAILER_MIN_KG) return false;
     return (Contracts[slot][ctKg] <= Catalog_GetPayload(model));
 }
 
@@ -258,6 +273,8 @@ static stock Delivery_Accept(playerid, slot)
         Company_Save(Contracts[slot][ctFrom]);
     }
     Job[playerid][jbVehicle] = vehicleid;
+    Job[playerid][jbTrailer] = INVALID_VEHICLE_ID;
+    Job[playerid][jbTrailerLost] = false;
     Job[playerid][jbAcceptedAt] = gettime();
     Job[playerid][jbDeadline] = 0;
 
@@ -278,6 +295,7 @@ static stock Delivery_Accept(playerid, slot)
 static stock Delivery_End(playerid)
 {
     Job[playerid][jbStage] = JOB_NONE;
+    Trailer_Destroy(playerid);
     DisablePlayerRaceCheckpoint(playerid);
     Delivery_HidePanel(playerid);
 }
@@ -313,6 +331,7 @@ public Delivery_TimerDone(playerid, seq, stage)
     TogglePlayerControllable(playerid, true);
 
     if (stage == JOB_LOADING) {
+        if (Catalog_HasTrailer(GetVehicleModel(Job[playerid][jbVehicle]))) Trailer_Spawn(playerid);
         new Float:ab = Company_Distance(Job[playerid][jbFrom], Job[playerid][jbTo]);
         Job[playerid][jbDeadline] = gettime() + floatround(ab / DELIVERY_SPEED_MS) + DELIVERY_EXTRA_TIME;
         GetVehicleHealth(Job[playerid][jbVehicle], Job[playerid][jbStartHealth]);
@@ -418,6 +437,11 @@ stock Delivery_OnEnterRaceCP(playerid)
         SendError(playerid, "Влез в маркера с превозното средство, с което си приел курса.");
         return 1;
     }
+    if (stage == JOB_TO_DROP && Job[playerid][jbTrailer] != INVALID_VEHICLE_ID
+        && GetVehicleTrailer(Job[playerid][jbVehicle]) != Job[playerid][jbTrailer]) {
+        SendError(playerid, "Ремаркето не е закачено. Иди до него и натисни H.");
+        return 1;
+    }
     if (stage == JOB_TO_PICKUP) {
         Delivery_StartTimer(playerid, JOB_LOADING, DELIVERY_LOAD_MS);
         SendClientMessage(playerid, COLOR_BRAND, "[КУРС] " C_WHITE "Товарене...");
@@ -454,6 +478,10 @@ stock Delivery_OpenWork(playerid)
 
 stock Delivery_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
+    // H (клаксон) – закачане на откачено ремарке
+    if ((newkeys & KEY_CROUCH) && !(oldkeys & KEY_CROUCH) && Job[playerid][jbStage] == JOB_TO_DROP) {
+        if (Trailer_TryReattach(playerid)) return 1;
+    }
     if (!((newkeys & KEY_NO) && !(oldkeys & KEY_NO))) return 0;
     if (!PlayerData[playerid][pLogged] || !PlayerData[playerid][pSpawned]) return 0;
     return Delivery_OpenWork(playerid);
@@ -470,6 +498,7 @@ CMD:work(playerid, params[])
 stock Delivery_OnPlayerConnect(playerid)
 {
     Job[playerid][jbStage] = JOB_NONE;
+    Job[playerid][jbTrailer] = INVALID_VEHICLE_ID;
     Delivery_ResetPanel(playerid);
 }
 
@@ -477,13 +506,15 @@ stock Delivery_OnPlayerDisconnect(playerid)
 {
     if (Job[playerid][jbStage] != JOB_NONE) Delivery_RefundBonus(playerid);
     Job[playerid][jbStage] = JOB_NONE;
+    Trailer_Destroy(playerid);
     Delivery_DestroyPanel(playerid);
 }
 
 stock Delivery_OnVehicleDeath(vehicleid)
 {
     for (new i = 0; i < MAX_PLAYERS; i++) {
-        if (IsPlayerConnected(i) && Job[i][jbStage] != JOB_NONE && Job[i][jbVehicle] == vehicleid) {
+        if (IsPlayerConnected(i) && Job[i][jbStage] != JOB_NONE
+            && (Job[i][jbVehicle] == vehicleid || Job[i][jbTrailer] == vehicleid)) {
             Delivery_Cancel(i, "Превозното средство е унищожено - курсът е провален.", false);
         }
     }
@@ -631,7 +662,10 @@ stock Delivery_UpdatePanel(playerid)
     switch (stage) {
         case JOB_TO_PICKUP: format(text, sizeof (text), "DRIVE TO PICKUP");
         case JOB_LOADING:   format(text, sizeof (text), "LOADING...");
-        case JOB_TO_DROP:   format(text, sizeof (text), "DELIVER THE CARGO");
+        case JOB_TO_DROP: {
+            if (Job[playerid][jbTrailerLost]) format(text, sizeof (text), "TRAILER DETACHED! (H)");
+            else format(text, sizeof (text), "DELIVER THE CARGO");
+        }
         case JOB_UNLOADING: format(text, sizeof (text), "UNLOADING...");
     }
     PlayerTextDrawSetString(playerid, DpTitle[playerid], text);
@@ -684,8 +718,135 @@ stock Delivery_UpdatePanel(playerid)
 stock Delivery_Tick()
 {
     for (new i = 0; i < MAX_PLAYERS; i++) {
-        if (Job[i][jbStage] != JOB_NONE && IsPlayerConnected(i)) Delivery_UpdatePanel(i);
+        if (Job[i][jbStage] == JOB_NONE || !IsPlayerConnected(i)) continue;
+        Trailer_Check(i);
+        Delivery_SpeedLimit(i);
+        Delivery_CheckSpill(i);
+        if (Job[i][jbStage] != JOB_NONE) Delivery_UpdatePanel(i);
     }
+}
+
+// ======================= Ремаркета =======================
+
+static stock Trailer_ModelFor(good)
+{
+    switch (Goods[good][gdCargo]) {
+        case CARGO_BULK:   return 450;                          // самосвал
+        case CARGO_LIQUID: return 584;                          // цистерна
+    }
+    return (random(2) == 0) ? 435 : 591;                        // затворено ремарке
+}
+
+// Създава ремаркето зад влекача и го закача
+static stock Trailer_Spawn(playerid)
+{
+    Trailer_Destroy(playerid);
+    new truck = Job[playerid][jbVehicle];
+    new Float:x, Float:y, Float:z, Float:a;
+    GetVehiclePos(truck, x, y, z);
+    GetVehicleZAngle(truck, a);
+    // 10 м зад камиона
+    x -= 10.0 * floatsin(-a, degrees);
+    y -= 10.0 * floatcos(-a, degrees);
+    new trailer = CreateVehicle(Trailer_ModelFor(Job[playerid][jbGood]), x, y, z + 0.5, a, 1, 1, -1);
+    if (trailer == INVALID_VEHICLE_ID) return;
+    SetVehicleVirtualWorld(trailer, GetVehicleVirtualWorld(truck));
+    Job[playerid][jbTrailer] = trailer;
+    Job[playerid][jbTrailerLost] = false;
+    // Малко изчакване, за да се появи при клиента преди закачането
+    SetTimerEx("Trailer_Attach", 400, false, "iii", playerid, PlayerData[playerid][pConnSeq], trailer);
+}
+
+forward Trailer_Attach(playerid, seq, trailer);
+public Trailer_Attach(playerid, seq, trailer)
+{
+    if (!IsPlayerConnected(playerid) || PlayerData[playerid][pConnSeq] != seq) return 0;
+    if (Job[playerid][jbTrailer] != trailer) return 0;
+    AttachTrailerToVehicle(trailer, Job[playerid][jbVehicle]);
+    return 1;
+}
+
+static stock Trailer_Destroy(playerid)
+{
+    new trailer = Job[playerid][jbTrailer];
+    if (trailer != INVALID_VEHICLE_ID && trailer != 0) {
+        DestroyVehicle(trailer);
+    }
+    Job[playerid][jbTrailer] = INVALID_VEHICLE_ID;
+    Job[playerid][jbTrailerLost] = false;
+}
+
+// Следи дали ремаркето е откачено (вика се от таймера)
+static stock Trailer_Check(playerid)
+{
+    new trailer = Job[playerid][jbTrailer];
+    if (trailer == INVALID_VEHICLE_ID || Job[playerid][jbStage] != JOB_TO_DROP) return;
+    new bool:attached = (GetVehicleTrailer(Job[playerid][jbVehicle]) == trailer);
+    if (!attached && !Job[playerid][jbTrailerLost]) {
+        Job[playerid][jbTrailerLost] = true;
+        SetVehicleParamsForPlayer(trailer, playerid, 1, -1);     // стрелка над ремаркето
+        SendClientMessage(playerid, COLOR_RED, "[КУРС] " C_WHITE "Ремаркето се откачи! Иди до него с камиона и натисни " C_BRAND "H" C_WHITE ".");
+    } else if (attached && Job[playerid][jbTrailerLost]) {
+        Job[playerid][jbTrailerLost] = false;
+        SetVehicleParamsForPlayer(trailer, playerid, 0, -1);
+    }
+}
+
+// H (клаксонът) до откаченото ремарке -> закача го отново
+static stock Trailer_TryReattach(playerid)
+{
+    new trailer = Job[playerid][jbTrailer];
+    if (trailer == INVALID_VEHICLE_ID || !Job[playerid][jbTrailerLost]) return 0;
+    if (GetPlayerVehicleID(playerid) != Job[playerid][jbVehicle] || GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return 0;
+    new Float:tx, Float:ty, Float:tz;
+    GetVehiclePos(trailer, tx, ty, tz);
+    if (!IsPlayerInRangeOfPoint(playerid, TRAILER_REATTACH_RANGE, tx, ty, tz)) {
+        SendError(playerid, "Приближи се до ремаркето (до 15 м).");
+        return 1;
+    }
+    // Слагаме ремаркето точно зад камиона и го закачаме
+    new Float:x, Float:y, Float:z, Float:a;
+    GetVehiclePos(Job[playerid][jbVehicle], x, y, z);
+    GetVehicleZAngle(Job[playerid][jbVehicle], a);
+    SetVehiclePos(trailer, x - 10.0 * floatsin(-a, degrees), y - 10.0 * floatcos(-a, degrees), z + 0.5);
+    SetVehicleZAngle(trailer, a);
+    SetTimerEx("Trailer_Attach", 400, false, "iii", playerid, PlayerData[playerid][pConnSeq], trailer);
+    SendClientMessage(playerid, COLOR_BRAND, "[КУРС] " C_WHITE "Ремаркето е закачено отново.");
+    return 1;
+}
+
+// Тежкият товар ограничава скоростта: над 10 т - 110 км/ч, над 20 т - 95 км/ч
+static stock Delivery_SpeedLimit(playerid)
+{
+    if (Job[playerid][jbStage] != JOB_TO_DROP) return;
+    new kg = Job[playerid][jbKg], Float:limit;
+    if (kg > 20000) limit = 95.0;
+    else if (kg > 10000) limit = 110.0;
+    else return;
+
+    new vehicleid = Job[playerid][jbVehicle];
+    if (GetPlayerVehicleID(playerid) != vehicleid) return;
+    new Float:vx, Float:vy, Float:vz;
+    GetVehicleVelocity(vehicleid, vx, vy, vz);
+    new Float:kmh = VectorSize(vx, vy, vz) * 180.0;
+    if (kmh > limit) {
+        new Float:f = limit / kmh;
+        SetVehicleVelocity(vehicleid, vx * f, vy * f, vz);
+    }
+}
+
+// Гориво: при силен удар -> разлив, курсът пропада
+static stock Delivery_CheckSpill(playerid)
+{
+    if (Job[playerid][jbStage] != JOB_TO_DROP) return;
+    if (Goods[Job[playerid][jbGood]][gdCargo] != CARGO_LIQUID) return;
+    if (Delivery_DamagePercent(playerid) <= SPILL_DAMAGE_PERCENT) return;
+
+    Delivery_RefundBonus(playerid);
+    Delivery_End(playerid);
+    Money_Take(playerid, SPILL_FINE);
+    GameTextForPlayer(playerid, "~r~FUEL SPILL!", 4000, 1);
+    SendClientMessage(playerid, COLOR_RED, "[КУРС] " C_WHITE "Разлив на гориво! Курсът е провален. Глоба: $%d.", SPILL_FINE);
 }
 
 // Тегло на товара в превозното средство (0 ако няма натоварен товар)
