@@ -21,18 +21,36 @@ static GpsListType[MAX_PLAYERS][GPS_MAX_LIST];
 static GpsListIndex[MAX_PLAYERS][GPS_MAX_LIST];
 static GpsListCount[MAX_PLAYERS];
 static bool:GpsActive[MAX_PLAYERS];
+static bool:GpsTpMode[MAX_PLAYERS];      // /tp: изборът телепортира вместо да води
 
 stock Gps_Reset(playerid)
 {
     GpsActive[playerid] = false;
 }
 
+// /tp (админ): същите категории, но изборът телепортира
+stock Gps_ShowTeleport(playerid)
+{
+    GpsTpMode[playerid] = true;
+    Gps_ShowCategoriesEx(playerid, true);
+}
+
 stock Gps_ShowCategories(playerid)
+{
+    GpsTpMode[playerid] = false;
+    Gps_ShowCategoriesEx(playerid, false);
+}
+
+static stock Gps_ShowCategoriesEx(playerid, bool:tp)
 {
     new body[256];
     for (new c = 0; c < GPS_CAT_COUNT; c++) {
         if (c > 0) strcat(body, "\n");
         strcat(body, GpsCategoryNames[c]);
+    }
+    if (tp) {
+        ShowPlayerDialog(playerid, DIALOG_GPS_CATEGORY, DIALOG_STYLE_LIST, C_ADMIN "Телепорт", "%s", "Избери", "Затвори", body);
+        return;
     }
     if (GpsActive[playerid]) strcat(body, "\n" C_RED "Изключи GPS");
     ShowPlayerDialog(playerid, DIALOG_GPS_CATEGORY, DIALOG_STYLE_LIST, C_BRAND "GPS", "%s", "Избери", "Назад", body);
@@ -163,8 +181,22 @@ static stock Gps_SetTarget(playerid, pointId)
         DisablePlayerCheckpoint(playerid);
         SetPlayerCheckpoint(playerid, x, y, z, GPS_CP_RADIUS);
         GpsActive[playerid] = true;
-        SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Маршрут до " C_BRAND "%s" C_WHITE " (%.1f км). Следвай червения маркер на картата.",
+        Route_Set(playerid, x, y, z, ROUTE_SRC_GPS);
+        SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Маршрут до " C_BRAND "%s" C_WHITE " (%.1f км). Следвай маршрута на картата.",
             name, GetPlayerDistanceFromPoint(playerid, x, y, z) / 1000.0);
+    }
+    DB_FreeResultSet(r);
+}
+
+// /tp до ръчна точка от базата
+static stock Gps_TeleportToPoint(playerid, pointId)
+{
+    new q[96];
+    format(q, sizeof (q), "SELECT x, y, z FROM gps_points WHERE id = %d", pointId);
+    new DBResult:r = Database_Query(q);
+    if (r == DBResult:0) return;
+    if (DB_GetRowCount(r) > 0) {
+        Admin_TeleportTo(playerid, DB_GetFieldFloatByName(r, "x"), DB_GetFieldFloatByName(r, "y"), DB_GetFieldFloatByName(r, "z"));
     }
     DB_FreeResultSet(r);
 }
@@ -175,7 +207,8 @@ stock Gps_SetPoint(playerid, const name[], Float:x, Float:y, Float:z)
     DisablePlayerCheckpoint(playerid);
     SetPlayerCheckpoint(playerid, x, y, z, GPS_CP_RADIUS);
     GpsActive[playerid] = true;
-    SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Маршрут до " C_BRAND "%s" C_WHITE " (%.1f км). Следвай червения маркер на картата.",
+    Route_Set(playerid, x, y, z, ROUTE_SRC_GPS);
+    SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Маршрут до " C_BRAND "%s" C_WHITE " (%.1f км). Следвай маршрута на картата.",
         name, GetPlayerDistanceFromPoint(playerid, x, y, z) / 1000.0);
 }
 
@@ -184,6 +217,7 @@ stock Gps_Cancel(playerid)
     if (!GpsActive[playerid]) return;
     DisablePlayerCheckpoint(playerid);
     GpsActive[playerid] = false;
+    Route_Clear(playerid, ROUTE_SRC_GPS);
 }
 
 stock Gps_OnEnterCheckpoint(playerid)
@@ -200,7 +234,7 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
     switch (dialogid) {
         case DIALOG_GPS_CATEGORY: {
             if (!response) {
-                Menu_Show(playerid);
+                if (!GpsTpMode[playerid]) Menu_Show(playerid);
                 return 1;
             }
             if (listitem == GPS_CAT_COUNT) {
@@ -212,7 +246,8 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
                 case GPS_CAT_GARAGE: {
                     new Float:x, Float:y, Float:z, Float:a;
                     City_GetEntrance(PlayerData[playerid][pGarageCity], x, y, z, a);
-                    Gps_SetPoint(playerid, "моят гараж", x, y, z);
+                    if (GpsTpMode[playerid]) Admin_TeleportTo(playerid, x, y, z);
+                    else Gps_SetPoint(playerid, "моят гараж", x, y, z);
                 }
                 case GPS_CAT_OTHER: Gps_ShowCustom(playerid);
                 default: Gps_ShowGameList(playerid, listitem);
@@ -221,16 +256,21 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
         }
         case DIALOG_GPS_POINTS: {
             if (!response) {
-                Gps_ShowCategories(playerid);
+                if (GpsTpMode[playerid]) Gps_ShowTeleport(playerid);
+                else Gps_ShowCategories(playerid);
                 return 1;
             }
             if (listitem < 0 || listitem >= GpsListCount[playerid]) return 1;
             new type = GpsListType[playerid][listitem], index = GpsListIndex[playerid][listitem];
             if (type == GPS_CAT_OTHER) {
-                Gps_SetTarget(playerid, index);
+                if (GpsTpMode[playerid]) Gps_TeleportToPoint(playerid, index);
+                else Gps_SetTarget(playerid, index);
             } else {
                 new Float:x, Float:y, Float:z, name[48];
-                if (Gps_GetPlace(type, index, x, y, z, name, sizeof (name))) Gps_SetPoint(playerid, name, x, y, z);
+                if (Gps_GetPlace(type, index, x, y, z, name, sizeof (name))) {
+                    if (GpsTpMode[playerid]) Admin_TeleportTo(playerid, x, y, z);
+                    else Gps_SetPoint(playerid, name, x, y, z);
+                }
             }
             return 1;
         }

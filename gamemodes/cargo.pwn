@@ -13,6 +13,13 @@
 #include <samp_bcrypt>
 #include <streamer>
 
+// Маршрут по картата (modules/route.inc) – нужен е плъгинът GPS на сървъра.
+// Разкоментирай реда, след като plugins/GPS.so и scriptfiles/GPS.dat са инсталирани.
+// #define ROUTE_ENABLED
+#if defined ROUTE_ENABLED
+    #include <gps_plugin>
+#endif
+
 // Памет за стека/heap-а (в клетки по 4 байта = 256 KB) - за големите диалози и заявки.
 #pragma dynamic 65536
 
@@ -44,6 +51,7 @@ forward Float:Veh_GetFuel(vehicleid);
 #include "modules/money.inc"
 #include "modules/levels.inc"
 #include "modules/hud.inc"
+#include "modules/route.inc"
 #include "modules/logo.inc"
 #include "modules/engine.inc"
 #include "modules/catalog.inc"
@@ -128,6 +136,7 @@ public Server_Tick()
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;
         PlayerData[i][pPlayTime]++;
         Fuel_Tick(i);
+        Route_Tick(i);
         Money_Sync(i);
         if (autosave) {
             Auth_SaveAccount(i);
@@ -148,6 +157,8 @@ public OnPlayerConnect(playerid)
     Delivery_OnPlayerConnect(playerid);
     Dealer_OnPlayerConnect(playerid);
     Fuel_OnPlayerConnect(playerid);
+    Route_OnPlayerConnect(playerid);
+    Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
     SetPlayerColor(playerid, 0xF5A623FF);
@@ -245,6 +256,14 @@ public OnVehicleDeath(vehicleid, killerid)
 {
     #pragma unused killerid
     Delivery_OnVehicleDeath(vehicleid);
+    return 1;
+}
+
+public OnPlayerClickMap(playerid, Float:fX, Float:fY, Float:fZ)
+{
+    if (!PlayerData[playerid][pLogged] || !PlayerData[playerid][pSpawned]) return 1;
+    if (Admin_OnClickMap(playerid, fX, fY, fZ)) return 1;
+    Route_OnClickMap(playerid, fX, fY, fZ);
     return 1;
 }
 

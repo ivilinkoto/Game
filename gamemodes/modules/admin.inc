@@ -20,6 +20,8 @@ enum E_ADMIN_CMD {
 
 static const AdminCmds[][E_ADMIN_CMD] = {
     {"admins",    1, "",                                    "Администратори онлайн"},
+    {"tp",        1, "",                                    "Телепорт до място (списък) или /tp x y z"},
+    {"tpmap",     1, "",                                    "Отметка на картата: телепорт или маршрут"},
     {"a",         1, "[текст]",                             "Админ чат"},
     {"goto",      1, "[ID или ник]",                        "Отиди при играч"},
     {"gethere",   1, "[ID или ник]",                        "Доведи играч при себе си"},
@@ -422,6 +424,80 @@ CMD:unban(playerid, params[])
     new msg[96];
     format(msg, sizeof (msg), "%s махна бана на %s.", PlayerData[playerid][pName], params);
     Admin_Broadcast(1, msg);
+    return 1;
+}
+
+// ---------- Телепорт ----------
+// /tp – списък с места (компании, бензиностанции, автокъщи, гараж, други) или /tp x y z.
+// Отметка на картата (меню ESC > Карта) телепортира админа; /tpmap я превключва към маршрут.
+
+static bool:AdminMapTeleport[MAX_PLAYERS] = {true, ...};
+
+stock Admin_TeleportTo(playerid, Float:x, Float:y, Float:z, bool:findZ = false)
+{
+    PlayerData[playerid][pInGarage] = false;
+    SetPlayerInterior(playerid, 0);
+    SetPlayerVirtualWorld(playerid, 0);
+    Streamer_UpdateEx(playerid, x, y, z, 0, 0);
+
+    new vehicleid = GetPlayerVehicleID(playerid);
+    if (vehicleid != 0 && GetPlayerState(playerid) == PLAYER_STATE_DRIVER) {
+        if (Veh_GetOwner(vehicleid) == playerid) Veh_SetOut(playerid, Veh_GetSlot(vehicleid), true);
+        SetVehicleVirtualWorld(vehicleid, 0);
+        LinkVehicleToInterior(vehicleid, 0);
+        SetVehiclePos(vehicleid, x, y, z + 1.5);
+        PutPlayerInVehicle(playerid, vehicleid, 0);
+    } else if (vehicleid != 0) {
+        RemovePlayerFromVehicle(playerid);
+        SetPlayerPos(playerid, x, y, z + 1.0);
+    } else if (findZ) {
+        SetPlayerPosFindZ(playerid, x, y, z + 1.0);
+    } else {
+        SetPlayerPos(playerid, x, y, z + 1.0);
+    }
+    SetCameraBehindPlayer(playerid);
+}
+
+stock Admin_OnPlayerConnect(playerid)
+{
+    AdminMapTeleport[playerid] = true;
+}
+
+// Отметка на картата: админ (влязъл) с включен телепорт -> телепорт; иначе маршрут
+stock Admin_OnClickMap(playerid, Float:x, Float:y, Float:z)
+{
+    if (PlayerData[playerid][pAdmin] < 1 || !PlayerData[playerid][pAdminAuthed] || !AdminMapTeleport[playerid]) return 0;
+    Admin_TeleportTo(playerid, x, y, z, true);
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Телепорт до отметката. (/tpmap - отметката да показва маршрут вместо телепорт)");
+    return 1;
+}
+
+CMD:tp(playerid, params[])
+{
+    if (!Admin_Check(playerid, 1)) return 1;
+    if (IsNull(params)) {
+        Gps_ShowTeleport(playerid);
+        return 1;
+    }
+    new sx[16], sy[16], sz[16];
+    if (!GetParam(params, 0, sx) || !GetParam(params, 1, sy)) return SendUsage(playerid, "/tp (списък с места) или /tp [x] [y] [z]");
+    new Float:x = floatstr(sx), Float:y = floatstr(sy), Float:z = 0.0;
+    new bool:findZ = true;
+    if (GetParam(params, 2, sz)) {
+        z = floatstr(sz);
+        findZ = false;
+    }
+    Admin_TeleportTo(playerid, x, y, z, findZ);
+    return 1;
+}
+
+CMD:tpmap(playerid, params[])
+{
+    #pragma unused params
+    if (!Admin_Check(playerid, 1)) return 1;
+    AdminMapTeleport[playerid] = !AdminMapTeleport[playerid];
+    if (AdminMapTeleport[playerid]) SendClientMessage(playerid, COLOR_ADMIN, "[A] Отметката на картата те телепортира.");
+    else SendClientMessage(playerid, COLOR_ADMIN, "[A] Отметката на картата показва маршрут (като при играчите).");
     return 1;
 }
 

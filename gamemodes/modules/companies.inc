@@ -3,7 +3,7 @@
 // Базите имат приблизителни позиции; админ ги мести на място: /compos [номер].
 // Списък: /complist
 
-#define MAX_COMPANIES       14
+#define MAX_COMPANIES       13
 #define COMPANY_COMMISSION  10          // % от всеки курс в касата на собственика
 #define COMPANY_RANGE       12.0        // колко близо до базата се брои "в базата"
 #define COMPANY_ICON_TYPE   51          // икона "камион" на картата
@@ -71,10 +71,6 @@ stock const CompanyDefs[MAX_COMPANIES][E_COMPANY_DEF] = {
         GOOD_BIT(GOOD_FOOD),
         GOOD_BIT(GOOD_PARCELS) | GOOD_BIT(GOOD_PARTS),
         -60.0, 70.0, 3.1},
-    {"Fuel Station LS",      "Los Santos",   COMPANY_SMALL,
-        0,
-        GOOD_BIT(GOOD_FUEL) | GOOD_BIT(GOOD_FOOD) | GOOD_BIT(GOOD_DRINKS),
-        1940.0, -1773.0, 13.4},
     {"Fuel Station SF",      "San Fierro",   COMPANY_SMALL,
         0,
         GOOD_BIT(GOOD_FUEL) | GOOD_BIT(GOOD_FOOD) | GOOD_BIT(GOOD_DRINKS),
@@ -119,6 +115,27 @@ stock Company_Init()
     Database_Exec(q);
     Database_AddColumn("companies", "owner_name", "TEXT NOT NULL DEFAULT ''");
     Database_AddColumn("companies", "bonus", "INTEGER NOT NULL DEFAULT 0");
+
+    // Еднократно: махната е компанията "Fuel Station LS" (беше номер 11).
+    // Собственикът (ако има) получава 60% от цената + касата; номерата след нея се местят с 1 надолу.
+    if (!Database_GetMeta("removed_fuel_ls")) {
+        new DBResult:r0 = Database_Query("SELECT owner_id, cash FROM companies WHERE id = 11");
+        if (r0 != DBResult:0) {
+            if (DB_GetRowCount(r0) > 0) {
+                new owner = DB_GetFieldIntByName(r0, "owner_id"), cash = DB_GetFieldIntByName(r0, "cash");
+                if (owner > 0) {
+                    format(q, sizeof (q), "UPDATE accounts SET money = money + %d WHERE id = %d", CompanyPrices[COMPANY_SMALL] * 60 / 100 + cash, owner);
+                    Database_Exec(q);
+                }
+            }
+            DB_FreeResultSet(r0);
+        }
+        Database_Exec("DELETE FROM companies WHERE id = 11");
+        Database_Exec("UPDATE companies SET id = 11 WHERE id = 12");
+        Database_Exec("UPDATE companies SET id = 12 WHERE id = 13");
+        Database_SetMeta("removed_fuel_ls", 1);
+        print("[COMPANY] Fuel Station LS removed.");
+    }
 
     for (new c = 0; c < MAX_COMPANIES; c++) {
         format(q, sizeof (q), "INSERT OR IGNORE INTO companies (id, x, y, z) VALUES (%d, %f, %f, %f)",

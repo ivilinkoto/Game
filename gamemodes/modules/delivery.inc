@@ -245,6 +245,7 @@ static stock Delivery_SetCheckpoint(playerid, company, bool:finish)
     SetPlayerRaceCheckpoint(playerid, finish ? CP_TYPE_GROUND_FINISH : CP_TYPE_GROUND_NORMAL,
         Company[company][cpX], Company[company][cpY], Company[company][cpZ],
         Company[company][cpX], Company[company][cpY], Company[company][cpZ], DELIVERY_CP_SIZE);
+    Route_Set(playerid, Company[company][cpX], Company[company][cpY], Company[company][cpZ], ROUTE_SRC_JOB);
 }
 
 static stock Delivery_Accept(playerid, slot)
@@ -296,6 +297,7 @@ static stock Delivery_End(playerid)
 {
     Job[playerid][jbStage] = JOB_NONE;
     Trailer_Destroy(playerid);
+    Route_Clear(playerid, ROUTE_SRC_JOB);
     DisablePlayerRaceCheckpoint(playerid);
     Delivery_HidePanel(playerid);
 }
