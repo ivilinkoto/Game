@@ -211,6 +211,35 @@ stock Admin_ShowPanel(playerid)
     return 1;
 }
 
+// Мобилният клиент сам познава кодировката на дълги прозорци и понякога греши
+// (кирилицата излиза като тайландски), затова помощта е на кратки страници по ниво.
+static stock Admin_ShowHelpLevels(playerid)
+{
+    new body[512], line[96], lvl[48];
+    format(body, sizeof (body), "Ниво\tКоманди\n");
+    for (new level = 1; level <= PlayerData[playerid][pAdmin]; level++) {
+        new n = 0;
+        for (new i = 0; i < sizeof (AdminCmds); i++) if (AdminCmds[i][acLevel] == level) n++;
+        Admin_GetLevelName(level, lvl);
+        format(line, sizeof (line), "%d. %s\t%d\n", level, lvl, n);
+        strcat(body, line);
+    }
+    ShowPlayerDialog(playerid, DIALOG_ADMIN_HELP, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Админ команди", "%s", "Покажи", "Затвори", body);
+}
+
+static stock Admin_ShowHelpPage(playerid, level)
+{
+    new body[1400], line[200], lvl[48], title[96];
+    for (new i = 0; i < sizeof (AdminCmds); i++) {
+        if (AdminCmds[i][acLevel] != level) continue;
+        format(line, sizeof (line), C_BRAND "/%s %s\n" C_WHITE "    %s\n", AdminCmds[i][acName], AdminCmds[i][acUsage], AdminCmds[i][acDesc]);
+        strcat(body, line);
+    }
+    Admin_GetLevelName(level, lvl);
+    format(title, sizeof (title), C_BRAND "Команди" C_WHITE " | %s", lvl);
+    ShowPlayerDialog(playerid, DIALOG_ADMIN_HELP_PAGE, DIALOG_STYLE_MSGBOX, title, "%s", "Назад", "Затвори", body);
+}
+
 // Информационни страници: командите по ниво с описание (само за четене).
 // За изпълнение от прозорец - /apanel или Меню > Админ панел.
 CMD:ahelp(playerid, params[])

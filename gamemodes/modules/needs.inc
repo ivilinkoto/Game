@@ -294,7 +294,7 @@ stock Needs_ShowShop(playerid, kind)
         if (kind == SHOP_KIND_GARAGE) format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "безплатно\n");
         else format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "$%d\n", TOILET_PRICE);
         strcat(body, line);
-        ShopMap[playerid][n++] = -1;
+        ShopMap[playerid][n] = -1;
     }
     new title[64];
     switch (kind) {
