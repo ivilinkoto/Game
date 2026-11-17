@@ -2,13 +2,15 @@
 //
 // Разходът е според модела (каталога) и товара: празен -> база, пълен товар -> +50%.
 // Празен резервоар -> двигателят спира и не пали.
-// Зареждане: Y с превозното средство в зоната на бензиностанция (двигателят трябва да е изгасен).
+// Зареждане: ALT с превозното средство в зоната на бензиностанция (двигателят трябва да е изгасен).
+// В превозно средство ALT идва като KEY_FIRE (на PC), затова приемаме и KEY_FIRE, и KEY_WALK.
 // Пътна помощ: Меню > Гориво > Пътна помощ (+30 л за $400), когато резервоарът е почти празен.
 //
 // Бензиностанциите са в базата; админ: /addfuel (тук), /delfuel (най-близката).
 
 #define FUEL_PRICE          3           // $ за литър
 #define FUEL_RANGE          9.0
+#define FUEL_ICON_TYPE      27          // гаечен ключ
 #define FUEL_IDLE_PER_SEC   0.01        // литри в секунда на място с работещ двигател
 #define ROADSIDE_LITERS     30
 #define ROADSIDE_PRICE      400
@@ -78,11 +80,12 @@ static stock Fuel_LoadStations()
         FuelStation[k][1] = DB_GetFieldFloatByName(r, "y");
         FuelStation[k][2] = DB_GetFieldFloatByName(r, "z");
         new text[160];
-        format(text, sizeof (text), C_BRAND "БЕНЗИНОСТАНЦИЯ\n" C_WHITE "$%d за литър\n" C_GREY "Y в превозното средство - зареждане", FUEL_PRICE);
+        format(text, sizeof (text), C_BRAND "БЕНЗИНОСТАНЦИЯ\n" C_WHITE "$%d за литър\n" C_GREY "ALT в превозното средство - зареждане", FUEL_PRICE);
         FuelLabel[k] = CreateDynamic3DTextLabel(text,
             COLOR_WHITE, FuelStation[k][0], FuelStation[k][1], FuelStation[k][2] + 1.0, 30.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
         // Червено квадратче на радара – само наблизо, за да не претрупва картата
-        FuelIcon[k] = CreateDynamicMapIcon(FuelStation[k][0], FuelStation[k][1], FuelStation[k][2], 0, 0xE04040FF, 0, 0, -1, MAP_ICON_RANGE, MAPICON_LOCAL);
+        // В SA няма икона за бензиностанция – ползваме гаечния ключ (сервиз)
+        FuelIcon[k] = CreateDynamicMapIcon(FuelStation[k][0], FuelStation[k][1], FuelStation[k][2], FUEL_ICON_TYPE, 0, 0, 0, -1, MAP_ICON_RANGE, MAPICON_LOCAL);
         DB_SelectNextRow(r);
     }
     DB_FreeResultSet(r);
@@ -222,7 +225,8 @@ static stock Fuel_Refuel(playerid)
 // Y в превозно средство на бензиностанция
 stock Fuel_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
-    if (!((newkeys & KEY_YES) && !(oldkeys & KEY_YES))) return 0;
+    new KEY:keys = KEY_FIRE | KEY_WALK;
+    if (!((newkeys & keys) && !(oldkeys & keys))) return 0;
     if (GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return 0;
     new vehicleid = GetPlayerVehicleID(playerid);
     if (Veh_GetFuel(vehicleid) < 0.0) return 0;

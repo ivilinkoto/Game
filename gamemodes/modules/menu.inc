@@ -74,7 +74,7 @@ stock Menu_ShowHelp(playerid)
         C_BRAND "CTRL" C_WHITE " или " C_BRAND "/engine" C_WHITE " - двигател (пали/гаси)\n" \
         C_BRAND "ALT" C_WHITE " пеша / " C_BRAND "H" C_WHITE " с превозно средство - вход и изход (гараж)\n" \
         C_BRAND "/gps" C_WHITE " - навигация: компании, бензиностанции, автокъщи, гараж\n" \
-        C_BRAND "Y" C_WHITE " на бензиностанция (двигателят изгасен) - зареждане, " C_BRAND "/roadside" C_WHITE " - пътна помощ\n" \
+        C_BRAND "ALT" C_WHITE " на бензиностанция (двигателят изгасен) - зареждане, " C_BRAND "/roadside" C_WHITE " - пътна помощ\n" \
         C_BRAND "/cb [текст]" C_WHITE " - CB радио (чуват те всички на твоя канал)\n" \
         C_BRAND "/cbch [канал]" C_WHITE " - смяна на CB канала\n" \
         C_BRAND "/pm [ID] [текст]" C_WHITE " - лично съобщение, " C_BRAND "/r" C_WHITE " - отговор\n" \
