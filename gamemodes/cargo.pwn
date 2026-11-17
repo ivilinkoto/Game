@@ -68,6 +68,7 @@ forward bool:Fuel_IsNearStation(playerid);
 #include "modules/fuel.inc"
 #include "modules/needs.inc"
 #include "modules/tuning.inc"
+#include "modules/adminpanel.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -110,6 +111,7 @@ public OnGameModeInit()
     Dealer_Init();
     Fuel_Init();
     Places_Init();
+    AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
     Business_CheckInactive();
@@ -261,6 +263,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
+    if (AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }
 

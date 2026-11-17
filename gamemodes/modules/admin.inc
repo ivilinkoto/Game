@@ -47,8 +47,6 @@ static const AdminCmds[][E_ADMIN_CMD] = {
     {"makeadmin", 5, "[ID] [ниво 0-5]",                     "Смени админ нивото на играч"}
 };
 
-static AdminPanelMap[MAX_PLAYERS][ADMIN_PANEL_MAX];
-static AdminPanelCmd[MAX_PLAYERS];
 
 stock Admin_GetLevelName(level, dest[], size = sizeof (dest))
 {
@@ -145,31 +143,6 @@ stock Admin_OnDialogResponse(playerid, dialogid, response, listitem, const input
             if (response && PlayerData[playerid][pAdmin] > 1) Admin_ShowHelpLevels(playerid);
             return 1;
         }
-        case DIALOG_ADMIN_PANEL: {
-            if (!response) return 1;
-            if (listitem < 0 || listitem >= ADMIN_PANEL_MAX) return 1;
-            new idx = AdminPanelMap[playerid][listitem];
-            if (idx < 0 || idx >= sizeof (AdminCmds) || AdminCmds[idx][acLevel] > PlayerData[playerid][pAdmin]) return 1;
-            AdminPanelCmd[playerid] = idx;
-            if (AdminCmds[idx][acUsage][0] == EOS) {
-                Admin_RunCommand(playerid, idx, "");
-            } else {
-                Admin_ShowParams(playerid, "");
-            }
-            return 1;
-        }
-        case DIALOG_ADMIN_PARAMS: {
-            if (!response) {
-                Admin_ShowPanel(playerid);
-                return 1;
-            }
-            if (inputtext[0] == EOS) {
-                Admin_ShowParams(playerid, "Не си въвел параметри.");
-                return 1;
-            }
-            Admin_RunCommand(playerid, AdminPanelCmd[playerid], inputtext);
-            return 1;
-        }
         case DIALOG_ADMIN_LOGIN: {
             if (!response) return 1;
             Pass_Verify(playerid, PASS_ADMIN_LOGIN, inputtext, PlayerData[playerid][pAdminHash]);
@@ -234,71 +207,8 @@ stock Admin_ShowPanel(playerid)
         // Първо вход - после панелът се отваря сам.
         return CallLocalFunction("cmd_alogin", "is", playerid, "\1");
     }
-
-    new body[2048], line[128], n = 0, lvl[24];
-    format(body, sizeof (body), "Команда\tКакво прави\n");
-    for (new i = 0; i < sizeof (AdminCmds) && n < ADMIN_PANEL_MAX; i++) {
-        if (AdminCmds[i][acLevel] > PlayerData[playerid][pAdmin]) continue;
-        format(line, sizeof (line), C_BRAND "/%s\t" C_WHITE "%s\n", AdminCmds[i][acName], AdminCmds[i][acDesc]);
-        strcat(body, line);
-        AdminPanelMap[playerid][n++] = i;
-    }
-    Admin_GetLevelName(PlayerData[playerid][pAdmin], lvl);
-    new title[64];
-    format(title, sizeof (title), C_BRAND "Админ панел" C_WHITE " | %s", lvl);
-    ShowPlayerDialog(playerid, DIALOG_ADMIN_PANEL, DIALOG_STYLE_TABLIST_HEADERS, title, "%s", "Избери", "Затвори", body);
+    AdminPanel_Show(playerid);
     return 1;
-}
-
-static stock Admin_ShowParams(playerid, const error[])
-{
-    new idx = AdminPanelCmd[playerid], err[96];
-    if (error[0] != EOS) format(err, sizeof (err), "\n\n" C_RED "%s", error);
-    ShowPlayerDialog(playerid, DIALOG_ADMIN_PARAMS, DIALOG_STYLE_INPUT, C_BRAND "Админ панел" C_WHITE " | Параметри",
-        C_WHITE "%s\n\nКоманда: " C_BRAND "/%s %s" C_WHITE "\n\nВъведи параметрите (без името на командата):%s",
-        "Изпълни", "Назад", AdminCmds[idx][acDesc], AdminCmds[idx][acName], AdminCmds[idx][acUsage], err);
-}
-
-static stock Admin_RunCommand(playerid, idx, const params[])
-{
-    new funcname[32];
-    format(funcname, sizeof (funcname), "cmd_%s", AdminCmds[idx][acName]);
-    if (IsNull(params)) {
-        CallLocalFunction(funcname, "is", playerid, "\1");
-    } else {
-        CallLocalFunction(funcname, "is", playerid, params);
-    }
-}
-
-// Информационен прозорец: всички команди за твоето ниво с описание (само за четене).
-// За изпълнение от прозорец - /apanel или Меню > Админ панел.
-// Мобилният клиент сам познава кодировката на дълги прозорци и понякога греши
-// (кирилицата излиза като тайландски), затова помощта е на кратки страници по ниво.
-static stock Admin_ShowHelpLevels(playerid)
-{
-    new body[512], line[96], lvl[48];
-    format(body, sizeof (body), "Ниво\tКоманди\n");
-    for (new level = 1; level <= PlayerData[playerid][pAdmin]; level++) {
-        new n = 0;
-        for (new i = 0; i < sizeof (AdminCmds); i++) if (AdminCmds[i][acLevel] == level) n++;
-        Admin_GetLevelName(level, lvl);
-        format(line, sizeof (line), "%d. %s\t%d\n", level, lvl, n);
-        strcat(body, line);
-    }
-    ShowPlayerDialog(playerid, DIALOG_ADMIN_HELP, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Админ команди", "%s", "Покажи", "Затвори", body);
-}
-
-static stock Admin_ShowHelpPage(playerid, level)
-{
-    new body[1400], line[200], lvl[48], title[96];
-    for (new i = 0; i < sizeof (AdminCmds); i++) {
-        if (AdminCmds[i][acLevel] != level) continue;
-        format(line, sizeof (line), C_BRAND "/%s %s\n" C_WHITE "    %s\n", AdminCmds[i][acName], AdminCmds[i][acUsage], AdminCmds[i][acDesc]);
-        strcat(body, line);
-    }
-    Admin_GetLevelName(level, lvl);
-    format(title, sizeof (title), C_BRAND "Команди" C_WHITE " | %s", lvl);
-    ShowPlayerDialog(playerid, DIALOG_ADMIN_HELP_PAGE, DIALOG_STYLE_MSGBOX, title, "%s", "Назад", "Затвори", body);
 }
 
 // Информационни страници: командите по ниво с описание (само за четене).
