@@ -155,6 +155,8 @@ stock Fuel_Tick(playerid)
     // Товар: до +50% при пълна товароносимост
     new payload = Catalog_GetPayload(model), loadKg = Delivery_GetLoadKg(playerid);
     if (payload > 0 && loadKg > 0) perKm *= 1.0 + 0.5 * float(loadKg) / float(payload);
+    // Икономичен двигател: -10% на ниво
+    perKm *= 1.0 - 0.1 * float(Veh_GetUpgrade(vehicleid, UPGRADE_ENGINE));
 
     new Float:used = perKm * moved / 1000.0 + FUEL_IDLE_PER_SEC;
     fuel -= used;
@@ -168,7 +170,7 @@ stock Fuel_Tick(playerid)
     }
     Veh_SetFuel(vehicleid, fuel);
 
-    new tank = Catalog_GetTank(model);
+    new tank = Veh_GetTank(vehicleid);
     if (tank > 0 && fuel < float(tank) * FUEL_LOW_PERCENT / 100.0) {
         if (!FuelWarned[playerid]) {
             FuelWarned[playerid] = true;
@@ -181,9 +183,9 @@ stock Fuel_Tick(playerid)
 
 // ---------- Зареждане ----------
 
-static stock Fuel_ShowRefuel(playerid, vehicleid)
+stock Fuel_ShowRefuel(playerid, vehicleid)
 {
-    new model = GetVehicleModel(vehicleid), tank = Catalog_GetTank(model);
+    new tank = Veh_GetTank(vehicleid);
     new Float:fuel = Veh_GetFuel(vehicleid);
     new need = floatround(float(tank) - fuel, floatround_floor);
     if (need <= 0) {
@@ -207,7 +209,7 @@ static stock Fuel_Refuel(playerid)
     new st = Fuel_GetNearestStation(playerid, dist);
     if (st == -1 || dist > FUEL_RANGE) { SendError(playerid, "Не си на бензиностанция."); return 0; }
 
-    new tank = Catalog_GetTank(GetVehicleModel(vehicleid));
+    new tank = Veh_GetTank(vehicleid);
     new Float:fuel = Veh_GetFuel(vehicleid);
     new liters = floatround(float(tank) - fuel, floatround_floor);
     new affordable = Money_Get(playerid) / FUEL_PRICE;
@@ -238,7 +240,7 @@ stock Fuel_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
         SendError(playerid, "Изгаси двигателя (CTRL), за да заредиш.");
         return 1;
     }
-    Fuel_ShowRefuel(playerid, vehicleid);
+    Tune_ShowStation(playerid, vehicleid);
     return 1;
 }
 
@@ -248,7 +250,7 @@ stock Fuel_ShowMenu(playerid)
 {
     new vehicleid = GetPlayerVehicleID(playerid), line[96];
     if (vehicleid != 0 && Veh_GetFuel(vehicleid) >= 0.0) {
-        format(line, sizeof (line), "В резервоара: %d / %d л", floatround(Veh_GetFuel(vehicleid), floatround_floor), Catalog_GetTank(GetVehicleModel(vehicleid)));
+        format(line, sizeof (line), "В резервоара: %d / %d л", floatround(Veh_GetFuel(vehicleid), floatround_floor), Veh_GetTank(vehicleid));
     } else {
         format(line, sizeof (line), "Седни в своето превозно средство");
     }
@@ -263,7 +265,7 @@ static stock Fuel_Roadside(playerid)
     if (vehicleid == 0 || GetPlayerState(playerid) != PLAYER_STATE_DRIVER || Veh_GetOwner(vehicleid) != playerid) {
         { SendError(playerid, "Трябва да си шофьор на своето превозно средство."); return 0; }
     }
-    new tank = Catalog_GetTank(GetVehicleModel(vehicleid));
+    new tank = Veh_GetTank(vehicleid);
     if (Veh_GetFuel(vehicleid) > float(tank) * FUEL_LOW_PERCENT / 100.0) {
         { SendError(playerid, "Пътна помощ се вика само при почти празен резервоар."); return 0; }
     }
@@ -360,7 +362,7 @@ CMD:fixveh(playerid, params[])
     if (vehicleid == 0) return SendError(playerid, "Трябва да си в превозно средство.");
     RepairVehicle(vehicleid);
     SetVehicleHealth(vehicleid, 1000.0);
-    if (Veh_GetFuel(vehicleid) >= 0.0) Veh_SetFuel(vehicleid, float(Catalog_GetTank(GetVehicleModel(vehicleid))));
+    if (Veh_GetFuel(vehicleid) >= 0.0) Veh_SetFuel(vehicleid, float(Veh_GetTank(vehicleid)));
     SendClientMessage(playerid, COLOR_ADMIN, "[A] Превозното средство е поправено и заредено.");
     return 1;
 }

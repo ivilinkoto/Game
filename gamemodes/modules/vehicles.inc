@@ -16,7 +16,22 @@ enum E_PLAYER_VEH {
     Float:pvHealth,
     Float:pvFuel,           // литри
     pvVehicle,              // ID в играта (INVALID_VEHICLE_ID = не е създаден)
-    bool:pvOut              // навън ли е (извън гаража)
+    bool:pvOut,             // навън ли е (извън гаража)
+
+    // Тунинг (виж modules/tuning.inc)
+    pvUpEngine,             // икономичен двигател 0-3
+    pvUpTank,               // голям резервоар 0-3
+    pvUpArmor,              // здрава кабина 0-3
+    pvNeon,                 // неон: 0 = без, иначе модел на обекта
+    pvNeonL,                // обектите на неона (динамични)
+    pvNeonR
+}
+
+enum {
+    UPGRADE_ENGINE,
+    UPGRADE_TANK,
+    UPGRADE_ARMOR,
+    MAX_UPGRADES
 }
 
 static PlayerVeh[MAX_PLAYERS][GARAGE_SLOTS][E_PLAYER_VEH];
@@ -50,6 +65,108 @@ stock Veh_Init()
     }
 }
 
+// ---------- Тунинг: данни ----------
+
+// Резервоар с подобрението "голям резервоар" (+20% на ниво)
+stock Veh_TankSize(playerid, slot)
+{
+    return Catalog_GetTank(PlayerVeh[playerid][slot][pvModel]) * (100 + 20 * PlayerVeh[playerid][slot][pvUpTank]) / 100;
+}
+
+// Резервоар по ID на превозното средство (каталога, ако не е на играч)
+stock Veh_GetTank(vehicleid)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return Catalog_GetTank(GetVehicleModel(vehicleid));
+    return Veh_TankSize(owner, VehSlot[vehicleid]);
+}
+
+stock Veh_GetUpgrade(vehicleid, type)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return 0;
+    new slot = VehSlot[vehicleid];
+    switch (type) {
+        case UPGRADE_ENGINE: return PlayerVeh[owner][slot][pvUpEngine];
+        case UPGRADE_TANK:   return PlayerVeh[owner][slot][pvUpTank];
+        case UPGRADE_ARMOR:  return PlayerVeh[owner][slot][pvUpArmor];
+    }
+    return 0;
+}
+
+stock Veh_SetUpgrade(vehicleid, type, level)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return;
+    new slot = VehSlot[vehicleid];
+    switch (type) {
+        case UPGRADE_ENGINE: PlayerVeh[owner][slot][pvUpEngine] = level;
+        case UPGRADE_TANK:   PlayerVeh[owner][slot][pvUpTank] = level;
+        case UPGRADE_ARMOR:  PlayerVeh[owner][slot][pvUpArmor] = level;
+    }
+    Veh_Save(owner, slot);
+}
+
+stock Veh_GetColor(vehicleid, which)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return 0;
+    return (which == 0) ? PlayerVeh[owner][VehSlot[vehicleid]][pvColor1] : PlayerVeh[owner][VehSlot[vehicleid]][pvColor2];
+}
+
+stock Veh_SetColor(vehicleid, which, color)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return;
+    new slot = VehSlot[vehicleid];
+    if (which == 0) PlayerVeh[owner][slot][pvColor1] = color;
+    else PlayerVeh[owner][slot][pvColor2] = color;
+    ChangeVehicleColours(vehicleid, PlayerVeh[owner][slot][pvColor1], PlayerVeh[owner][slot][pvColor2]);
+    Veh_Save(owner, slot);
+}
+
+stock Veh_GetNeon(vehicleid)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return 0;
+    return PlayerVeh[owner][VehSlot[vehicleid]][pvNeon];
+}
+
+stock Veh_SetNeon(vehicleid, neonModel)
+{
+    new owner = Veh_GetOwner(vehicleid);
+    if (owner == INVALID_PLAYER_ID) return;
+    new slot = VehSlot[vehicleid];
+    Veh_RemoveNeon(owner, slot);
+    PlayerVeh[owner][slot][pvNeon] = neonModel;
+    Veh_ApplyNeon(owner, slot);
+    Veh_Save(owner, slot);
+}
+
+static stock Veh_RemoveNeon(playerid, slot)
+{
+    if (PlayerVeh[playerid][slot][pvNeonL] != -1) DestroyDynamicObject(PlayerVeh[playerid][slot][pvNeonL]);
+    if (PlayerVeh[playerid][slot][pvNeonR] != -1) DestroyDynamicObject(PlayerVeh[playerid][slot][pvNeonR]);
+    PlayerVeh[playerid][slot][pvNeonL] = -1;
+    PlayerVeh[playerid][slot][pvNeonR] = -1;
+}
+
+// Неонът – две тръби под шасито, отляво и отдясно (според размера на модела)
+static stock Veh_ApplyNeon(playerid, slot)
+{
+    new vehicleid = PlayerVeh[playerid][slot][pvVehicle], model = PlayerVeh[playerid][slot][pvNeon];
+    if (vehicleid == INVALID_VEHICLE_ID || model == 0) return;
+    new Float:sx, Float:sy, Float:sz;
+    GetVehicleModelInfo(PlayerVeh[playerid][slot][pvModel], VEHICLE_MODEL_INFO_SIZE, sx, sy, sz);
+    new Float:ox = sx / 2.0 - 0.25, Float:oz = -sz / 2.0 + 0.15;
+    new l = CreateDynamicObject(model, 0.0, 0.0, -1000.0, 0.0, 0.0, 0.0, -1, -1, -1, 200.0, 200.0);
+    new r = CreateDynamicObject(model, 0.0, 0.0, -1000.0, 0.0, 0.0, 0.0, -1, -1, -1, 200.0, 200.0);
+    AttachDynamicObjectToVehicle(l, vehicleid, -ox, 0.0, oz, 0.0, 0.0, 0.0);
+    AttachDynamicObjectToVehicle(r, vehicleid,  ox, 0.0, oz, 0.0, 0.0, 0.0);
+    PlayerVeh[playerid][slot][pvNeonL] = l;
+    PlayerVeh[playerid][slot][pvNeonR] = r;
+}
+
 // Гориво по ID на превозното средство (-1.0 = не е на играч, няма ограничение)
 stock Float:Veh_GetFuel(vehicleid)
 {
@@ -63,7 +180,7 @@ stock Veh_SetFuel(vehicleid, Float:fuel)
     new owner = Veh_GetOwner(vehicleid);
     if (owner == INVALID_PLAYER_ID) return;
     new slot = VehSlot[vehicleid];
-    new Float:tank = float(Catalog_GetTank(PlayerVeh[owner][slot][pvModel]));
+    new Float:tank = float(Veh_TankSize(owner, slot));
     if (fuel < 0.0) fuel = 0.0;
     if (fuel > tank) fuel = tank;
     PlayerVeh[owner][slot][pvFuel] = fuel;
@@ -104,6 +221,12 @@ stock Veh_GetModel(playerid, slot)
 stock Veh_Reset(playerid)
 {
     for (new s = 0; s < GARAGE_SLOTS; s++) {
+        PlayerVeh[playerid][s][pvUpEngine] = 0;
+        PlayerVeh[playerid][s][pvUpTank] = 0;
+        PlayerVeh[playerid][s][pvUpArmor] = 0;
+        PlayerVeh[playerid][s][pvNeon] = 0;
+        PlayerVeh[playerid][s][pvNeonL] = -1;
+        PlayerVeh[playerid][s][pvNeonR] = -1;
         PlayerVeh[playerid][s][pvID] = 0;
         PlayerVeh[playerid][s][pvModel] = 0;
         PlayerVeh[playerid][s][pvVehicle] = INVALID_VEHICLE_ID;
@@ -132,8 +255,12 @@ stock Veh_Load(playerid)
             new Float:hp = DB_GetFieldFloatByName(r, "health");
             if (hp < 300.0) hp = 300.0;     // изгорял камион се връща поправен до минимум
             PlayerVeh[playerid][slot][pvHealth] = hp;
+            PlayerVeh[playerid][slot][pvUpEngine] = DB_GetFieldIntByName(r, "up_engine");
+            PlayerVeh[playerid][slot][pvUpTank]   = DB_GetFieldIntByName(r, "up_tank");
+            PlayerVeh[playerid][slot][pvUpArmor]  = DB_GetFieldIntByName(r, "up_armor");
+            PlayerVeh[playerid][slot][pvNeon]     = DB_GetFieldIntByName(r, "neon");
             new Float:fuel = DB_GetFieldFloatByName(r, "fuel");
-            new tank = Catalog_GetTank(PlayerVeh[playerid][slot][pvModel]);
+            new tank = Veh_TankSize(playerid, slot);
             if (fuel < 0.0 || fuel > float(tank)) fuel = float(tank);   // -1 = пълен (стари записи)
             PlayerVeh[playerid][slot][pvFuel] = fuel;
         }
@@ -210,6 +337,12 @@ stock Veh_Add(playerid, model, color1, color2)
     PlayerVeh[playerid][slot][pvColor1] = color1;
     PlayerVeh[playerid][slot][pvColor2] = color2;
     PlayerVeh[playerid][slot][pvHealth] = 1000.0;
+    PlayerVeh[playerid][slot][pvUpEngine] = 0;
+    PlayerVeh[playerid][slot][pvUpTank] = 0;
+    PlayerVeh[playerid][slot][pvUpArmor] = 0;
+    PlayerVeh[playerid][slot][pvNeon] = 0;
+    PlayerVeh[playerid][slot][pvNeonL] = -1;
+    PlayerVeh[playerid][slot][pvNeonR] = -1;
     PlayerVeh[playerid][slot][pvFuel] = float(Catalog_GetTank(model));
     PlayerVeh[playerid][slot][pvVehicle] = INVALID_VEHICLE_ID;
     PlayerVeh[playerid][slot][pvOut] = false;
@@ -227,6 +360,7 @@ stock bool:Veh_Remove(playerid, slot)
             if (IsPlayerConnected(i) && GetPlayerVehicleID(i) == vehicleid) return false;
         }
         VehOwner[vehicleid] = INVALID_PLAYER_ID;
+        Veh_RemoveNeon(playerid, slot);
         DestroyVehicle(vehicleid);
     }
     new q[96];
@@ -248,9 +382,14 @@ static stock Veh_Save(playerid, slot)
         GetVehicleHealth(vehicleid, hp);
         PlayerVeh[playerid][slot][pvHealth] = hp;
     }
-    new q[128];
-    format(q, sizeof (q), "UPDATE player_vehicles SET health = %f, fuel = %f WHERE id = %d",
-        PlayerVeh[playerid][slot][pvHealth], PlayerVeh[playerid][slot][pvFuel], PlayerVeh[playerid][slot][pvID]);
+    new q[320];
+    format(q, sizeof (q), "UPDATE player_vehicles SET health = %f, fuel = %f, color1 = %d, color2 = %d, " \
+        "up_engine = %d, up_tank = %d, up_armor = %d, neon = %d WHERE id = %d",
+        PlayerVeh[playerid][slot][pvHealth], PlayerVeh[playerid][slot][pvFuel],
+        PlayerVeh[playerid][slot][pvColor1], PlayerVeh[playerid][slot][pvColor2],
+        PlayerVeh[playerid][slot][pvUpEngine], PlayerVeh[playerid][slot][pvUpTank],
+        PlayerVeh[playerid][slot][pvUpArmor], PlayerVeh[playerid][slot][pvNeon],
+        PlayerVeh[playerid][slot][pvID]);
     Database_Exec(q);
 }
 
@@ -264,6 +403,7 @@ static stock Veh_Destroy(playerid, slot)
     new vehicleid = PlayerVeh[playerid][slot][pvVehicle];
     if (vehicleid == INVALID_VEHICLE_ID) return;
     VehOwner[vehicleid] = INVALID_PLAYER_ID;
+    Veh_RemoveNeon(playerid, slot);
     DestroyVehicle(vehicleid);
     PlayerVeh[playerid][slot][pvVehicle] = INVALID_VEHICLE_ID;
 }
@@ -293,6 +433,8 @@ stock Veh_ParkInGarage(playerid, slot)
         VehOwner[vehicleid] = playerid;
         VehSlot[vehicleid] = slot;
         SetVehicleHealth(vehicleid, PlayerVeh[playerid][slot][pvHealth]);
+        Tune_ResetArmor(vehicleid);
+        Veh_ApplyNeon(playerid, slot);
     } else {
         SetVehiclePos(vehicleid, x, y, z);
         SetVehicleZAngle(vehicleid, a);

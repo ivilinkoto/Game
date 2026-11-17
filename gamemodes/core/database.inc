@@ -143,6 +143,10 @@ stock bool:Database_Init()
     Database_Exec(q);
     Database_Exec("CREATE INDEX IF NOT EXISTS idx_pveh_owner ON player_vehicles(owner_id)");
     Database_AddColumn("player_vehicles", "fuel", "REAL NOT NULL DEFAULT -1");
+    Database_AddColumn("player_vehicles", "up_engine", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("player_vehicles", "up_tank", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("player_vehicles", "up_armor", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("player_vehicles", "neon", "INTEGER NOT NULL DEFAULT 0");
 
     Database_Exec("CREATE TABLE IF NOT EXISTS server_meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)");
 

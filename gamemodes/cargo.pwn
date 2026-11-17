@@ -64,6 +64,7 @@ forward Float:Veh_GetFuel(vehicleid);
 #include "modules/dealer.inc"
 #include "modules/business.inc"
 #include "modules/fuel.inc"
+#include "modules/tuning.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
 #include "modules/chat.inc"
@@ -137,6 +138,7 @@ public Server_Tick()
         PlayerData[i][pPlayTime]++;
         Fuel_Tick(i);
         Route_Tick(i);
+        Tune_ArmorTick(i);
         Money_Sync(i);
         if (autosave) {
             Auth_SaveAccount(i);
@@ -211,6 +213,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Engine_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Fuel_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Tune_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
@@ -240,6 +243,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Dealer_OnDialogResponse(playerid, dialogid, response)) return 1;
     if (Business_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;
 }
@@ -249,6 +253,7 @@ public OnPlayerStateChange(playerid, PLAYER_STATE:newstate, PLAYER_STATE:oldstat
     #pragma unused oldstate
     Veh_OnPlayerStateChange(playerid, newstate);
     Engine_OnPlayerStateChange(playerid, newstate);
+    if (newstate == PLAYER_STATE_DRIVER) Tune_ResetArmor(GetPlayerVehicleID(playerid));
     return 1;
 }
 

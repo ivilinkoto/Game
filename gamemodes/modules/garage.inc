@@ -234,7 +234,7 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
                 ShowPlayerDialog(playerid, DIALOG_GARAGE_TRUCK, DIALOG_STYLE_MSGBOX, C_BRAND "Моят гараж",
                     C_WHITE "%s е в гаража, място %d.\n" \
                     "Товароносимост: " C_BRAND "%s" C_WHITE ", Товари: " C_BRAND "%s" C_WHITE "\n\nВлез в гаража, качи се в него и натисни " C_BRAND "H" C_WHITE " до вратата, за да излезеш.\n" \
-                    C_GREY "Тунинг - скоро.", "Продай", "Назад", name, listitem + 1, payload, cargo);
+                    C_GREY "Тунинг и ремонт: седни в него в гаража и натисни ALT.", "Продай", "Назад", name, listitem + 1, payload, cargo);
             }
             return 1;
         }

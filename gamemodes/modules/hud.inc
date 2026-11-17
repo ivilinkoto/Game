@@ -102,7 +102,7 @@ stock Hud_Update(playerid)
     if (percent > 100) percent = 100;
     new Float:fuel = Veh_GetFuel(vehicleid);
     if (fuel >= 0.0) {
-        new tank = Catalog_GetTank(GetVehicleModel(vehicleid));
+        new tank = Veh_GetTank(vehicleid);
         new bool:low = (tank > 0 && fuel < float(tank) * FUEL_LOW_PERCENT / 100.0);
         format(text, sizeof (text), "%sENGINE %d%%  %sFUEL %d L", (percent < 30) ? ("~r~") : ("~w~"), percent,
             low ? ("~r~") : ("~w~"), floatround(fuel, floatround_floor));
