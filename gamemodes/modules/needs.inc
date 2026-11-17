@@ -70,6 +70,7 @@ static PlaceIcon[MAX_PLACES] = {-1, ...};
 // Обекти към местата (тоалетна кабина, конуси на кантара)
 #define PLACE_MAX_OBJECTS   6
 #define OBJ_PORTALOO        2984
+#define PORTALOO_Z_OFFSET   1.2         // моделът е центриран ниско, иначе потъва в земята
 #define OBJ_CONE            1238
 static PlaceObj[MAX_PLACES][PLACE_MAX_OBJECTS];
 static Float:PlaceAngle[MAX_PLACES];
@@ -151,7 +152,7 @@ static stock Places_CreateObjects(k)
         case PLACE_TOILET: {
             // Кабина на 1.8 м пред мястото, с вратата към него
             Places_Offset(k, 0.0, 1.8, x, y);
-            PlaceObj[k][0] = CreateDynamicObject(OBJ_PORTALOO, x, y, z, 0.0, 0.0, a + 180.0, 0, 0, -1, 200.0, 200.0);
+            PlaceObj[k][0] = CreateDynamicObject(OBJ_PORTALOO, x, y, z + PORTALOO_Z_OFFSET, 0.0, 0.0, a + 180.0, 0, 0, -1, 200.0, 200.0);
         }
         case PLACE_WEIGH: {
             // Коридор от конуси по пътя (6 конуса: по 3 от двете страни)
