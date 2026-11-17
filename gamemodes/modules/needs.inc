@@ -78,7 +78,7 @@ static PlaceIcon[MAX_PLACES] = {-1, ...};
 #define OBJ_GATE_BOX        966         // кутия на бариерата
 #define OBJ_GATE_BAR        968         // рамо на бариерата
 #define WEIGH_HEIGHT        0.30        // височина на платформата над пътя
-#define WEIGH_HALF_LEN      10.5        // платформата е 21 м дълга, 3.5 м широка
+#define WEIGH_HALF_LEN      10.0        // платформата е ~20 м дълга, 3.5 м широка (2 плочи по ~10 м)
 #define WEIGH_BOOTH_DX      4.4         // будката е вдясно от платформата
 #define WEIGH_GATE_DX       2.3         // бариерата - вдясно на изхода
 #define WEIGH_GATE_Z        0.85
@@ -177,7 +177,7 @@ static stock Places_WeighObj(k, slot, model, Float:dx, Float:dy, Float:dz, Float
     new Float:x, Float:y, Float:z = PlacePos[k][2] - 1.0;
     Places_Offset(k, dx, dy, x, y);
     new obj = CreateDynamicObject(model, x, y, z + dz, rx, ry, PlaceAngle[k] + rzAdd, 0, 0, -1, 250.0, 250.0);
-    if (colour != 0) SetDynamicObjectMaterial(obj, 0, -1, "none", "none", colour);
+    if (colour != 0) SetDynamicObjectMaterial(obj, 0, 18646, "matcolours", "white", colour);   // плътен цвят
     PlaceObj[k][slot] = obj;
     return obj;
 }
@@ -190,12 +190,12 @@ static stock Places_BuildWeigh(k)
 
     // Платформа: 2 легнали дълги стени
     for (new i = -1; i <= 1; i += 2) {
-        obj = Places_WeighObj(k, slot++, OBJ_WALL_LONG, 0.0, i * WEIGH_HALF_LEN / 2.0, WEIGH_HEIGHT - 0.15, 0.0, 90.0, 0.0);
+        obj = Places_WeighObj(k, slot++, OBJ_WALL_LONG, 0.0, i * WEIGH_HALF_LEN / 2.0, WEIGH_HEIGHT - 0.15 + ((i > 0) ? 0.01 : 0.0), 0.0, 90.0, 0.0);
         SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFFC8CCD0);
     }
     // Рампи на двата края (качват от пътя до платформата)
     for (new i = -1; i <= 1; i += 2) {
-        obj = Places_WeighObj(k, slot++, OBJ_WALL_SMALL, 0.0, i * (WEIGH_HALF_LEN + 1.75), WEIGH_HEIGHT / 2.0 - 0.15, -i * ramp, 90.0, 0.0);
+        obj = Places_WeighObj(k, slot++, OBJ_WALL_SMALL, 0.0, i * (WEIGH_HALF_LEN + 1.6), WEIGH_HEIGHT / 2.0 - 0.15, -i * ramp, 90.0, 0.0);
         SetDynamicObjectMaterial(obj, 0, 16322, "a51_stores", "metalic128", 0xFF9AA0A6);
     }
     // Жълти бордюри от двете страни (стърчат 25 см над платформата)
