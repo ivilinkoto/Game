@@ -66,6 +66,7 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/companies.inc"
 #include "modules/economy.inc"
 #include "modules/school.inc"
+#include "modules/removed.inc"
 #include "modules/licenses.inc"
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
@@ -119,6 +120,7 @@ public OnGameModeInit()
     Places_Init();
     Licenses_Init();
     School_Init();
+    Removed_Init();
     AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
@@ -151,6 +153,7 @@ public Server_Tick()
     if (gSecondsCounter % ECONOMY_TICK_SECONDS == 0) Economy_Tick();
     if (autosave) Economy_Save();
     Places_GateTick();
+    School_DoorTick();
     Payday_Tick();
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
@@ -175,6 +178,7 @@ public Server_Tick()
 public OnPlayerConnect(playerid)
 {
     ResetPlayerData(playerid);
+    Removed_OnPlayerConnect(playerid);
     Pass_OnPlayerConnect(playerid);
     Gps_Reset(playerid);
     SkinSelect_OnPlayerConnect(playerid);

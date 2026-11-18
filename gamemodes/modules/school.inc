@@ -17,6 +17,8 @@ static Text3D:SchoolLabel = Text3D:-1;
 static SchoolMapIcon = -1;
 static SchoolActor = INVALID_ACTOR_ID;
 static SchoolSeatNext;
+static SchoolDoorObj[sizeof (SchoolDoors)];
+static bool:SchoolDoorOpen[sizeof (SchoolDoors)];
 
 stock School_Init()
 {
@@ -44,6 +46,11 @@ stock School_Init()
 
     School_CreateMap();
     School_CreateOutside();
+    for (new d = 0; d < sizeof (SchoolDoors); d++) {
+        SchoolDoorObj[d] = CreateDynamicObject(SCHOOL_DOOR_MODEL, SCHOOL_X + SchoolDoors[d][0], SCHOOL_Y + SchoolDoors[d][1], SCHOOL_Z,
+            0.0, 0.0, SchoolDoors[d][2], SCHOOL_WORLD, -1, -1, 200.0, 200.0);
+        SchoolDoorOpen[d] = false;
+    }
 
     // Рецепционистката
     SchoolActor = CreateActor(SCHOOL_NPC_SKIN, SCHOOL_X + SCHOOL_DESK_X, SCHOOL_Y + SCHOOL_NPC_Y, SCHOOL_Z + 1.0, 180.0);
@@ -94,6 +101,34 @@ stock School_GetVehicleSpawn(&Float:x, &Float:y, &Float:z, &Float:a)
     y = SchoolVehSpawn[1];
     z = SchoolVehSpawn[2];
     a = SchoolVehSpawn[3];
+}
+
+// ---------- Автоматични врати ----------
+
+// Всяка секунда: врата се отваря, щом някой е до отвора, и се затваря, щом няма никой
+stock School_DoorTick()
+{
+    for (new d = 0; d < sizeof (SchoolDoors); d += 2) {
+        // Двете крила на един отвор: центърът е между пантите
+        new Float:cx = SCHOOL_X + (SchoolDoors[d][0] + SchoolDoors[d + 1][0]) / 2.0;
+        new Float:cy = SCHOOL_Y + SchoolDoors[d][1];
+        new bool:near = false;
+        for (new i = 0; i < MAX_PLAYERS; i++) {
+            if (!IsPlayerConnected(i) || GetPlayerVirtualWorld(i) != SCHOOL_WORLD) continue;
+            if (IsPlayerInRangeOfPoint(i, 2.8, cx, cy, SCHOOL_Z + 1.0)) {
+                near = true;
+                break;
+            }
+        }
+        if (near == SchoolDoorOpen[d]) continue;
+        for (new k = d; k <= d + 1; k++) {
+            SchoolDoorOpen[k] = near;
+            // Отворена: и двете крила сочат на север (навътре в стаята)
+            new Float:rz = near ? 90.0 : SchoolDoors[k][2];
+            new Float:z = SCHOOL_Z + (near ? 0.001 : 0.0);
+            MoveDynamicObject(SchoolDoorObj[k], SCHOOL_X + SchoolDoors[k][0], SCHOOL_Y + SchoolDoors[k][1], z, 0.002, 0.0, 0.0, rz);
+        }
+    }
 }
 
 // ---------- Вход и изход ----------

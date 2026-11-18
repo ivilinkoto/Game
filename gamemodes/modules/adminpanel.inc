@@ -396,7 +396,9 @@ enum {
     APP_ADD_REST,
     APP_ADD_WEIGH,
     APP_SCHOOL_DOOR,
-    APP_SCHOOL_VEH
+    APP_SCHOOL_VEH,
+    APP_REMOVE_OBJECT,
+    APP_RESTORE_OBJECTS
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -418,7 +420,9 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_GREEN "+ " C_WHITE "Паркинг за почивка тук\n" \
         C_GREEN "+ " C_WHITE "Кантар тук (застани в центъра му)\n" \
         C_BRAND "> " C_WHITE "Премести входа на автошколата тук (гледай навън)\n" \
-        C_BRAND "> " C_WHITE "Изпитният камион на автошколата тръгва оттук",
+        C_BRAND "> " C_WHITE "Изпитният камион на автошколата тръгва оттук\n" \
+        C_RED "- " C_WHITE "Махни обекта от картата пред мен (порта, ограда...)\n" \
+        C_GREY "  Върни всички махнати обекти",
         "Избери", "Назад");
 }
 
@@ -462,6 +466,14 @@ static stock AdminPanel_DoPlace(playerid, action)
         case APP_SCHOOL_VEH: {
             if (!AdminPanel_Need(playerid, 5)) return;
             School_SetVehicleSpawn(playerid);
+        }
+        case APP_REMOVE_OBJECT: {
+            if (!AdminPanel_Need(playerid, 5)) return;
+            Removed_AddAhead(playerid);
+        }
+        case APP_RESTORE_OBJECTS: {
+            if (!AdminPanel_Need(playerid, 5)) return;
+            Removed_RestoreAll(playerid);
         }
         case APP_ADD_FUEL:   AdminPanel_RunCmd(playerid, "addfuel", "\1");
         case APP_ADD_GPS: {

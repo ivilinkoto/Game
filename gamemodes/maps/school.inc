@@ -50,6 +50,15 @@
 #define SCHOOL_NPC_Y            -1.2        // рецепционистът (зад плота)
 #define SCHOOL_NPC_SKIN         141
 
+// Врати: модел 1491 (вътрешна дървена врата ~1 м), пантата е в началото на модела.
+// Вътрешните отвори са с двойни врати, които се отварят сами (виж school.inc).
+#define SCHOOL_DOOR_MODEL       1491
+stock const Float:SchoolDoors[4][3] = {
+    // x на пантата, y, завъртане (затворена)
+    {-4.2, 0.0, 0.0}, {-2.2, 0.0, 180.0},      // към стаята за теория
+    { 7.4, 0.0, 0.0}, { 9.4, 0.0, 180.0}       // към кабинета
+};
+
 // Работни места в стаята за теория: 3 реда по 3 бюра (бюрото е на +0.75 м пред стола)
 stock const Float:SchoolSeats[9][2] = {
     {-8.0, 4.05}, {-5.0, 4.05}, {-2.0, 4.05},
@@ -108,11 +117,11 @@ stock School_CreateMap()
     School_OuterWall(false,  SCHOOL_HALF_W, 0.0, SCH_WALL);
 
     // ---------- Вътрешни стени ----------
-    // По y = 0 с два отвора: към теорията (x -4.2..-2.2) и към кабинета (x 7.4..9.0).
+    // По y = 0 с два отвора по 2 м: към теорията (x -4.2..-2.2) и към кабинета (x 7.4..9.4).
     // Излишното от парчетата влиза в страничните стени и не се вижда.
     School_Partition(true, -9.0, 0.0, SCH_WALL);
     School_Partition(true,  2.6, 0.0, SCH_ACCENT);         // зад рецепцията - акцентна стена
-    School_Partition(true, 13.8, 0.0, SCH_WALL);
+    School_Partition(true, 14.2, 0.0, SCH_WALL);           // отворът към кабинета е x 7.4..9.4
     // Между теорията и кабинета (x = 2), от y = 0 на север
     School_Partition(false, 2.0, 4.8, SCH_WALL);
 
@@ -122,9 +131,10 @@ stock School_CreateMap()
     School_FloorPanel(SCHOOL_WALL_SMALL, 6.0, 4.0, false, SCH_CARPET_OFFICE); // килим в кабинета
     School_FloorPanel(SCHOOL_WALL_SMALL, 0.0, -6.6, true, SCH_MAT);         // изтривалка на входа
 
-    // ---------- Входна врата (отвътре) ----------
-    School_Paint(School_Obj(SCHOOL_WALL_SMALL, 0.0, -SCHOOL_HALF_L + 0.12, 2.4 - 1.75, 0.0, 0.0, 90.0), SCH_GLASS);
-    School_Paint(School_Obj(SCHOOL_WALL_SMALL, 0.0, -SCHOOL_HALF_L + 0.06, 2.6 - 1.75, 0.0, 0.0, 90.0), SCH_ANTHRACITE);   // каса
+    // ---------- Входна врата (отвътре): тъмна каса и двойна врата ----------
+    School_Paint(School_Obj(SCHOOL_WALL_SMALL, 0.0, -SCHOOL_HALF_L + 0.02, 2.45 - 1.75, 0.0, 0.0, 90.0), SCH_ANTHRACITE);
+    School_Obj(SCHOOL_DOOR_MODEL, -1.0, -SCHOOL_HALF_L + 0.25, 0.0, 0.0, 0.0, 0.0);
+    School_Obj(SCHOOL_DOOR_MODEL,  1.0, -SCHOOL_HALF_L + 0.25, 0.0, 0.0, 0.0, 180.0);
 
     // ---------- Рецепция ----------
     // Плот 1.1 м висок: 5 стени една зад друга, видими само горните им ръбове -> плътен плот.
