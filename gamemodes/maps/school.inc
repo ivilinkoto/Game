@@ -53,6 +53,7 @@
 // Врати: модел 1491 (вътрешна дървена врата ~1 м), пантата е в началото на модела.
 // Вътрешните отвори са с двойни врати, които се отварят сами (виж school.inc).
 #define SCHOOL_DOOR_MODEL       1491
+#define SCHOOL_DOOR_TOP         2.2         // височина на вратата - над нея е преградата
 stock const Float:SchoolDoors[4][3] = {
     // x на пантата, y, завъртане (затворена)
     {-4.2, 0.0, 0.0}, {-2.2, 0.0, 180.0},      // към стаята за теория
@@ -131,10 +132,13 @@ stock School_CreateMap()
     School_FloorPanel(SCHOOL_WALL_SMALL, 6.0, 4.0, false, SCH_CARPET_OFFICE); // килим в кабинета
     School_FloorPanel(SCHOOL_WALL_SMALL, 0.0, -6.6, true, SCH_MAT);         // изтривалка на входа
 
-    // ---------- Входна врата (отвътре): тъмна каса и двойна врата ----------
-    School_Paint(School_Obj(SCHOOL_WALL_SMALL, 0.0, -SCHOOL_HALF_L + 0.02, 2.45 - 1.75, 0.0, 0.0, 90.0), SCH_ANTHRACITE);
-    School_Obj(SCHOOL_DOOR_MODEL, -1.0, -SCHOOL_HALF_L + 0.25, 0.0, 0.0, 0.0, 0.0);
-    School_Obj(SCHOOL_DOOR_MODEL,  1.0, -SCHOOL_HALF_L + 0.25, 0.0, 0.0, 0.0, 180.0);
+    // ---------- Входна врата (отвътре): двойна врата плътно до стената ----------
+    School_Obj(SCHOOL_DOOR_MODEL, -1.0, -SCHOOL_HALF_L + 0.06, 0.0, 0.0, 0.0, 0.0);
+    School_Obj(SCHOOL_DOOR_MODEL,  1.0, -SCHOOL_HALF_L + 0.06, 0.0, 0.0, 0.0, 180.0);
+
+    // ---------- Прегради над вътрешните врати (от горния ръб на вратата до тавана) ----------
+    School_Paint(School_Obj(SCHOOL_WALL_SMALL, -3.2, 0.0, SCHOOL_DOOR_TOP + 1.75, 0.0, 0.0, 90.0), SCH_WALL);
+    School_Paint(School_Obj(SCHOOL_WALL_SMALL,  8.4, 0.0, SCHOOL_DOOR_TOP + 1.75, 0.0, 0.0, 90.0), SCH_WALL);
 
     // ---------- Рецепция ----------
     // Плот 1.1 м висок: 5 стени една зад друга, видими само горните им ръбове -> плътен плот.

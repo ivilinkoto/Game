@@ -124,9 +124,7 @@ stock School_DoorTick()
         for (new k = d; k <= d + 1; k++) {
             SchoolDoorOpen[k] = near;
             // Отворена: и двете крила сочат на север (навътре в стаята)
-            new Float:rz = near ? 90.0 : SchoolDoors[k][2];
-            new Float:z = SCHOOL_Z + (near ? 0.001 : 0.0);
-            MoveDynamicObject(SchoolDoorObj[k], SCHOOL_X + SchoolDoors[k][0], SCHOOL_Y + SchoolDoors[k][1], z, 0.002, 0.0, 0.0, rz);
+            SetDynamicObjectRot(SchoolDoorObj[k], 0.0, 0.0, near ? 90.0 : SchoolDoors[k][2]);
         }
     }
 }
