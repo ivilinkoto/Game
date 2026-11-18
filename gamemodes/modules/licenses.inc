@@ -196,7 +196,7 @@ stock License_OnDriverEnter(playerid)
     if (License_CanDrive(playerid, model)) return;
     RemovePlayerFromVehicle(playerid);
     new cat = License_ForModel(model);
-    SendClientMessage(playerid, COLOR_RED, "[!] " C_WHITE "Нямаш категория " C_BRAND "%s" C_WHITE " (%s). Вземи я в автошкола (GPS > Автошкола).",
+    SendClientMessage(playerid, COLOR_RED, "[!] " C_WHITE "Нямаш категория " C_BRAND "%s" C_WHITE " (%s). Вземи я в автошкола (GPS > Важни места).",
         LicenseNames[cat], LicenseDesc[cat]);
 }
 

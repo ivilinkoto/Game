@@ -11,11 +11,13 @@ enum {
     GPS_CAT_DEALERS,
     GPS_CAT_GARAGE,
     GPS_CAT_OTHER,
-    GPS_CAT_SCHOOL,         // след "Други" - номерът на "Други" се пази в базата
+    GPS_CAT_IMPORTANT,      // "Важни места" (автошкола и др.); след "Други" - номерът на "Други" се пази в базата
     GPS_CAT_COUNT
 }
 
-static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други", "Автошкола"};
+#define GPS_IMPORTANT_COUNT     1       // важните места в Gps_GetPlace (засега само автошколата)
+
+static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други", "Важни места"};
 
 // Списъкът, показан на играча: вид + индекс (за "Други" – ID от базата)
 static GpsListType[MAX_PLAYERS][GPS_MAX_LIST];
@@ -73,9 +75,14 @@ static stock Gps_GetPlace(type, index, &Float:x, &Float:y, &Float:z, name[], siz
             Dealer_GetPos(index, x, y, z);
             Dealer_GetName(index, name, size);
         }
-        case GPS_CAT_SCHOOL: {
-            School_GetEntrance(x, y, z);
-            format(name, size, "Автошкола San Fierro");
+        case GPS_CAT_IMPORTANT: {
+            switch (index) {
+                case 0: {
+                    School_GetEntrance(x, y, z);
+                    format(name, size, "Автошкола (San Fierro)");
+                }
+                default: return 0;
+            }
         }
         default: return 0;
     }
@@ -90,7 +97,7 @@ static stock Gps_ShowGameList(playerid, type)
         case GPS_CAT_COMPANIES: total = Company_Total();
         case GPS_CAT_FUEL:      total = Fuel_Total();
         case GPS_CAT_DEALERS:   total = Dealer_Total();
-        case GPS_CAT_SCHOOL:    total = 1;
+        case GPS_CAT_IMPORTANT: total = GPS_IMPORTANT_COUNT;
         default: return;
     }
     if (total > GPS_MAX_LIST) total = GPS_MAX_LIST;

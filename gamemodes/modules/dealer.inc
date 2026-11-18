@@ -232,7 +232,7 @@ static stock Dealer_ShowDetails(playerid, i)
     if (VehCatalog[i][vcLevel] > PlayerData[playerid][pLevel]) {
         format(status, sizeof (status), C_RED "Нужно ниво %d (ти си ниво %d).", VehCatalog[i][vcLevel], PlayerData[playerid][pLevel]);
     } else if (!License_CanDrive(playerid, model)) {
-        format(status, sizeof (status), C_RED "Нужна е категория %s. Вземи я в автошкола (GPS > Автошкола).", LicenseNames[License_ForModel(model)]);
+        format(status, sizeof (status), C_RED "Нужна е категория %s. Вземи я в автошкола (GPS > Важни места).", LicenseNames[License_ForModel(model)]);
     } else if (Veh_FindFreeSlot(playerid) == -1) {
         format(status, sizeof (status), C_RED "Гаражът ти е пълен. Продай превозно средство от Меню > Моят гараж.");
     } else if (Money_Get(playerid) < VehCatalog[i][vcPrice]) {

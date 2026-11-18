@@ -68,7 +68,7 @@ static stock School_CreateOutside()
     if (SchoolLabel != Text3D:-1) DestroyDynamic3DTextLabel(SchoolLabel);
     if (SchoolMapIcon != -1) DestroyDynamicMapIcon(SchoolMapIcon);
 
-    SchoolPickup = CreateDynamicPickup(1239, 1, SchoolEntrance[0], SchoolEntrance[1], SchoolEntrance[2], 0, 0);
+    SchoolPickup = CreateDynamicPickup(1318, 1, SchoolEntrance[0], SchoolEntrance[1], SchoolEntrance[2], 0, 0);
     SchoolLabel = CreateDynamic3DTextLabel(C_BRAND "АВТОШКОЛА\n" C_WHITE "Категории C, CE и ADR\n" C_GREY "ALT - влез", COLOR_WHITE,
         SchoolEntrance[0], SchoolEntrance[1], SchoolEntrance[2] + 0.8, 20.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, 0, 0);
     SchoolMapIcon = CreateDynamicMapIcon(SchoolEntrance[0], SchoolEntrance[1], SchoolEntrance[2], 36, 0, 0, 0, -1, 3000.0, MAPICON_LOCAL);
