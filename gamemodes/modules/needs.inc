@@ -60,6 +60,8 @@ static const ShopItems[][E_ITEM] = {
 // Специалните "места" при показване на менюто
 #define SHOP_KIND_STATION   100     // бензиностанция = магазин + тоалетна
 #define SHOP_KIND_GARAGE    101     // гараж: хладилник (безплатна вода и сандвич) + тоалетна
+#define SHOP_KIND_HOME      102     // дом: като гаража (хладилник, тоалетна, легло)
+#define IS_FREE_KIND(%0)    ((%0) == SHOP_KIND_GARAGE || (%0) == SHOP_KIND_HOME)
 
 static Float:PlacePos[MAX_PLACES][3];
 static PlaceType[MAX_PLACES];
@@ -589,12 +591,12 @@ stock Needs_ShowShop(playerid, kind)
         Needs_UseToilet(playerid, TOILET_PRICE);
         return;
     }
-    new where = (kind == SHOP_KIND_STATION || kind == SHOP_KIND_GARAGE) ? (1 << PLACE_SHOP) : (1 << kind);
+    new where = (kind == SHOP_KIND_STATION || IS_FREE_KIND(kind)) ? (1 << PLACE_SHOP) : (1 << kind);
     for (new i = 0; i < sizeof (ShopItems) && n < sizeof (ShopMap[]) - 1; i++) {
         if (!(ShopItems[i][itWhere] & where)) continue;
         // В гаража (хладилника) са само вода и сандвич, безплатно
-        if (kind == SHOP_KIND_GARAGE && i != 0 && i != 3) continue;
-        new price = (kind == SHOP_KIND_GARAGE) ? 0 : ShopItems[i][itPrice];
+        if (IS_FREE_KIND(kind) && i != 0 && i != 3) continue;
+        new price = IS_FREE_KIND(kind) ? 0 : ShopItems[i][itPrice];
         new effect[48];
         if (ShopItems[i][itFood] > 0 && ShopItems[i][itDrink] > 0) format(effect, sizeof (effect), "храна +%d, жажда +%d", ShopItems[i][itFood], ShopItems[i][itDrink]);
         else if (ShopItems[i][itFood] > 0) format(effect, sizeof (effect), "храна +%d", ShopItems[i][itFood]);
@@ -605,8 +607,8 @@ stock Needs_ShowShop(playerid, kind)
         strcat(body, line);
         ShopMap[playerid][n++] = i;
     }
-    if (kind == SHOP_KIND_STATION || kind == SHOP_KIND_GARAGE) {
-        if (kind == SHOP_KIND_GARAGE) format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "безплатно\n");
+    if (kind == SHOP_KIND_STATION || IS_FREE_KIND(kind)) {
+        if (IS_FREE_KIND(kind)) format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "безплатно\n");
         else format(line, sizeof (line), C_BRAND "Тоалетна\t" C_GREY "тоалетна 0\t" C_GREEN "$%d\n", TOILET_PRICE);
         strcat(body, line);
         ShopMap[playerid][n++] = -1;
@@ -618,6 +620,7 @@ stock Needs_ShowShop(playerid, kind)
     switch (kind) {
         case SHOP_KIND_STATION: format(title, sizeof (title), C_BRAND "Магазин на бензиностанцията");
         case SHOP_KIND_GARAGE:  format(title, sizeof (title), C_BRAND "Гараж: хладилник и тоалетна");
+        case SHOP_KIND_HOME:    format(title, sizeof (title), C_BRAND "Дом: хладилник, тоалетна, легло");
         default:                format(title, sizeof (title), C_BRAND "%s", PlaceTypeNames[kind]);
     }
     ShowPlayerDialog(playerid, DIALOG_SHOP, DIALOG_STYLE_TABLIST, title, "%s", "Купи", "Затвори", body);
@@ -636,7 +639,7 @@ static stock Needs_UseToilet(playerid, price)
 
 static stock Needs_Buy(playerid, item)
 {
-    new price = (ShopKind[playerid] == SHOP_KIND_GARAGE) ? 0 : ShopItems[item][itPrice];
+    new price = IS_FREE_KIND(ShopKind[playerid]) ? 0 : ShopItems[item][itPrice];
     if (price > 0 && !Money_Take(playerid, price)) { SendError(playerid, "Нямаш достатъчно пари."); return 0; }
     NeedHunger[playerid] += ShopItems[item][itFood];
     NeedThirst[playerid] += ShopItems[item][itDrink];
@@ -679,7 +682,7 @@ stock Needs_OnDialogResponse(playerid, dialogid, response, listitem)
     if (!response || listitem < 0 || listitem >= sizeof (ShopMap[])) return 1;
     new item = ShopMap[playerid][listitem];
     if (item == -1) {
-        Needs_UseToilet(playerid, (ShopKind[playerid] == SHOP_KIND_GARAGE) ? 0 : TOILET_PRICE);
+        Needs_UseToilet(playerid, IS_FREE_KIND(ShopKind[playerid]) ? 0 : TOILET_PRICE);
         return 1;
     }
     if (item == -2) {

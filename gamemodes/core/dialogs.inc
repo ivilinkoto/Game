@@ -72,6 +72,13 @@ enum {
     DIALOG_AP_CDELETE,
     DIALOG_AP_LIC,
     DIALOG_AP_REMOVE,
+    DIALOG_AP_HPRICE,
+    DIALOG_AP_HINT,
+
+    // Жилища
+    DIALOG_HOUSE_INFO,
+    DIALOG_HOUSE_MENU,
+    DIALOG_HOUSE_SELL,
 
     // Автошкола
     DIALOG_LIC_SCHOOL,

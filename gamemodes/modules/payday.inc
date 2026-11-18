@@ -1,5 +1,5 @@
 // PayDay: всеки кръгъл час (по часовника на сървъра) играчите, изиграли поне 20 минути
-// от последния си PayDay, получават опит и - ако нямат жилище - социална помощ.
+// от последния си PayDay, получават опит. Без жилище - социална помощ; с жилище - плащат данък.
 // Изиграните минути се трупат: 10 мин в единия час + 10 мин в следващия също стигат.
 
 #define PAYDAY_MIN_SECONDS      (20 * 60)
@@ -14,11 +14,9 @@ stock Payday_OnPlayerConnect(playerid)
     PaydaySeconds[playerid] = 0;
 }
 
-// Жилищата идват по-късно - дотогава никой няма купена къща
 stock bool:Payday_HasHome(playerid)
 {
-    #pragma unused playerid
-    return false;
+    return House_HasHome(playerid);
 }
 
 // Вика се всяка секунда за всеки спаунат играч
@@ -62,6 +60,8 @@ static stock Payday_Give(playerid)
     if (!Payday_HasHome(playerid)) {
         Money_Give(playerid, PAYDAY_SOCIAL_AID);
         SendClientMessage(playerid, COLOR_BRAND, "[PAYDAY] " C_WHITE "Социална помощ (нямаш жилище): " C_GREEN "$%d", PAYDAY_SOCIAL_AID);
+    } else {
+        House_ChargeTax(playerid);
     }
     Level_GiveExp(playerid, PAYDAY_EXP);
 }

@@ -73,6 +73,7 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/business.inc"
 #include "modules/fuel.inc"
 #include "modules/needs.inc"
+#include "modules/houses.inc"
 #include "modules/payday.inc"
 #include "modules/tuning.inc"
 #include "modules/adminpanel.inc"
@@ -121,6 +122,7 @@ public OnGameModeInit()
     Licenses_Init();
     School_Init();
     Removed_Init();
+    Houses_Init();
     AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
@@ -229,7 +231,8 @@ public OnPlayerRequestSpawn(playerid)
 public OnPlayerSpawn(playerid)
 {
     if (!Auth_OnPlayerSpawn(playerid)) return 1;
-    Garage_OnPlayerSpawn(playerid);
+    if (House_SpawnAtHome(playerid)) City_ShowGarageIcon(playerid);
+    else Garage_OnPlayerSpawn(playerid);
     Hud_Show(playerid);
     Logo_Show(playerid);
     Needs_CreateHud(playerid);
@@ -253,6 +256,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (School_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (House_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Needs_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
@@ -283,6 +287,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (License_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (House_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;

@@ -12,12 +12,13 @@ enum {
     GPS_CAT_GARAGE,
     GPS_CAT_OTHER,
     GPS_CAT_IMPORTANT,      // "Важни места" (автошкола и др.); след "Други" - номерът на "Други" се пази в базата
+    GPS_CAT_HOUSES,         // жилища за продан
     GPS_CAT_COUNT
 }
 
 #define GPS_IMPORTANT_COUNT     1       // важните места в Gps_GetPlace (засега само автошколата)
 
-static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други", "Важни места"};
+static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други", "Важни места", "Жилища за продан"};
 
 // Списъкът, показан на играча: вид + индекс (за "Други" – ID от базата)
 static GpsListType[MAX_PLAYERS][GPS_MAX_LIST];
@@ -84,6 +85,9 @@ static stock Gps_GetPlace(type, index, &Float:x, &Float:y, &Float:z, name[], siz
                 default: return 0;
             }
         }
+        case GPS_CAT_HOUSES: {
+            if (!House_GetNthForSale(index, x, y, z, name, size)) return 0;
+        }
         default: return 0;
     }
     return 1;
@@ -98,6 +102,7 @@ static stock Gps_ShowGameList(playerid, type)
         case GPS_CAT_FUEL:      total = Fuel_Total();
         case GPS_CAT_DEALERS:   total = Dealer_Total();
         case GPS_CAT_IMPORTANT: total = GPS_IMPORTANT_COUNT;
+        case GPS_CAT_HOUSES:    total = House_CountForSale();
         default: return;
     }
     if (total > GPS_MAX_LIST) total = GPS_MAX_LIST;

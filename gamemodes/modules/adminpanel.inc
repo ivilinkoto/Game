@@ -28,6 +28,8 @@ static ApTargetName[MAX_PLAYERS][MAX_PLAYER_NAME + 1];
 static ApLookupFor[MAX_PLAYERS];                    // AP_STATS или AP_EDIT
 static ApEditAction[MAX_PLAYERS];
 static ApPlaceAction[MAX_PLAYERS];
+static Float:ApHousePos[MAX_PLAYERS][4];
+static ApHousePrice[MAX_PLAYERS];
 static ApPickMap[MAX_PLAYERS][MAX_COMPANIES];
 static ApNewName[MAX_PLAYERS][32];
 static ApNewPlace[MAX_PLAYERS][24];
@@ -398,7 +400,9 @@ enum {
     APP_SCHOOL_DOOR,
     APP_SCHOOL_VEH,
     APP_REMOVE_OBJECT,
-    APP_RESTORE_OBJECTS
+    APP_RESTORE_OBJECTS,
+    APP_HOUSE_ADD,
+    APP_HOUSE_DEL
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -422,7 +426,9 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_BRAND "> " C_WHITE "Премести входа на автошколата тук (гледай навън)\n" \
         C_BRAND "> " C_WHITE "Изпитният камион на автошколата тръгва оттук\n" \
         C_RED "- " C_WHITE "Махни обекта от картата пред мен (порта, ограда...)\n" \
-        C_GREY "  Върни последния махнат обект",
+        C_GREY "  Върни последния махнат обект\n" \
+        C_GREEN "+ " C_WHITE "Нова къща тук (застани на вратата, гледай навън)\n" \
+        C_RED "- " C_WHITE "Изтрий най-близката къща",
         "Избери", "Назад");
 }
 
@@ -478,6 +484,18 @@ static stock AdminPanel_DoPlace(playerid, action)
         case APP_RESTORE_OBJECTS: {
             if (!AdminPanel_Need(playerid, 5)) return;
             Removed_RestoreLast(playerid);
+        }
+        case APP_HOUSE_ADD: {
+            if (!AdminPanel_Need(playerid, 4)) return;
+            GetPlayerPos(playerid, ApHousePos[playerid][0], ApHousePos[playerid][1], ApHousePos[playerid][2]);
+            GetPlayerFacingAngle(playerid, ApHousePos[playerid][3]);
+            ShowPlayerDialog(playerid, DIALOG_AP_HPRICE, DIALOG_STYLE_INPUT, C_ADMIN "Нова къща (1/2)",
+                C_WHITE "Цена на къщата в $ (напр. 25000 за малка, 150000 за имение):", "Напред", "Назад");
+            return;
+        }
+        case APP_HOUSE_DEL: {
+            if (!AdminPanel_Need(playerid, 4)) return;
+            House_DeleteNearest(playerid);
         }
         case APP_ADD_FUEL:   AdminPanel_RunCmd(playerid, "addfuel", "\1");
         case APP_ADD_GPS: {
@@ -637,6 +655,33 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
                     AdminPanel_ShowLicenses(playerid);
                 }
             }
+            return 1;
+        }
+        case DIALOG_AP_HPRICE: {
+            if (!response) { AdminPanel_ShowPlaces(playerid); return 1; }
+            new price = strval(inputtext);
+            if (!IsNumeric(inputtext) || price < 1000 || price > 10000000) {
+                SendError(playerid, "Цената е от $1000 до $10 000 000.");
+                AdminPanel_ShowPlaces(playerid);
+                return 1;
+            }
+            ApHousePrice[playerid] = price;
+            new body[256], line[48];
+            body[0] = EOS;
+            for (new i = 0; i < sizeof (HouseInteriors); i++) {
+                format(line, sizeof (line), "%s\n", HouseInteriors[i][hiName]);
+                strcat(body, line);
+            }
+            ShowPlayerDialog(playerid, DIALOG_AP_HINT, DIALOG_STYLE_LIST, C_ADMIN "Нова къща (2/2): интериор", "%s", "Създай", "Назад", body);
+            return 1;
+        }
+        case DIALOG_AP_HINT: {
+            if (!response) { AdminPanel_ShowPlaces(playerid); return 1; }
+            // Админът може да е мръднал - връщаме го на вратата, за да се запише точното място
+            SetPlayerPos(playerid, ApHousePos[playerid][0], ApHousePos[playerid][1], ApHousePos[playerid][2]);
+            SetPlayerFacingAngle(playerid, ApHousePos[playerid][3]);
+            House_Create(playerid, ApHousePrice[playerid], listitem);
+            AdminPanel_ShowPlaces(playerid);
             return 1;
         }
         case DIALOG_AP_REMOVE: {
