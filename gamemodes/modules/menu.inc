@@ -2,12 +2,9 @@
 // Всичко в играта е достъпно оттук, за да се играе удобно и от таблет/телефон.
 
 enum {
-    MENU_ITEM_GARAGE,
-    MENU_ITEM_COMPANY,
-    MENU_ITEM_HOME,
+    MENU_ITEM_PROFILE,      // "Статистика"
     MENU_ITEM_MARKET,
-    MENU_ITEM_GPS,
-    MENU_ITEM_PROFILE,
+    MENU_ITEM_GPS,          // гаражът, компанията и домът са в GPS > Моето имущество
     MENU_ITEM_CB,
     MENU_ITEM_SETTINGS,
     MENU_ITEM_HELP,
@@ -17,17 +14,18 @@ enum {
 enum {
     SETTINGS_CB_TOGGLE,
     SETTINGS_CB_CHANNEL,
-    SETTINGS_HUD_TOGGLE
+    SETTINGS_HUD_TOGGLE,
+    SETTINGS_SPAWN
 }
 
 stock Menu_Show(playerid)
 {
     if (PlayerData[playerid][pAdmin] >= 1) {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Моят гараж\nМоята компания\nМоят дом\nБорса на товарите\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
+            "Статистика\nБорса на товарите\nGPS\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
     } else {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Моят гараж\nМоята компания\nМоят дом\nБорса на товарите\nGPS\nМоят профил\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
+            "Статистика\nБорса на товарите\nGPS\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
     }
 }
 
@@ -39,7 +37,7 @@ stock Menu_ShowProfile(playerid)
     License_Format(License_GetBits(playerid), lic);
     Payday_Status(playerid, payday);
 
-    ShowPlayerDialog(playerid, DIALOG_MENU_PROFILE, DIALOG_STYLE_MSGBOX, C_BRAND "Моят профил",
+    ShowPlayerDialog(playerid, DIALOG_MENU_PROFILE, DIALOG_STYLE_MSGBOX, C_BRAND "Статистика",
         C_WHITE "Ник: " C_BRAND "%s\n" \
         C_WHITE "Пари: " C_GREEN "$%s\n" \
         C_WHITE "Ниво: " C_BRAND "%d\n" \
@@ -54,11 +52,13 @@ stock Menu_ShowProfile(playerid)
 
 stock Menu_ShowSettings(playerid)
 {
-    new body[192];
-    format(body, sizeof (body), "CB радио\t%s\nCB канал\t" C_BRAND "%d\nHUD (скорост)\t%s",
+    new body[320], spawn[64];
+    Spawn_Describe(playerid, spawn);
+    format(body, sizeof (body), "CB радио\t%s\nCB канал\t" C_BRAND "%d\nHUD (скорост)\t%s\nСпаун (къде се появяваш)\t%s",
         PlayerData[playerid][pCBOn] ? (C_GREEN "ВКЛ") : (C_RED "ИЗК"),
         PlayerData[playerid][pCBChannel],
-        PlayerData[playerid][pHudOn] ? (C_GREEN "ВКЛ") : (C_RED "ИЗК"));
+        PlayerData[playerid][pHudOn] ? (C_GREEN "ВКЛ") : (C_RED "ИЗК"),
+        spawn);
     ShowPlayerDialog(playerid, DIALOG_MENU_SETTINGS, DIALOG_STYLE_TABLIST, C_BRAND "Настройки", "%s", "Промени", "Назад", body);
 }
 
@@ -77,7 +77,7 @@ stock Menu_ShowHelp(playerid)
         C_BRAND "N" C_WHITE " или " C_BRAND "/work" C_WHITE " - работа: поръчки, текущ курс, отказ\n" \
         C_BRAND "CTRL" C_WHITE " или " C_BRAND "/engine" C_WHITE " - двигател (пали/гаси)\n" \
         C_BRAND "ALT" C_WHITE " пеша / " C_BRAND "H" C_WHITE " с превозно средство - вход и изход (гараж)\n" \
-        C_BRAND "/gps" C_WHITE " - навигация: компании, бензиностанции, автокъщи, гараж\n" \
+        C_BRAND "/gps" C_WHITE " - навигация и моето имущество (гараж, компания, дом)\n" \
         C_BRAND "ALT" C_WHITE " на бензиностанция (двигателят изгасен) - зареждане, " C_BRAND "/roadside" C_WHITE " - пътна помощ\n" \
         C_BRAND "/cb [текст]" C_WHITE " - CB радио (чуват те всички на твоя канал)\n" \
         C_BRAND "/cbch [канал]" C_WHITE " - смяна на CB канала\n" \
@@ -102,9 +102,6 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
         case DIALOG_MENU: {
             if (!response) return 1;
             switch (listitem) {
-                case MENU_ITEM_GARAGE:   Garage_ShowMenu(playerid);
-                case MENU_ITEM_COMPANY:  Business_OpenOwn(playerid);
-                case MENU_ITEM_HOME:     House_ShowMenu(playerid);
                 case MENU_ITEM_MARKET:   Economy_ShowMarket(playerid);
                 case MENU_ITEM_GPS:      Gps_ShowCategories(playerid);
                 case MENU_ITEM_PROFILE:  Menu_ShowProfile(playerid);
@@ -132,6 +129,10 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 case SETTINGS_CB_CHANNEL: Menu_ShowCBChannel(playerid);
                 case SETTINGS_HUD_TOGGLE: {
                     Hud_SetEnabled(playerid, !PlayerData[playerid][pHudOn]);
+                    Menu_ShowSettings(playerid);
+                }
+                case SETTINGS_SPAWN: {
+                    Spawn_Cycle(playerid);
                     Menu_ShowSettings(playerid);
                 }
             }

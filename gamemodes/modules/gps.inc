@@ -9,7 +9,7 @@ enum {
     GPS_CAT_COMPANIES,
     GPS_CAT_FUEL,
     GPS_CAT_DEALERS,
-    GPS_CAT_GARAGE,
+    GPS_CAT_PROPERTY,       // "Моето имущество": гараж, компания, дом
     GPS_CAT_OTHER,
     GPS_CAT_IMPORTANT,      // "Важни места" (автошкола и др.); след "Други" - номерът на "Други" се пази в базата
     GPS_CAT_HOUSES,         // жилища за продан
@@ -18,7 +18,7 @@ enum {
 
 #define GPS_IMPORTANT_COUNT     1       // важните места в Gps_GetPlace (засега само автошколата)
 
-static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моят гараж", "Други", "Важни места", "Жилища за продан"};
+static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моето имущество", "Други", "Важни места", "Жилища за продан"};
 
 // Списъкът, показан на играча: вид + индекс (за "Други" – ID от базата)
 static GpsListType[MAX_PLAYERS][GPS_MAX_LIST];
@@ -26,6 +26,7 @@ static GpsListIndex[MAX_PLAYERS][GPS_MAX_LIST];
 static GpsListCount[MAX_PLAYERS];
 static bool:GpsActive[MAX_PLAYERS];
 static bool:GpsTpMode[MAX_PLAYERS];      // /tp: изборът телепортира вместо да води
+static GpsPropPick[MAX_PLAYERS];         // 0 гараж, 1 компания, 2 дом
 
 stock Gps_Reset(playerid)
 {
@@ -222,6 +223,52 @@ static stock Gps_TeleportToPoint(playerid, pointId)
     DB_FreeResultSet(r);
 }
 
+// ---------- Моето имущество ----------
+
+// Позицията на имуществото (0 гараж, 1 компания, 2 дом); 0 = няма такова
+static stock Gps_GetPropertyPos(playerid, pick, &Float:x, &Float:y, &Float:z)
+{
+    switch (pick) {
+        case 0: {
+            new Float:a;
+            City_GetEntrance(PlayerData[playerid][pGarageCity], x, y, z, a);
+            return 1;
+        }
+        case 1: {
+            new c = Business_GetOwned(playerid);
+            if (c == -1) return 0;
+            Company_GetPos(c, x, y, z);
+            return 1;
+        }
+        case 2: {
+            new k = House_GetOwned(playerid);
+            if (k == -1) return 0;
+            House_GetPos(k, x, y, z);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+stock Gps_ShowProperty(playerid)
+{
+    new body[400], line[128], name[48];
+    format(body, sizeof (body), "Имущество\tКакво\n");
+    format(line, sizeof (line), "Моят гараж\t" C_BRAND "%s\n", CityNames[PlayerData[playerid][pGarageCity]]);
+    strcat(body, line);
+    new c = Business_GetOwned(playerid);
+    if (c != -1) format(line, sizeof (line), "Моята компания\t" C_BRAND "%s\n", CompanyDefs[c][cdName]);
+    else format(line, sizeof (line), "Моята компания\t" C_GREY "нямаш\n");
+    strcat(body, line);
+    new k = House_GetOwned(playerid);
+    if (k != -1) {
+        House_GetName(k, name);
+        format(line, sizeof (line), "Моят дом\t" C_BRAND "%s\n", name);
+    } else format(line, sizeof (line), "Моят дом\t" C_GREY "нямаш\n");
+    strcat(body, line);
+    ShowPlayerDialog(playerid, DIALOG_GPS_PROPERTY, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "GPS" C_WHITE " | Моето имущество", "%s", "Избери", "Назад", body);
+}
+
 // Маршрут до произволна точка (напр. гаража).
 stock Gps_SetPoint(playerid, const name[], Float:x, Float:y, Float:z)
 {
@@ -264,14 +311,48 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
                 return 1;
             }
             switch (listitem) {
-                case GPS_CAT_GARAGE: {
-                    new Float:x, Float:y, Float:z, Float:a;
-                    City_GetEntrance(PlayerData[playerid][pGarageCity], x, y, z, a);
-                    if (GpsTpMode[playerid]) Admin_TeleportTo(playerid, x, y, z);
-                    else Gps_SetPoint(playerid, "моят гараж", x, y, z);
-                }
+                case GPS_CAT_PROPERTY: Gps_ShowProperty(playerid);
                 case GPS_CAT_OTHER: Gps_ShowCustom(playerid);
                 default: Gps_ShowGameList(playerid, listitem);
+            }
+            return 1;
+        }
+        case DIALOG_GPS_PROPERTY: {
+            if (!response) {
+                if (GpsTpMode[playerid]) Gps_ShowTeleport(playerid);
+                else Gps_ShowCategories(playerid);
+                return 1;
+            }
+            if (listitem < 0 || listitem > 2) return 1;
+            GpsPropPick[playerid] = listitem;
+            new Float:x, Float:y, Float:z;
+            if (!Gps_GetPropertyPos(playerid, listitem, x, y, z)) {
+                // Няма такова имущество - показваме обяснението
+                if (listitem == 1) Business_OpenOwn(playerid);
+                else House_ShowMenu(playerid);
+                return 1;
+            }
+            if (GpsTpMode[playerid]) {
+                Admin_TeleportTo(playerid, x, y, z);
+                return 1;
+            }
+            ShowPlayerDialog(playerid, DIALOG_GPS_PROPACT, DIALOG_STYLE_LIST, C_BRAND "Моето имущество",
+                "Покажи на GPS\nУправление", "Избери", "Назад");
+            return 1;
+        }
+        case DIALOG_GPS_PROPACT: {
+            if (!response) { Gps_ShowProperty(playerid); return 1; }
+            new pick = GpsPropPick[playerid];
+            if (listitem == 0) {
+                new Float:x, Float:y, Float:z;
+                if (!Gps_GetPropertyPos(playerid, pick, x, y, z)) return 1;
+                if (pick == 0) Gps_SetPoint(playerid, "моят гараж", x, y, z);
+                else if (pick == 1) Gps_SetPoint(playerid, "моята компания", x, y, z);
+                else Gps_SetPoint(playerid, "моят дом", x, y, z);
+            } else {
+                if (pick == 0) Garage_ShowMenu(playerid);
+                else if (pick == 1) Business_OpenOwn(playerid);
+                else House_ShowMenu(playerid);
             }
             return 1;
         }

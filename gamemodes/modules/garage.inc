@@ -203,7 +203,7 @@ stock Garage_OnDialogResponse(playerid, dialogid, response, listitem)
     switch (dialogid) {
         case DIALOG_GARAGE_MENU: {
             if (!response) {
-                Menu_Show(playerid);
+                Gps_ShowProperty(playerid);
                 return 1;
             }
             if (listitem == GARAGE_SLOTS) {

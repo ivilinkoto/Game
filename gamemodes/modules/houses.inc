@@ -4,7 +4,8 @@
 // - Отвън: зелена къщичка = за продан, синя = има собственик. ALT пеша на вратата:
 //   влизаш (ако е твоя или е отключена) или виждаш офертата и купуваш.
 // - Вътре: ALT до изхода - навън; другаде - хладилник, тоалетна и легло (безплатно).
-// - Меню > Моят дом: GPS, заключване, спаун в дома, данък, продажба (60% от цената).
+// - GPS > Моето имущество > Моят дом: GPS, заключване, данък, продажба (60% от цената).
+//   Спаунът в дома се избира от Меню > Настройки > Спаун.
 // - PayDay: собствениците не получават социална помощ, а плащат данък (0.1% от цената).
 //   След 24 неплатени данъка къщата се връща на държавата.
 // - Един играч - едно жилище.
@@ -233,13 +234,25 @@ static stock House_Exit(playerid, k)
     SetCameraBehindPlayer(playerid);
 }
 
-// Спаун в дома (вместо в гаража). 1 = спаунат в дома
-stock House_SpawnAtHome(playerid)
+// Спаун в дома: 1 = играчът има дом и е вътре
+stock House_EnterOwned(playerid)
 {
     new k = House_GetOwned(playerid);
-    if (k == -1 || !House[k][hSpawnHome]) return 0;
+    if (k == -1) return 0;
     House_Enter(playerid, k);
     return 1;
+}
+
+stock House_GetPos(k, &Float:x, &Float:y, &Float:z)
+{
+    x = House[k][hX];
+    y = House[k][hY];
+    z = House[k][hZ];
+}
+
+stock House_GetName(k, dest[], size = sizeof (dest))
+{
+    format(dest, size, "%s №%d", HouseInteriors[House[k][hInt]][hiName], House[k][hID]);
 }
 
 // ---------- Оферта и покупка ----------
@@ -281,8 +294,10 @@ static stock House_Buy(playerid, k)
     House_CreateMarkers(k);
     PlayerPlaySound(playerid, 1058, 0.0, 0.0, 0.0);
     GameTextForPlayer(playerid, "~g~NEW HOME!", 4000, 1);
-    SendClientMessage(playerid, COLOR_GREEN, "[ДОМ] " C_WHITE "Поздравления! Купи %s №%d. Управлявай го от " C_BRAND "Меню > Моят дом" C_WHITE ".",
+    SendClientMessage(playerid, COLOR_GREEN, "[ДОМ] " C_WHITE "Поздравления! Купи %s №%d. Управлявай го от " C_BRAND "GPS > Моето имущество" C_WHITE ".",
         HouseInteriors[House[k][hInt]][hiName], House[k][hID]);
+    Spawn_SetPref(playerid, SPAWN_HOME);
+    SendClientMessage(playerid, COLOR_GREEN, "[ДОМ] " C_WHITE "Вече се появяваш тук. Промяна: Меню > Настройки > Спаун.");
     House_Enter(playerid, k);
     return 1;
 }
@@ -304,11 +319,9 @@ stock House_ShowMenu(playerid)
     format(body, sizeof (body),
         "Покажи на GPS\n" \
         "Вратата:\t%s\n" \
-        "Спаун в дома:\t%s\n" \
         "Данък на PayDay:\t" C_BRAND "$%s" C_WHITE "%s\n" \
         C_RED "Продай на държавата\t" C_GREEN "$%s",
         House[k][hLocked] ? (C_RED "заключена") : (C_GREEN "отключена"),
-        House[k][hSpawnHome] ? (C_GREEN "вкл") : (C_GREY "изкл"),
         tax, (House[k][hUnpaid] > 0) ? (C_RED " (има неплатени)") : (""),
         sell);
     format(title, sizeof (title), C_BRAND "Моят дом" C_WHITE " | %s №%d", HouseInteriors[House[k][hInt]][hiName], House[k][hID]);
@@ -382,7 +395,7 @@ stock House_OnDialogResponse(playerid, dialogid, response, listitem)
             return 1;
         }
         case DIALOG_HOUSE_MENU: {
-            if (!response) { Menu_Show(playerid); return 1; }
+            if (!response) { Gps_ShowProperty(playerid); return 1; }
             new k = House_GetOwned(playerid);
             if (k == -1) return 1;
             switch (listitem) {
@@ -397,13 +410,8 @@ stock House_OnDialogResponse(playerid, dialogid, response, listitem)
                     PlayerPlaySound(playerid, 1145, 0.0, 0.0, 0.0);
                     House_ShowMenu(playerid);
                 }
-                case 2: {
-                    House[k][hSpawnHome] = !House[k][hSpawnHome];
-                    House_Save(k);
-                    House_ShowMenu(playerid);
-                }
-                case 3: House_ShowMenu(playerid);
-                case 4: {
+                case 2: House_ShowMenu(playerid);
+                case 3: {
                     new sell[16];
                     FormatMoney(House[k][hPrice] * HOUSE_SELL_PERCENT / 100, sell);
                     ShowPlayerDialog(playerid, DIALOG_HOUSE_SELL, DIALOG_STYLE_MSGBOX, C_RED "Продажба на жилище",

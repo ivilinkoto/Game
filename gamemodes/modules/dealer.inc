@@ -1,6 +1,6 @@
 // Автокъща: по една във всеки град. ALT пеша (или /dealer) до входа -> витрина с 3D модели.
 // Докосваш модел -> детайли -> купуваш. Купеното отива на свободно място в гаража.
-// Продажба: Меню > Моят гараж > превозното средство > Продай (60% от цената).
+// Продажба: GPS > Моето имущество > Моят гараж > превозното средство > Продай (60% от цената).
 //
 // Входовете се местят от админ на място: /dealerpos [0 LS | 1 SF | 2 LV]
 
@@ -234,7 +234,7 @@ static stock Dealer_ShowDetails(playerid, i)
     } else if (!License_CanDrive(playerid, model)) {
         format(status, sizeof (status), C_RED "Нужна е категория %s. Вземи я в автошкола (GPS > Важни места).", LicenseNames[License_ForModel(model)]);
     } else if (Veh_FindFreeSlot(playerid) == -1) {
-        format(status, sizeof (status), C_RED "Гаражът ти е пълен. Продай превозно средство от Меню > Моят гараж.");
+        format(status, sizeof (status), C_RED "Гаражът ти е пълен. Продай превозно средство от GPS > Моето имущество > Моят гараж.");
     } else if (Money_Get(playerid) < VehCatalog[i][vcPrice]) {
         format(status, sizeof (status), C_RED "Нямаш достатъчно пари.");
     } else {

@@ -468,7 +468,7 @@ static stock bool:Veh_IsOccupiedByOthers(vehicleid, ownerid)
     return false;
 }
 
-// Връща изоставен камион обратно в гаража (Меню > Моят гараж).
+// Връща изоставен камион обратно в гаража (GPS > Моето имущество > Моят гараж).
 stock bool:Veh_ReturnToGarage(playerid, slot)
 {
     if (PlayerVeh[playerid][slot][pvID] == 0) return false;

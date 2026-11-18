@@ -73,6 +73,7 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/business.inc"
 #include "modules/fuel.inc"
 #include "modules/needs.inc"
+#include "modules/spawn.inc"
 #include "modules/houses.inc"
 #include "modules/payday.inc"
 #include "modules/tuning.inc"
@@ -101,7 +102,7 @@ public OnGameModeInit()
 
     SetGameModeText("Truck Simulator");
     SetWorldTime(12);
-    UsePlayerPedAnims();
+    // Без UsePlayerPedAnims: всеки скин тича и ходи със своята анимация, а не като CJ
     EnableStuntBonusForAll(false);
     DisableInteriorEnterExits();
     ShowPlayerMarkers(PLAYER_MARKERS_MODE_GLOBAL);
@@ -123,6 +124,7 @@ public OnGameModeInit()
     School_Init();
     Removed_Init();
     Houses_Init();
+    Spawn_Init();
     AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
@@ -192,6 +194,7 @@ public OnPlayerConnect(playerid)
     Route_OnPlayerConnect(playerid);
     Needs_OnPlayerConnect(playerid);
     License_OnPlayerConnect(playerid);
+    Spawn_OnPlayerConnect(playerid);
     Payday_OnPlayerConnect(playerid);
     Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
@@ -231,8 +234,7 @@ public OnPlayerRequestSpawn(playerid)
 public OnPlayerSpawn(playerid)
 {
     if (!Auth_OnPlayerSpawn(playerid)) return 1;
-    if (House_SpawnAtHome(playerid)) City_ShowGarageIcon(playerid);
-    else Garage_OnPlayerSpawn(playerid);
+    Spawn_OnPlayerSpawn(playerid);
     Hud_Show(playerid);
     Logo_Show(playerid);
     Needs_CreateHud(playerid);
