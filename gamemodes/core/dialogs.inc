@@ -71,6 +71,7 @@ enum {
     DIALOG_AP_CCONFIRM,
     DIALOG_AP_CDELETE,
     DIALOG_AP_LIC,
+    DIALOG_AP_REMOVE,
 
     // Автошкола
     DIALOG_LIC_SCHOOL,

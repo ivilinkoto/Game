@@ -137,8 +137,11 @@ stock School_CreateMap()
     School_Obj(SCHOOL_DOOR_MODEL,  1.0, -SCHOOL_HALF_L + 0.06, 0.0, 0.0, 0.0, 180.0);
 
     // ---------- Прегради над вътрешните врати (от горния ръб на вратата до тавана) ----------
-    School_Paint(School_Obj(SCHOOL_WALL_SMALL, -3.2, 0.0, SCHOOL_DOOR_TOP + 1.75, 0.0, 0.0, 90.0), SCH_WALL);
-    School_Paint(School_Obj(SCHOOL_WALL_SMALL,  8.4, 0.0, SCHOOL_DOOR_TOP + 1.75, 0.0, 0.0, 90.0), SCH_WALL);
+    // Две копия, изместени с 4 см напред и назад - лицата им са пред стената, затова не трептят с нея
+    for (new side = -1; side <= 1; side += 2) {
+        School_Paint(School_Obj(SCHOOL_WALL_SMALL, -3.2, side * 0.04, SCHOOL_DOOR_TOP + 1.75, 0.0, 0.0, 90.0), SCH_WALL);
+        School_Paint(School_Obj(SCHOOL_WALL_SMALL,  8.4, side * 0.04, SCHOOL_DOOR_TOP + 1.75, 0.0, 0.0, 90.0), SCH_WALL);
+    }
 
     // ---------- Рецепция ----------
     // Плот 1.1 м висок: 5 стени една зад друга, видими само горните им ръбове -> плътен плот.

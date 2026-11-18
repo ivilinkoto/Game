@@ -422,7 +422,7 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_BRAND "> " C_WHITE "Премести входа на автошколата тук (гледай навън)\n" \
         C_BRAND "> " C_WHITE "Изпитният камион на автошколата тръгва оттук\n" \
         C_RED "- " C_WHITE "Махни обекта от картата пред мен (порта, ограда...)\n" \
-        C_GREY "  Върни всички махнати обекти",
+        C_GREY "  Върни последния махнат обект",
         "Избери", "Назад");
 }
 
@@ -469,11 +469,15 @@ static stock AdminPanel_DoPlace(playerid, action)
         }
         case APP_REMOVE_OBJECT: {
             if (!AdminPanel_Need(playerid, 5)) return;
-            Removed_AddAhead(playerid);
+            ShowPlayerDialog(playerid, DIALOG_AP_REMOVE, DIALOG_STYLE_INPUT, C_ADMIN "Махни обект от картата",
+                C_WHITE "Застани плътно пред обекта, с лице към него.\n" \
+                C_WHITE "Маха се всичко, чийто център е в радиуса около точка на 3 м пред теб.\n\n" \
+                C_WHITE "Радиус в метри (1-30). За голяма порта пробвай 8:", "Махни", "Назад");
+            return;
         }
         case APP_RESTORE_OBJECTS: {
             if (!AdminPanel_Need(playerid, 5)) return;
-            Removed_RestoreAll(playerid);
+            Removed_RestoreLast(playerid);
         }
         case APP_ADD_FUEL:   AdminPanel_RunCmd(playerid, "addfuel", "\1");
         case APP_ADD_GPS: {
@@ -633,6 +637,17 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
                     AdminPanel_ShowLicenses(playerid);
                 }
             }
+            return 1;
+        }
+        case DIALOG_AP_REMOVE: {
+            if (!response) { AdminPanel_ShowPlaces(playerid); return 1; }
+            new Float:radius = floatstr(inputtext);
+            if (radius < 1.0 || radius > 30.0) {
+                SendError(playerid, "Радиусът е от 1 до 30 метра.");
+                AdminPanel_ShowPlaces(playerid);
+                return 1;
+            }
+            Removed_AddAhead(playerid, radius);
             return 1;
         }
         case DIALOG_AP_LIC: {
