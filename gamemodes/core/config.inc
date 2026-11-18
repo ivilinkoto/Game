@@ -32,9 +32,11 @@
 #define CB_DEFAULT_CHANNEL  19
 #define CB_MAX_CHANNEL      40
 
-// Нива: нужен опит (общо) за ниво 1..5
-#define MAX_LEVEL           5
-stock const LevelExp[MAX_LEVEL] = {0, 150, 500, 1200, 2500};
+// Нива: без горна граница. Нужният опит (общо) за ниво 1..5 е в таблицата,
+// след това всяко ниво иска с 400 повече от предишното (виж Level_ExpFor).
+#define LEVEL_TABLE_SIZE    5
+#define LEVEL_MAX_ADMIN     1000        // най-голямото ниво, което админ може да зададе
+stock const LevelExpTable[LEVEL_TABLE_SIZE] = {0, 150, 500, 1200, 2500};
 
 // Гориво: под този процент от резервоара – предупреждение и червен HUD
 #define FUEL_LOW_PERCENT    15

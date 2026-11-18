@@ -45,8 +45,9 @@ static const AdminCmds[][E_ADMIN_CMD] = {
     {"fixveh",    3, "",                                    "Поправи и зареди превозното средство, в което си"},
     {"addfuel",   4, "",                                    "Добави бензиностанция тук"},
     {"delfuel",   4, "",                                    "Изтрий най-близката бензиностанция"},
-    {"setlevel",  4, "[ID] [ниво 1-5]",                     "Задай нивото на играч"},
-    {"makeadmin", 5, "[ID] [ниво 0-5]",                     "Смени админ нивото на играч"}
+    {"setlevel",  4, "[ID] [ниво]",                         "Задай нивото на играч"},
+    {"makeadmin", 5, "[ID] [ниво 0-5]",                     "Смени админ нивото на играч"},
+    {"payday",    5, "",                                    "Пусни PayDay сега (за проба)"}
 };
 
 
@@ -264,14 +265,14 @@ CMD:setlevel(playerid, params[])
     if (!Admin_Check(playerid, 4)) return 1;
     new target[24], levelStr[4];
     if (!GetParam(params, 0, target) || !GetParam(params, 1, levelStr) || !IsNumeric(levelStr)) {
-        return SendUsage(playerid, "/setlevel [ID] [1-5]");
+        return SendUsage(playerid, "/setlevel [ID] [ниво]");
     }
     new targetid = FindPlayer(target), level = strval(levelStr);
     if (targetid == INVALID_PLAYER_ID) return SendError(playerid, "Няма такъв играч.");
-    if (level < 1 || level > MAX_LEVEL) return SendError(playerid, "Нивото е от 1 до 5.");
+    if (level < 1 || level > LEVEL_MAX_ADMIN) return SendError(playerid, "Нивото е от 1 до 1000.");
 
     PlayerData[targetid][pLevel] = level;
-    PlayerData[targetid][pExp] = LevelExp[level - 1];
+    PlayerData[targetid][pExp] = Level_ExpFor(level);
     SetPlayerScore(targetid, level);
     new q[128];
     format(q, sizeof (q), "UPDATE accounts SET level = %d, exp = %d WHERE id = %d", level, PlayerData[targetid][pExp], PlayerData[targetid][pID]);

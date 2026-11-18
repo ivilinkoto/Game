@@ -1,21 +1,31 @@
-// Опит и нива (1-5). Нивата отключват камионите в етап 2.
-// Прагът е в core/config.inc (LevelExp).
+// Опит и нива - без горна граница. Нивата отключват камиони и категории.
+// Таблицата за първите нива е в core/config.inc (LevelExpTable).
+
+// Общ опит, нужен за ниво level
+stock Level_ExpFor(level)
+{
+    if (level <= 1) return 0;
+    if (level <= LEVEL_TABLE_SIZE) return LevelExpTable[level - 1];
+    new exp = LevelExpTable[LEVEL_TABLE_SIZE - 1];
+    new step = LevelExpTable[LEVEL_TABLE_SIZE - 1] - LevelExpTable[LEVEL_TABLE_SIZE - 2];
+    for (new l = LEVEL_TABLE_SIZE + 1; l <= level; l++) {
+        step += 400;
+        exp += step;
+    }
+    return exp;
+}
 
 stock Level_ForExp(exp)
 {
     new level = 1;
-    for (new i = 0; i < MAX_LEVEL; i++) {
-        if (exp >= LevelExp[i]) level = i + 1;
-    }
+    while (level < LEVEL_MAX_ADMIN && exp >= Level_ExpFor(level + 1)) level++;
     return level;
 }
 
-// Опит до следващото ниво (0 = максимално ниво).
+// Опит до следващото ниво
 stock Level_ExpToNext(playerid)
 {
-    new level = PlayerData[playerid][pLevel];
-    if (level >= MAX_LEVEL) return 0;
-    return LevelExp[level] - PlayerData[playerid][pExp];
+    return Level_ExpFor(PlayerData[playerid][pLevel] + 1) - PlayerData[playerid][pExp];
 }
 
 stock Level_GiveExp(playerid, amount)

@@ -31,12 +31,11 @@ enum {
     PLACE_TOILET,           // обществена тоалетна
     PLACE_REST,             // паркинг за почивка (умора)
     PLACE_WEIGH,            // кантар (виж delivery.inc) – не се ползва с ALT
-    PLACE_SCHOOL,           // автошкола (виж licenses.inc)
     MAX_PLACE_TYPES
 }
 
-stock const PlaceTypeNames[MAX_PLACE_TYPES][] = {"Магазин", "Закусвалня", "Кафене", "Обществена тоалетна", "Паркинг за почивка", "Кантар", "Автошкола"};
-static const PlaceIcons[MAX_PLACE_TYPES] = {17, 10, 17, 0, 0, 0, 36};
+stock const PlaceTypeNames[MAX_PLACE_TYPES][] = {"Магазин", "Закусвалня", "Кафене", "Обществена тоалетна", "Паркинг за почивка", "Кантар"};
+static const PlaceIcons[MAX_PLACE_TYPES] = {17, 10, 17, 0, 0, 0};
 
 // Артикули: име, цена, +глад, +жажда, +тоалетна, в кои места (битове PLACE_*)
 enum E_ITEM {
@@ -107,6 +106,7 @@ stock Places_Init()
 {
     Database_Exec("CREATE TABLE IF NOT EXISTS places (id INTEGER PRIMARY KEY AUTOINCREMENT, type INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL)");
     Database_AddColumn("places", "a", "REAL NOT NULL DEFAULT 0");
+    Database_Exec("DELETE FROM places WHERE type = 6");     // старите автошколи - вече има само една (school.inc)
     Database_AddColumn("accounts", "hunger", "INTEGER NOT NULL DEFAULT 100");
     Database_AddColumn("accounts", "thirst", "INTEGER NOT NULL DEFAULT 100");
     Database_AddColumn("accounts", "bladder", "INTEGER NOT NULL DEFAULT 0");
@@ -663,7 +663,6 @@ stock Needs_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     new p = Places_GetNear(playerid);
     if (p != -1) {
         if (PlaceType[p] == PLACE_REST) Fatigue_StartRest(playerid);
-        else if (PlaceType[p] == PLACE_SCHOOL) License_ShowSchool(playerid, PlacePos[p][0], PlacePos[p][1], PlacePos[p][2], PlaceAngle[p]);
         else Needs_ShowShop(playerid, PlaceType[p]);
         return 1;
     }

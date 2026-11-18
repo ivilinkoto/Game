@@ -1,6 +1,7 @@
 // Шофьорски категории: B (бусове), C (камиони), CE (влекачи с ремарке), ADR (опасни товари - гориво).
 //
-// - B се дава при регистрация. Останалите се взимат в автошкола (място от админ панела, ALT пеша).
+// - B се дава при регистрация. Останалите се взимат в автошколата в San Fierro (виж school.inc):
+//   рецепционистът дава курсовете, теорията е в стаята за теория.
 // - Изпит: такса, теория (5 въпроса, поне 4 верни) и за C/CE - практика с изпитен камион:
 //   до случайна компания и обратно до автошколата, навреме, без много щети и без превишена скорост.
 //   ADR е само теория.
@@ -195,22 +196,20 @@ stock License_OnDriverEnter(playerid)
     if (License_CanDrive(playerid, model)) return;
     RemovePlayerFromVehicle(playerid);
     new cat = License_ForModel(model);
-    SendClientMessage(playerid, COLOR_RED, "[!] " C_WHITE "Нямаш категория " C_BRAND "%s" C_WHITE " (%s). Вземи я в автошкола (GPS > Автошколи).",
+    SendClientMessage(playerid, COLOR_RED, "[!] " C_WHITE "Нямаш категория " C_BRAND "%s" C_WHITE " (%s). Вземи я в автошкола (GPS > Автошкола).",
         LicenseNames[cat], LicenseDesc[cat]);
 }
 
 // ---------- Автошкола ----------
 
-stock License_ShowSchool(playerid, Float:x, Float:y, Float:z, Float:a)
+stock License_ShowSchool(playerid)
 {
     if (LexStage[playerid] != LEX_NONE) {
         SendError(playerid, "Вече си на изпит.");
         return;
     }
-    LexSchool[playerid][0] = x;
-    LexSchool[playerid][1] = y;
-    LexSchool[playerid][2] = z;
-    LexSchool[playerid][3] = a;
+    // Изпитният камион тръгва от (и се връща на) мястото пред автошколата
+    School_GetVehicleSpawn(LexSchool[playerid][0], LexSchool[playerid][1], LexSchool[playerid][2], LexSchool[playerid][3]);
 
     new body[640], line[160], n = 0, money[16];
     format(body, sizeof (body), "Категория\tЗа какво\tСтатус\n");
@@ -228,7 +227,7 @@ stock License_ShowSchool(playerid, Float:x, Float:y, Float:z, Float:a)
         strcat(body, line);
         LexSchoolMap[playerid][n++] = c;
     }
-    ShowPlayerDialog(playerid, DIALOG_LIC_SCHOOL, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Автошкола", "%s", "Изпит", "Затвори", body);
+    ShowPlayerDialog(playerid, DIALOG_LIC_SCHOOL, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Рецепция" C_WHITE " | Кой курс избираш?", "%s", "Запиши ме", "Затвори", body);
 }
 
 static stock License_AskConfirm(playerid, cat)
@@ -278,6 +277,8 @@ static stock License_StartTheory(playerid)
     LexQIndex[playerid] = 0;
     LexCorrect[playerid] = 0;
     LexQRight[playerid] = 1 + random(3);
+    School_SeatForTheory(playerid);
+    SendClientMessage(playerid, COLOR_BRAND, "[АВТОШКОЛА] " C_WHITE "Седни и се съсредоточи - теорията започва.");
     License_ShowQuestion(playerid);
     return 1;
 }
@@ -306,6 +307,7 @@ static stock License_TheoryAnswer(playerid, listitem)
     new cat = LexCat[playerid];
     if (LexCorrect[playerid] < LIC_THEORY_PASS) {
         LexStage[playerid] = LEX_NONE;
+        School_StandUp(playerid);
         ShowPlayerDialog(playerid, DIALOG_LIC_RESULT, DIALOG_STYLE_MSGBOX, C_RED "Скъсан",
             C_WHITE "Верни отговори: " C_RED "%d" C_WHITE " от %d (нужни са %d).\n\nОпитай пак, когато си готов.",
             "Добре", "", LexCorrect[playerid], LIC_THEORY_QUESTIONS, LIC_THEORY_PASS);
@@ -348,9 +350,11 @@ static stock License_StartDrive(playerid)
         return;
     }
     new Float:a = LexSchool[playerid][3];
-    new Float:x = LexSchool[playerid][0] + 8.0 * floatsin(-a, degrees);
-    new Float:y = LexSchool[playerid][1] + 8.0 * floatcos(-a, degrees);
+    new Float:x = LexSchool[playerid][0];
+    new Float:y = LexSchool[playerid][1];
     new Float:z = LexSchool[playerid][2];
+    // От стаята за теория - навън, при камиона
+    School_LeaveForExam(playerid, x, y, z, a);
     new veh = CreateVehicle(LicenseExamModel[LexCat[playerid]], x, y, z + 1.0, a, 1, 3, -1);
     if (veh == INVALID_VEHICLE_ID) {
         License_Grant(playerid, LexCat[playerid]);
@@ -418,8 +422,7 @@ stock License_OnEnterRaceCP(playerid)
     if (LexStage[playerid] == LEX_TO_POINT) {
         LexStage[playerid] = LEX_BACK;
         PlayerPlaySound(playerid, 1056, 0.0, 0.0, 0.0);
-        new Float:a = LexSchool[playerid][3];
-        License_SetCP(playerid, LexSchool[playerid][0] + 8.0 * floatsin(-a, degrees), LexSchool[playerid][1] + 8.0 * floatcos(-a, degrees), LexSchool[playerid][2], true);
+        License_SetCP(playerid, LexSchool[playerid][0], LexSchool[playerid][1], LexSchool[playerid][2], true);
         SendClientMessage(playerid, COLOR_BRAND, "[АВТОШКОЛА] " C_WHITE "Добре! Сега се върни в автошколата.");
         return 1;
     }
@@ -449,6 +452,7 @@ static stock License_Grant(playerid, cat)
 // Чисти изпита (без съобщения)
 stock License_EndExam(playerid)
 {
+    if (LexStage[playerid] == LEX_THEORY) School_StandUp(playerid);
     if (LexStage[playerid] == LEX_TO_POINT || LexStage[playerid] == LEX_BACK) {
         DisablePlayerRaceCheckpoint(playerid);
         Route_Clear(playerid, ROUTE_SRC_JOB);
@@ -545,6 +549,7 @@ stock License_OnDialogResponse(playerid, dialogid, response, listitem)
             if (LexStage[playerid] != LEX_THEORY) return 1;
             if (!response) {
                 LexStage[playerid] = LEX_NONE;
+                School_StandUp(playerid);
                 SendClientMessage(playerid, COLOR_RED, "[АВТОШКОЛА] " C_WHITE "Отказа се от изпита.");
                 return 1;
             }

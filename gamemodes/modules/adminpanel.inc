@@ -274,12 +274,12 @@ static stock AdminPanel_DoEdit(playerid, action, const value[])
         case APE_LEVEL: {
             if (!AdminPanel_Need(playerid, 4)) return;
             new level = strval(value);
-            if (level < 1 || level > MAX_LEVEL) { SendError(playerid, "Нивото е от 1 до 5."); AdminPanel_ShowEdit(playerid); return; }
+            if (level < 1 || level > LEVEL_MAX_ADMIN) { SendError(playerid, "Нивото е от 1 до 1000."); AdminPanel_ShowEdit(playerid); return; }
             if (online) {
                 format(params, sizeof (params), "%d %d", t, level);
                 AdminPanel_RunCmd(playerid, "setlevel", params);
             } else {
-                format(q, sizeof (q), "UPDATE accounts SET level = %d, exp = %d WHERE id = %d", level, LevelExp[level - 1], ApTargetAccount[playerid]);
+                format(q, sizeof (q), "UPDATE accounts SET level = %d, exp = %d WHERE id = %d", level, Level_ExpFor(level), ApTargetAccount[playerid]);
                 Database_Exec(q);
                 SendClientMessage(playerid, COLOR_ADMIN, "[A] Нивото на %s (офлайн) е %d.", ApTargetName[playerid], level);
             }
@@ -395,7 +395,8 @@ enum {
     APP_DEL_COMPANY,
     APP_ADD_REST,
     APP_ADD_WEIGH,
-    APP_ADD_SCHOOL
+    APP_SCHOOL_DOOR,
+    APP_SCHOOL_VEH
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -407,7 +408,7 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_GREEN "+ " C_WHITE "Обществена тоалетна тук\n" \
         C_GREEN "+ " C_WHITE "Бензиностанция тук\n" \
         C_GREEN "+ " C_WHITE "GPS точка тук\n" \
-        C_RED "- " C_WHITE "Изтрий най-близкото място (магазин, тоалетна, кантар, автошкола...)\n" \
+        C_RED "- " C_WHITE "Изтрий най-близкото място (магазин, тоалетна, паркинг, кантар)\n" \
         C_RED "- " C_WHITE "Изтрий най-близката бензиностанция\n" \
         C_BRAND "> " C_WHITE "Премести база на компания тук\n" \
         C_BRAND "> " C_WHITE "Премести входа на гаражите тук\n" \
@@ -416,7 +417,8 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_RED "- " C_WHITE "Закрий компания\n" \
         C_GREEN "+ " C_WHITE "Паркинг за почивка тук\n" \
         C_GREEN "+ " C_WHITE "Кантар тук (застани в центъра му)\n" \
-        C_GREEN "+ " C_WHITE "Автошкола тук (изпитният камион излиза пред теб)",
+        C_BRAND "> " C_WHITE "Премести входа на автошколата тук (гледай навън)\n" \
+        C_BRAND "> " C_WHITE "Изпитният камион на автошколата тръгва оттук",
         "Избери", "Назад");
 }
 
@@ -453,7 +455,14 @@ static stock AdminPanel_DoPlace(playerid, action)
         case APP_ADD_TOILET: Places_AddHere(playerid, PLACE_TOILET);
         case APP_ADD_REST:   Places_AddHere(playerid, PLACE_REST);
         case APP_ADD_WEIGH:  Places_AddHere(playerid, PLACE_WEIGH);
-        case APP_ADD_SCHOOL: Places_AddHere(playerid, PLACE_SCHOOL);
+        case APP_SCHOOL_DOOR: {
+            if (!AdminPanel_Need(playerid, 5)) return;
+            School_SetEntrance(playerid);
+        }
+        case APP_SCHOOL_VEH: {
+            if (!AdminPanel_Need(playerid, 5)) return;
+            School_SetVehicleSpawn(playerid);
+        }
         case APP_ADD_FUEL:   AdminPanel_RunCmd(playerid, "addfuel", "\1");
         case APP_ADD_GPS: {
             ShowPlayerDialog(playerid, DIALOG_AP_GPSNAME, DIALOG_STYLE_INPUT, C_ADMIN "GPS точка", C_WHITE "Име на точката (категория \"Други\"):", "Добави", "Назад");
@@ -577,7 +586,7 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
             new bool:online = AdminPanel_TargetOnline(playerid), t = ApTarget[playerid], params[16];
             ApEditAction[playerid] = listitem;
             switch (listitem) {
-                case APE_LEVEL:     AdminPanel_AskValue(playerid, "Ново ниво (1-5):");
+                case APE_LEVEL:     AdminPanel_AskValue(playerid, "Ново ниво (1 и нагоре):");
                 case APE_SETMONEY:  AdminPanel_AskValue(playerid, "Нова сума пари:");
                 case APE_GIVEMONEY: AdminPanel_AskValue(playerid, "Колко пари да дам (може и минус):");
                 case APE_ADMIN:     AdminPanel_AskValue(playerid, "Ново админ ниво (0-5):");

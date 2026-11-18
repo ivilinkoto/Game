@@ -50,6 +50,7 @@ forward bool:License_Has(playerid, cat);
 forward bool:License_CanDrive(playerid, model);
 
 #include "maps/garage.inc"
+#include "maps/school.inc"
 
 #include "modules/money.inc"
 #include "modules/levels.inc"
@@ -64,12 +65,14 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/garage.inc"
 #include "modules/companies.inc"
 #include "modules/economy.inc"
+#include "modules/school.inc"
 #include "modules/licenses.inc"
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
 #include "modules/business.inc"
 #include "modules/fuel.inc"
 #include "modules/needs.inc"
+#include "modules/payday.inc"
 #include "modules/tuning.inc"
 #include "modules/adminpanel.inc"
 #include "modules/skin_select.inc"
@@ -115,6 +118,7 @@ public OnGameModeInit()
     Fuel_Init();
     Places_Init();
     Licenses_Init();
+    School_Init();
     AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
@@ -147,6 +151,7 @@ public Server_Tick()
     if (gSecondsCounter % ECONOMY_TICK_SECONDS == 0) Economy_Tick();
     if (autosave) Economy_Save();
     Places_GateTick();
+    Payday_Tick();
 
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (!IsPlayerLogged(i) || !PlayerData[i][pSpawned]) continue;
@@ -156,6 +161,7 @@ public Server_Tick()
         Tune_ArmorTick(i);
         Needs_Tick(i);
         License_Tick(i);
+        Payday_PlayerTick(i);
         Money_Sync(i);
         if (autosave) {
             Auth_SaveAccount(i);
@@ -180,6 +186,7 @@ public OnPlayerConnect(playerid)
     Route_OnPlayerConnect(playerid);
     Needs_OnPlayerConnect(playerid);
     License_OnPlayerConnect(playerid);
+    Payday_OnPlayerConnect(playerid);
     Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
     Hud_Create(playerid);
@@ -241,6 +248,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (School_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Needs_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
     return 1;
