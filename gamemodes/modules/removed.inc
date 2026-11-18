@@ -11,9 +11,27 @@ static Float:RemovedPos[MAX_REMOVED_BUILDINGS][4];     // x, y, z, радиус
 static RemovedID[MAX_REMOVED_BUILDINGS];
 static RemovedCount;
 
+// Махнати винаги, по модел и точни координати (от Prineside model ID database):
+// модел, x, y, z, радиус
+enum E_REMOVED_FIXED {
+    rfModel,
+    Float:rfX,
+    Float:rfY,
+    Float:rfZ,
+    Float:rfRadius
+}
+static const RemovedFixed[][E_REMOVED_FIXED] = {
+    {11014, -2076.44, -107.93, 36.9688, 1.0}       // портата и покривът на двора на автошколата (drivingschlgrg_SFS)
+};
+
 stock Removed_Init()
 {
     Database_Exec("CREATE TABLE IF NOT EXISTS removed_buildings (id INTEGER PRIMARY KEY AUTOINCREMENT, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, radius REAL NOT NULL)");
+    // Еднократно: връщаме всичко, махнато с радиус до момента (беше махнало земя и сгради)
+    if (Database_GetMeta("removed_reset_1") == 0) {
+        Database_Exec("DELETE FROM removed_buildings");
+        Database_SetMeta("removed_reset_1", 1);
+    }
     RemovedCount = 0;
     new DBResult:r = Database_Query("SELECT id, x, y, z, radius FROM removed_buildings ORDER BY id");
     if (r == DBResult:0) return;
@@ -33,6 +51,9 @@ stock Removed_Init()
 // OnPlayerConnect - преди играчът да е заредил картата
 stock Removed_OnPlayerConnect(playerid)
 {
+    for (new i = 0; i < sizeof (RemovedFixed); i++) {
+        RemoveBuildingForPlayer(playerid, RemovedFixed[i][rfModel], RemovedFixed[i][rfX], RemovedFixed[i][rfY], RemovedFixed[i][rfZ], RemovedFixed[i][rfRadius]);
+    }
     for (new i = 0; i < RemovedCount; i++) {
         RemoveBuildingForPlayer(playerid, -1, RemovedPos[i][0], RemovedPos[i][1], RemovedPos[i][2], RemovedPos[i][3]);
     }
