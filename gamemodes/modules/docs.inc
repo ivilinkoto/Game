@@ -26,6 +26,9 @@ static PlayerText:DocTD[MAX_PLAYERS][DOC_MAX_TD];
 static DocTDCount[MAX_PLAYERS];
 static DocHideTimer[MAX_PLAYERS];
 static DocPick[MAX_PLAYERS];
+
+// Снимката: ъгли и приближение на модела (админ ги настройва с /docphoto, за да се вижда главата)
+static Float:DocPhotoRX = -8.0, Float:DocPhotoRZ = 0.0, Float:DocPhotoZoom = 0.75;
 static PlayerText:DocCloseTD[MAX_PLAYERS] = {PlayerText:INVALID_TEXT_DRAW, ...};
 static bool:DocOpen[MAX_PLAYERS];
 
@@ -215,7 +218,7 @@ stock Docs_Show(viewerid, ownerid, doc)
         PlayerTextDrawBackgroundColour(viewerid, p, 0xD6DEE6FF);
         PlayerTextDrawTextSize(viewerid, p, 58.0, 74.0);
         PlayerTextDrawSetPreviewModel(viewerid, p, GetPlayerSkin(ownerid));
-        PlayerTextDrawSetPreviewRot(viewerid, p, -8.0, 0.0, 0.0, 0.75);
+        PlayerTextDrawSetPreviewRot(viewerid, p, DocPhotoRX, 0.0, DocPhotoRZ, DocPhotoZoom);
         PlayerTextDrawShow(viewerid, p);
         DocTD[viewerid][DocTDCount[viewerid]++] = p;
     }
@@ -378,6 +381,24 @@ stock Docs_OnDialogResponse(playerid, dialogid, response, listitem)
         }
     }
     return 0;
+}
+
+// Проба на снимката: /docphoto [ъгъл X] [ъгъл Z] [приближение] - показва личната ти карта с тези стойности
+CMD:docphoto(playerid, params[])
+{
+    if (!Admin_Check(playerid, 5)) return 1;
+    new a[16], b[16], c[16];
+    if (!GetParam(params, 0, a) || !GetParam(params, 1, b) || !GetParam(params, 2, c)) {
+        SendClientMessage(playerid, COLOR_ADMIN, "[A] Сега: X %.1f, Z %.1f, приближение %.2f. Пример: /docphoto 60 0 0.4", DocPhotoRX, DocPhotoRZ, DocPhotoZoom);
+        return 1;
+    }
+    DocPhotoRX = floatstr(a);
+    DocPhotoRZ = floatstr(b);
+    DocPhotoZoom = floatstr(c);
+    if (DocPhotoZoom < 0.05) DocPhotoZoom = 0.05;
+    Docs_Show(playerid, playerid, DOC_ID);
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Снимка: X %.1f, Z %.1f, приближение %.2f (до рестарт).", DocPhotoRX, DocPhotoRZ, DocPhotoZoom);
+    return 1;
 }
 
 CMD:docs(playerid, params[])
