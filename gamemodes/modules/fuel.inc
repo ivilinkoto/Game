@@ -219,6 +219,15 @@ static stock Fuel_Refuel(playerid)
     new tank = Veh_GetTank(vehicleid);
     new Float:fuel = Veh_GetFuel(vehicleid);
     new liters = floatround(float(tank) - fuel, floatround_floor);
+    if (liters <= 0) { SendError(playerid, "Резервоарът е пълен."); return 0; }
+    // Карта за гориво от компанията
+    if (Firm_PayFuel(playerid, liters * FUEL_PRICE)) {
+        Veh_SetFuel(vehicleid, fuel + float(liters));
+        FuelWarned[playerid] = false;
+        PlayerPlaySound(playerid, 1133, 0.0, 0.0, 0.0);
+        SendClientMessage(playerid, COLOR_BRAND, "[ГОРИВО] " C_WHITE "Заредени " C_BRAND "%d л" C_WHITE " за " C_GREEN "$%d" C_WHITE " - плати компанията (карта за гориво).", liters, liters * FUEL_PRICE);
+        return 1;
+    }
     new affordable = Money_Get(playerid) / FUEL_PRICE;
     if (liters > affordable) liters = affordable;
     if (liters <= 0) { SendError(playerid, "Нямаш пари за гориво."); return 0; }

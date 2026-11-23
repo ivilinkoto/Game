@@ -235,7 +235,7 @@ static stock Gps_GetPropertyPos(playerid, pick, &Float:x, &Float:y, &Float:z)
             return 1;
         }
         case 1: {
-            new c = Business_GetOwned(playerid);
+            new c = Firm_GetCompany(playerid);
             if (c == -1) return 0;
             Company_GetPos(c, x, y, z);
             return 1;
@@ -258,6 +258,7 @@ stock Gps_ShowProperty(playerid)
     strcat(body, line);
     new c = Business_GetOwned(playerid);
     if (c != -1) format(line, sizeof (line), "Моята компания\t" C_BRAND "%s\n", CompanyDefs[c][cdName]);
+    else if (Firm_GetMemberCompany(playerid) != -1) format(line, sizeof (line), "Моята работа\t" C_BRAND "%s " C_GREY "(служител)\n", CompanyDefs[Firm_GetMemberCompany(playerid)][cdName]);
     else format(line, sizeof (line), "Моята компания\t" C_GREY "нямаш\n");
     strcat(body, line);
     new k = House_GetOwned(playerid);

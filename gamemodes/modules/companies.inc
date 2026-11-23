@@ -94,7 +94,15 @@ enum E_COMPANY {
     cpCash,             // касата - 10% от курсовете от/до компанията
     cpDeliveries,
     cpEarned,
-    cpBonus             // бонус за шофьорите в %, плаща се от касата
+    cpBonus,            // бонус за шофьорите в %, плаща се от касата
+    // Фирма (виж firm.inc)
+    cpTag[5],
+    cpColor,            // RGB, 0 = цветът на сървъра
+    cpSlogan[48],
+    cpCommission,       // % от курсовете на служителите
+    cpSalary,           // заплата на PayDay
+    bool:cpFuelCard,
+    cpRenamedAt
 }
 
 new Company[MAX_COMPANIES][E_COMPANY];
@@ -119,6 +127,13 @@ stock Company_Init()
     Database_Exec(q);
     Database_AddColumn("companies", "owner_name", "TEXT NOT NULL DEFAULT ''");
     Database_AddColumn("companies", "bonus", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("companies", "tag", "TEXT NOT NULL DEFAULT ''");
+    Database_AddColumn("companies", "color", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("companies", "slogan", "TEXT NOT NULL DEFAULT ''");
+    Database_AddColumn("companies", "commission", "INTEGER NOT NULL DEFAULT 10");
+    Database_AddColumn("companies", "salary", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("companies", "fuel_card", "INTEGER NOT NULL DEFAULT 0");
+    Database_AddColumn("companies", "renamed_at", "INTEGER NOT NULL DEFAULT 0");
 
     // Еднократно: махната е компанията "Fuel Station LS" (беше номер 11).
     // Собственикът (ако има) получава 60% от цената + касата; номерата след нея се местят с 1 надолу.
@@ -174,6 +189,13 @@ stock Company_Init()
                 Company[c][cpEarned] = DB_GetFieldIntByName(r, "earned");
                 Company[c][cpBonus] = DB_GetFieldIntByName(r, "bonus");
                 DB_GetFieldStringByName(r, "owner_name", Company[c][cpOwnerName], MAX_PLAYER_NAME + 1);
+                DB_GetFieldStringByName(r, "tag", Company[c][cpTag], 5);
+                Company[c][cpColor] = DB_GetFieldIntByName(r, "color");
+                DB_GetFieldStringByName(r, "slogan", Company[c][cpSlogan], 48);
+                Company[c][cpCommission] = DB_GetFieldIntByName(r, "commission");
+                Company[c][cpSalary] = DB_GetFieldIntByName(r, "salary");
+                Company[c][cpFuelCard] = (DB_GetFieldIntByName(r, "fuel_card") != 0);
+                Company[c][cpRenamedAt] = DB_GetFieldIntByName(r, "renamed_at");
             }
             DB_SelectNextRow(r);
         }
@@ -251,6 +273,7 @@ stock Company_Create(const name[], const place[], size, produces, accepts, Float
     Company[c][cpDeliveries] = 0;
     Company[c][cpEarned] = 0;
     Company[c][cpBonus] = 0;
+    Company_ResetFirm(c);
     Economy_OnCompanyCreated(c);
     Company_CreateMarkers(c);
     return c;
@@ -262,6 +285,7 @@ stock Company_Delete(c)
     if (!Company_IsValid(c)) return 0;
     Delivery_OnCompanyRemoved(c);
     if (Company[c][cpOwner] != 0) {
+        Firm_OnCompanyReleased(c);
         new q0[128];
         format(q0, sizeof (q0), "UPDATE accounts SET money = money + %d WHERE id = %d", Company_GetPrice(c) * 60 / 100 + Company[c][cpCash], Company[c][cpOwner]);
         Database_Exec(q0);
@@ -327,9 +351,13 @@ stock Company_CreateMarkers(c)
         FormatMoney(Company_GetPrice(c), price);
         format(owner, sizeof (owner), C_GREEN "Продава се: $%s", price);
     }
+    new col[12], slogan[64];
+    format(col, sizeof (col), "{%06x}", (Company[c][cpColor] != 0) ? Company[c][cpColor] : 0xF5A623);
+    slogan[0] = EOS;
+    if (Company[c][cpOwner] != 0 && Company[c][cpSlogan][0] != EOS) format(slogan, sizeof (slogan), C_WHITE "\"%s\"\n", Company[c][cpSlogan]);
     format(text, sizeof (text),
-        C_BRAND "%s\n" C_GREY "%s\n%s\n" C_GREEN "Дава: " C_WHITE "%s\n" C_BRAND "Приема: " C_WHITE "%s\n" C_GREY "N с превозно средство - поръчки, ALT пеша - компанията",
-        CompanyDefs[c][cdName], CompanyDefs[c][cdPlace], owner, produces, accepts);
+        "%s%s\n%s" C_GREY "%s\n%s\n" C_GREEN "Дава: " C_WHITE "%s\n" C_BRAND "Приема: " C_WHITE "%s\n" C_GREY "N с превозно средство - поръчки, ALT пеша - компанията",
+        col, CompanyDefs[c][cdName], slogan, CompanyDefs[c][cdPlace], owner, produces, accepts);
     CompanyLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, Company[c][cpX], Company[c][cpY], Company[c][cpZ] + 1.5, 30.0,
         INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
 }
@@ -384,10 +412,26 @@ stock Company_GetPrice(c)
 
 stock Company_Save(c)
 {
-    new q[256];
-    format(q, sizeof (q), "UPDATE companies SET owner_id = %d, owner_name = '%s', cash = %d, deliveries = %d, earned = %d, bonus = %d WHERE id = %d",
-        Company[c][cpOwner], Company[c][cpOwnerName], Company[c][cpCash], Company[c][cpDeliveries], Company[c][cpEarned], Company[c][cpBonus], c);
+    new q[640], safeTag[16], safeSlogan[112];
+    SQL_Escape(Company[c][cpTag], safeTag);
+    SQL_Escape(Company[c][cpSlogan], safeSlogan);
+    format(q, sizeof (q), "UPDATE companies SET owner_id = %d, owner_name = '%s', cash = %d, deliveries = %d, earned = %d, bonus = %d, " \
+        "tag = '%s', color = %d, slogan = '%s', commission = %d, salary = %d, fuel_card = %d, renamed_at = %d WHERE id = %d",
+        Company[c][cpOwner], Company[c][cpOwnerName], Company[c][cpCash], Company[c][cpDeliveries], Company[c][cpEarned], Company[c][cpBonus],
+        safeTag, Company[c][cpColor], safeSlogan, Company[c][cpCommission], Company[c][cpSalary], Company[c][cpFuelCard] ? 1 : 0,
+        Company[c][cpRenamedAt], c);
     Database_Exec(q);
+}
+
+// Фирмените настройки по подразбиране (нов собственик или нова компания)
+stock Company_ResetFirm(c)
+{
+    Company[c][cpTag][0] = EOS;
+    Company[c][cpColor] = 0;
+    Company[c][cpSlogan][0] = EOS;
+    Company[c][cpCommission] = 10;
+    Company[c][cpSalary] = 0;
+    Company[c][cpFuelCard] = false;
 }
 
 // Бонус (в $), който компанията А добавя към курс с тази базова стойност. 0 ако касата не стига.

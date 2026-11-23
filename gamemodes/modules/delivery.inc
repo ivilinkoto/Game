@@ -221,6 +221,7 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
         if (demand > 0) format(payStr, sizeof (payStr), "%s " C_GREEN "+%d%%", money, demand);
         else if (demand < 0) format(payStr, sizeof (payStr), "%s " C_RED "%d%%", money, demand);
         else format(payStr, sizeof (payStr), "%s", money);
+        if (Firm_OrderBonus(playerid, Contracts[i][ctFrom]) > 0) strcat(payStr, " " C_BRAND "ФИРМА");
         new gname[64];
         Delivery_GoodLabel(good, gname);
         format(line, sizeof (line), "%s\t%s > %s\t%s, %.1f км\t" C_GREEN "$%s\n",
@@ -464,6 +465,9 @@ static stock Delivery_Complete(playerid)
     new base = Job[playerid][jbBasePay];
 
     Delivery_End(playerid);
+    new firmLine[192];
+    total += Firm_OnDelivery(playerid, from, base, total, firmLine, sizeof (firmLine));
+    if (total < 0) total = 0;
     Money_Give(playerid, total);
     Level_GiveExp(playerid, exp);
     Company_OnDelivery(from, to, base);
@@ -486,11 +490,12 @@ static stock Delivery_Complete(playerid)
         C_WHITE "Бонус навреме:\t" C_GREEN "+$%s\n" \
         C_WHITE "Закъснение:\t" C_RED "-$%s\n" \
         C_WHITE "Щети:\t\t" C_RED "-$%s\n" \
-        C_WHITE "Бонус от компанията:\t" C_GREEN "+$%s\n\n" \
+        C_WHITE "Бонус от компанията:\t" C_GREEN "+$%s\n" \
+        "%s\n" \
         C_WHITE "Общо: " C_GREEN "$%s" C_WHITE ", опит: " C_BRAND "+%d",
         "Нов курс", "Затвори",
         Goods[good][gdName], tons, CompanyDefs[from][cdName], CompanyDefs[to][cdName],
-        sBase, sBonus, sLate, sDmg, sComp, sTotal, exp);
+        sBase, sBonus, sLate, sDmg, sComp, firmLine, sTotal, exp);
 }
 
 // Влизане в маркера (товарене/разтоварване стартира само - удобно и на таблет)

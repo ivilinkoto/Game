@@ -63,6 +63,7 @@ static stock Payday_Give(playerid)
     } else {
         House_ChargeTax(playerid);
     }
+    Firm_PaySalary(playerid);
     Level_GiveExp(playerid, PAYDAY_EXP);
 }
 

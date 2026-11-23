@@ -20,10 +20,11 @@ stock Chat_OnPlayerText(playerid, const text[])
     if (!PlayerData[playerid][pLogged]) return 0;
     if (!Chat_CheckSpam(playerid)) return 0;
 
-    new color = GetPlayerColor(playerid);
+    new color = GetPlayerColor(playerid), tag[24];
     if (color == 0) color = COLOR_WHITE;
-    SendClientMessageToAll(COLOR_WHITE, "{%06x}%s" C_GREY " [%d]" C_WHITE ": %s",
-        color >>> 8, PlayerData[playerid][pName], playerid, text);
+    Firm_ChatPrefix(playerid, tag);
+    SendClientMessageToAll(COLOR_WHITE, "%s{%06x}%s" C_GREY " [%d]" C_WHITE ": %s",
+        tag, color >>> 8, PlayerData[playerid][pName], playerid, text);
     return 0;
 }
 

@@ -71,6 +71,7 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/delivery.inc"
 #include "modules/dealer.inc"
 #include "modules/business.inc"
+#include "modules/firm.inc"
 #include "modules/fuel.inc"
 #include "modules/needs.inc"
 #include "modules/spawn.inc"
@@ -115,6 +116,7 @@ public OnGameModeInit()
     City_Init();
     Veh_Init();
     Company_Init();
+    Firm_Init();
     Economy_Init();
     Engine_Init();
     Dealer_Init();
@@ -195,6 +197,7 @@ public OnPlayerConnect(playerid)
     Needs_OnPlayerConnect(playerid);
     License_OnPlayerConnect(playerid);
     Spawn_OnPlayerConnect(playerid);
+    Firm_OnPlayerConnect(playerid);
     Payday_OnPlayerConnect(playerid);
     Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
@@ -285,6 +288,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Delivery_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Dealer_OnDialogResponse(playerid, dialogid, response)) return 1;
     if (Business_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Firm_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;

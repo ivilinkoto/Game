@@ -2,7 +2,8 @@
 //
 // ALT пеша в базата на компания (или GPS > Моето имущество > Моята компания отвсякъде, ако имаш).
 // - Без собственик: инфо + "Купи" (от ниво 3, една компания на играч).
-// - Твоя: каса (тегли), бонус за шофьорите, статистика, продажба (60%).
+// - Твоя: каса, служители, молби, покани, облик, условия (firm.inc), бонус за шофьорите, статистика, продажба (60%).
+// - Чужда (има собственик): инфо + "Кандидатствай" за работа; ако работиш там - панелът на служителя.
 // - 14 дни без вход -> компанията се връща на държавата, собственикът получава 60% + касата.
 
 #define BUSINESS_MIN_LEVEL      3
@@ -39,6 +40,8 @@ stock Business_Show(playerid, c)
     BizMenuCompany[playerid] = c;
     if (Company[c][cpOwner] == PlayerData[playerid][pID]) {
         Business_ShowOwnerPanel(playerid, c);
+    } else if (Company[c][cpOwner] != 0 && Firm_GetMemberCompany(playerid) == c) {
+        Firm_ShowMemberPanel(playerid);
     } else {
         Business_ShowInfo(playerid, c);
     }
@@ -49,6 +52,7 @@ static stock Business_ShowInfo(playerid, c)
     new price[16], sizeName[16], produces[320], accepts[320], owner[96], status[160], button[16];
     FormatMoney(Company_GetPrice(c), price);
     if (Company[c][cpOwner] == 0) format(button, sizeof (button), "Купи");
+    else if (Firm_GetCompany(playerid) == -1) format(button, sizeof (button), "Кандидатствай");
     else format(button, sizeof (button), "Добре");
     Business_SizeName(c, sizeName);
     Economy_GoodsLine(c, CompanyDefs[c][cdProduces], false, produces);
@@ -56,7 +60,10 @@ static stock Business_ShowInfo(playerid, c)
 
     if (Company[c][cpOwner] != 0) {
         format(owner, sizeof (owner), C_WHITE "Собственик: " C_BRAND "%s", Company[c][cpOwnerName]);
-        format(status, sizeof (status), C_GREY "Компанията не се продава.");
+        new salary[16];
+        FormatMoney(Company[c][cpSalary], salary);
+        format(status, sizeof (status), C_GREY "Не се продава. Наема шофьори: %d/%d места, заплата $%s, комисионна %d%%.",
+            Firm_CountMembers(c), Firm_Slots(c), salary, Company[c][cpCommission]);
     } else {
         format(owner, sizeof (owner), C_WHITE "Собственик: " C_GREEN "няма (държавна)");
         if (PlayerData[playerid][pLevel] < BUSINESS_MIN_LEVEL) {
@@ -83,19 +90,21 @@ static stock Business_ShowInfo(playerid, c)
         Company[c][cpDeliveries], COMPANY_COMMISSION, status);
 }
 
+// Редове: 0-5 фирмата (firm.inc), 6 бонус, 7 статистика, 8 продажба
 static stock Business_ShowOwnerPanel(playerid, c)
 {
-    new cash[16], earned[16], body[512];
-    FormatMoney(Company[c][cpCash], cash);
+    new earned[16], body[1024], line[160];
+    body[0] = EOS;
+    Firm_ShowOwnerExtras(playerid, c, body, sizeof (body));
     FormatMoney(Company[c][cpEarned], earned);
-    format(body, sizeof (body),
-        "Каса\t" C_GREEN "$%s\t" C_GREY "изтегли\n" \
-        "Бонус за шофьорите\t" C_BRAND "%d%%\t" C_GREY "смени\n" \
-        "Статистика\t%d курса\t" C_GREEN "$%s общо\n" \
-        C_RED "Продай компанията\t\t",
-        cash, Company[c][cpBonus], Company[c][cpDeliveries], earned);
-    new title[96];
-    format(title, sizeof (title), C_BRAND "%s" C_WHITE " | собственик", CompanyDefs[c][cdName]);
+    format(line, sizeof (line), "Бонус за всички шофьори\t" C_BRAND "%d%%\t" C_GREY "смени\n", Company[c][cpBonus]);
+    strcat(body, line);
+    format(line, sizeof (line), "Статистика\t%d курса\t" C_GREEN "$%s общо\n", Company[c][cpDeliveries], earned);
+    strcat(body, line);
+    strcat(body, C_RED "Продай компанията\t\t");
+    new title[96], col[12];
+    Firm_ColorTag(c, col);
+    format(title, sizeof (title), "%s%s" C_WHITE " | собственик", col, CompanyDefs[c][cdName]);
     ShowPlayerDialog(playerid, DIALOG_BIZ_OWNER, DIALOG_STYLE_TABLIST, title, "%s", "Избери", "Затвори", body);
 }
 
@@ -127,7 +136,9 @@ static stock Business_Buy(playerid, c)
     format(Company[c][cpOwnerName], MAX_PLAYER_NAME + 1, "%s", PlayerData[playerid][pName]);
     Company[c][cpCash] = 0;
     Company[c][cpBonus] = 0;
+    Company_ResetFirm(c);
     Company_Save(c);
+    Firm_OnBecameOwner(playerid);
     new q[96];
     format(q, sizeof (q), "UPDATE companies SET owner_since = %d WHERE id = %d", gettime(), c);
     Database_Exec(q);
@@ -137,19 +148,6 @@ static stock Business_Buy(playerid, c)
     GameTextForPlayer(playerid, "~g~COMPANY PURCHASED!", 4000, 1);
     SendClientMessageToAll(COLOR_BRAND, "[CARGO] " C_WHITE "%s купи компанията " C_BRAND "%s" C_WHITE "!", PlayerData[playerid][pName], CompanyDefs[c][cdName]);
     Business_ShowOwnerPanel(playerid, c);
-    return 1;
-}
-
-static stock Business_Withdraw(playerid, c)
-{
-    new amount = Company[c][cpCash];
-    if (amount <= 0) return SendError(playerid, "Касата е празна.");
-    Company[c][cpCash] = 0;
-    Company_Save(c);
-    Money_Give(playerid, amount);
-    new money[16];
-    FormatMoney(amount, money);
-    SendClientMessage(playerid, COLOR_BRAND, "[КОМПАНИЯ] " C_WHITE "Изтегли " C_GREEN "$%s" C_WHITE " от касата.", money);
     return 1;
 }
 
@@ -164,6 +162,8 @@ static stock Business_Release(c, ownerOnline)
         format(q, sizeof (q), "UPDATE accounts SET money = money + %d WHERE id = %d", payout, Company[c][cpOwner]);
         Database_Exec(q);
     }
+    Firm_OnCompanyReleased(c);
+    Company_ResetFirm(c);
     Company[c][cpOwner] = 0;
     Company[c][cpOwnerName][0] = EOS;
     Company[c][cpCash] = 0;
@@ -232,19 +232,18 @@ stock Business_OnDialogResponse(playerid, dialogid, response, listitem)
 
     switch (dialogid) {
         case DIALOG_BIZ_INFO: {
-            if (response && Company[c][cpOwner] == 0) Business_Buy(playerid, c);
+            if (!response) return 1;
+            if (Company[c][cpOwner] == 0) Business_Buy(playerid, c);
+            else if (Firm_GetCompany(playerid) == -1) Firm_Apply(playerid, c);
             return 1;
         }
         case DIALOG_BIZ_OWNER: {
             if (!response || Company[c][cpOwner] != PlayerData[playerid][pID]) return 1;
             switch (listitem) {
-                case 0: {
-                    Business_Withdraw(playerid, c);
-                    Business_ShowOwnerPanel(playerid, c);
-                }
-                case 1: Business_ShowBonus(playerid, c);
-                case 2: Business_ShowOwnerPanel(playerid, c);
-                case 3: Business_AskSell(playerid, c);
+                case 0, 1, 2, 3, 4, 5: Firm_OwnerPick(playerid, c, listitem);
+                case 6: Business_ShowBonus(playerid, c);
+                case 7: Business_ShowOwnerPanel(playerid, c);
+                case 8: Business_AskSell(playerid, c);
             }
             return 1;
         }
@@ -281,9 +280,14 @@ stock Business_OnDialogResponse(playerid, dialogid, response, listitem)
 stock Business_OpenOwn(playerid)
 {
     new c = Business_GetOwned(playerid);
+    if (c == -1 && Firm_GetMemberCompany(playerid) != -1) {
+        Firm_ShowMemberPanel(playerid);
+        return;
+    }
     if (c == -1) {
         ShowPlayerDialog(playerid, DIALOG_MENU_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Моята компания",
-            C_WHITE "Нямаш компания.\n\nКомпаниите се купуват от ниво %d: отиди пеша до базата на\nкомпания без собственик и натисни " C_BRAND "ALT" C_WHITE ".",
+            C_WHITE "Нямаш компания.\n\nКомпаниите се купуват от ниво %d: отиди пеша до базата на\nкомпания без собственик и натисни " C_BRAND "ALT" C_WHITE ".\n\n" \
+            C_WHITE "Или работи за някого: ALT на базата на компания със собственик -> " C_BRAND "Кандидатствай" C_WHITE ".",
             "Добре", "", BUSINESS_MIN_LEVEL);
         return;
     }
