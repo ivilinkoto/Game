@@ -46,12 +46,17 @@ stock Gps_ShowCategories(playerid)
     Gps_ShowCategoriesEx(playerid, false);
 }
 
+// Редът, в който категориите се показват (номерата им не се менят - "Други" се пази в базата)
+static const GpsCategoryOrder[GPS_CAT_COUNT] = {
+    GPS_CAT_IMPORTANT, GPS_CAT_COMPANIES, GPS_CAT_FUEL, GPS_CAT_DEALERS, GPS_CAT_PROPERTY, GPS_CAT_HOUSES, GPS_CAT_OTHER
+};
+
 static stock Gps_ShowCategoriesEx(playerid, bool:tp)
 {
     new body[256];
-    for (new c = 0; c < GPS_CAT_COUNT; c++) {
-        if (c > 0) strcat(body, "\n");
-        strcat(body, GpsCategoryNames[c]);
+    for (new i = 0; i < GPS_CAT_COUNT; i++) {
+        if (i > 0) strcat(body, "\n");
+        strcat(body, GpsCategoryNames[GpsCategoryOrder[i]]);
     }
     if (tp) {
         ShowPlayerDialog(playerid, DIALOG_GPS_CATEGORY, DIALOG_STYLE_LIST, C_ADMIN "Телепорт", "%s", "Избери", "Затвори", body);
@@ -311,6 +316,8 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
                 SendClientMessage(playerid, COLOR_BRAND, "[GPS] " C_WHITE "Изключен.");
                 return 1;
             }
+            if (listitem < 0 || listitem > GPS_CAT_COUNT) return 1;
+            listitem = GpsCategoryOrder[listitem];
             switch (listitem) {
                 case GPS_CAT_PROPERTY: Gps_ShowProperty(playerid);
                 case GPS_CAT_OTHER: Gps_ShowCustom(playerid);
