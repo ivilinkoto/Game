@@ -77,6 +77,8 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/spawn.inc"
 #include "modules/houses.inc"
 #include "modules/payday.inc"
+#include "modules/docs.inc"
+#include "modules/tutorial.inc"
 #include "modules/tuning.inc"
 #include "modules/adminpanel.inc"
 #include "modules/skin_select.inc"
@@ -127,6 +129,8 @@ public OnGameModeInit()
     Removed_Init();
     Houses_Init();
     Spawn_Init();
+    Docs_Init();
+    Tutorial_Init();
     AdminPanel_Init();
     Logo_Init();
     Contracts_Init();
@@ -198,6 +202,8 @@ public OnPlayerConnect(playerid)
     License_OnPlayerConnect(playerid);
     Spawn_OnPlayerConnect(playerid);
     Firm_OnPlayerConnect(playerid);
+    Docs_OnPlayerConnect(playerid);
+    Tutorial_OnPlayerConnect(playerid);
     Payday_OnPlayerConnect(playerid);
     Admin_OnPlayerConnect(playerid);
     Auth_OnPlayerConnect(playerid);
@@ -214,6 +220,7 @@ public OnPlayerDisconnect(playerid, reason)
     Needs_DestroyHud(playerid);
     Delivery_OnPlayerDisconnect(playerid);
     License_OnPlayerDisconnect(playerid);
+    Docs_OnPlayerDisconnect(playerid);
     Veh_OnPlayerDisconnect(playerid);
     Admin_OnPlayerDisconnect(playerid);
     Hud_Destroy(playerid);
@@ -261,6 +268,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (School_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Tutorial_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (House_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Needs_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     Menu_OnKeyStateChange(playerid, newkeys, oldkeys);
@@ -294,6 +302,8 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (License_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (House_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Docs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Tutorial_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Admin_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     return 0;

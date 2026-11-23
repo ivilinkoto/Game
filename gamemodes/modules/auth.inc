@@ -115,7 +115,6 @@ stock Auth_OnLoginResult(playerid, bool:success)
 
     ClearChat(playerid);
     SendClientMessage(playerid, COLOR_BRAND, "[CARGO] " C_WHITE "Добре дошъл отново, " C_BRAND "%s" C_WHITE "! Менюто е на " C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE ".", PlayerData[playerid][pName]);
-    if (!PlayerData[playerid][pStarterGiven]) Veh_GiveStarter(playerid);
     Auth_SpawnPlayer(playerid);
 }
 
@@ -264,15 +263,16 @@ stock Auth_OnRegisterHashed(playerid, const hash[])
     printf("[AUTH] New account: %s (id %d)", PlayerData[playerid][pName], id);
     ClearChat(playerid);
     Veh_Load(playerid);
-    Veh_GiveStarter(playerid);
+    Tutorial_OnRegister(playerid);     // без бус и категории - уводът започва на гарата
     Auth_SpawnPlayer(playerid);
 
     new money[16];
     FormatMoney(START_MONEY, money);
     ShowPlayerDialog(playerid, DIALOG_WELCOME, DIALOG_STYLE_MSGBOX, C_BRAND SERVER_NAME C_WHITE " | Готово!",
-        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE " и безплатен бус " C_BRAND "Rumpo" C_WHITE ".\n" \
-        "Намираш се в своя гараж в " C_BRAND "%s" C_WHITE ". Качи се в буса, запали с " C_BRAND "CTRL" C_WHITE " и натисни " C_BRAND "H" C_WHITE " до вратата.\n" \
-        C_BRAND "N" C_WHITE " - работа и поръчки.\n\n" \
+        C_WHITE "Акаунтът ти е създаден. Получаваш " C_GREEN "$%s" C_WHITE ".\n" \
+        "Пристигаш с влака в " C_BRAND "%s" C_WHITE ". Говори с " C_BRAND "Наставника" C_WHITE " на гарата (ALT) -\n" \
+        "той ще те води: лична карта, медицинско, книжка, първият бус и първата доставка.\n" \
+        "Велосипедите до гарата са безплатни.\n\n" \
         C_BRAND "Y" C_WHITE " или " C_BRAND "/menu" C_WHITE " - главното меню (работа, GPS, профил, настройки)\n" \
         C_BRAND "/cb [текст]" C_WHITE " - CB радио за шофьорите (канал 19)\n" \
         C_BRAND "/pm [ID] [текст]" C_WHITE " - лично съобщение\n\n" \
@@ -291,6 +291,8 @@ stock Auth_SpawnPlayer(playerid)
     License_OnLogin(playerid);
     Spawn_OnLogin(playerid);
     Firm_OnLogin(playerid);
+    Docs_OnLogin(playerid);
+    Tutorial_OnLogin(playerid);
 
     // Спаунът е винаги в личния гараж (виж Garage_OnPlayerSpawn).
     Auth_SetGarageSpawn(playerid);

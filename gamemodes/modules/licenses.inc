@@ -30,9 +30,9 @@ enum {
 stock const LicenseNames[MAX_LICENSES][] = {"B", "C", "CE", "ADR"};
 stock const LicenseDesc[MAX_LICENSES][] = {"бусове до 3.5 т", "камиони", "влекачи с ремарке", "опасни товари (гориво)"};
 static const LicenseLevel[MAX_LICENSES] = {1, 2, 4, 4};
-static const LicensePrice[MAX_LICENSES] = {0, 4000, 9000, 6000};
+static const LicensePrice[MAX_LICENSES] = {300, 4000, 9000, 6000};
 static const LicenseNeeds[MAX_LICENSES] = {-1, LIC_B, LIC_C, LIC_CE};
-static const LicenseExamModel[MAX_LICENSES] = {0, 414, 403, 0};    // Mule, Linerunner (+ ремарке)
+static const LicenseExamModel[MAX_LICENSES] = {440, 414, 403, 0};  // Rumpo, Mule, Linerunner (+ ремарке)
 
 // Въпроси: категория, въпрос, верен отговор, два грешни
 enum E_LIC_Q {
@@ -43,6 +43,12 @@ enum E_LIC_Q {
     lqWrong2[64]
 }
 static const LicQuestions[][E_LIC_Q] = {
+    {LIC_B, "С кой клавиш палиш двигателя?", "CTRL", "N", "Y"},
+    {LIC_B, "Как виждаш поръчките за превозното си средство?", "Натискам N в него", "Пиша /fuel", "Отивам в кметството"},
+    {LIC_B, "Къде се товари стоката?", "В червения маркер на компанията А", "В гаража", "Където си поискам"},
+    {LIC_B, "Как зареждаш гориво?", "ALT в превозното средство на бензиностанция", "Натискам H", "Не се зарежда"},
+    {LIC_B, "Какво става, ако закъснееш с доставката?", "Плащането намалява", "Получавам бонус", "Нищо"},
+    {LIC_B, "Как излизаш от гаража с превозното средство?", "Натискам H до вратата", "Натискам N", "Пиша /exit"},
     {LIC_C, "Какво правиш с товар, когато стигнеш кантар?", "Спирам на платформата за 10 секунди", "Минавам бързо покрай него", "Обръщам и го заобикалям"},
     {LIC_C, "Колко най-много можеш да натовариш (с риск от глоба)?", "До 130% от товароносимостта", "Колкото поиска клиентът", "Точно 100%, нито кг повече"},
     {LIC_C, "Какво става при силен удар с чуплив товар?", "Товарът се чупи и курсът се проваля", "Нищо, застрахован е", "Получавам бонус за бързина"},
@@ -104,7 +110,7 @@ stock Licenses_Init()
 
 stock License_OnPlayerConnect(playerid)
 {
-    PlayerLic[playerid] = LIC_DEFAULT;
+    PlayerLic[playerid] = 0;
     LexStage[playerid] = LEX_NONE;
     LexVeh[playerid] = INVALID_VEHICLE_ID;
     LexTrailer[playerid] = INVALID_VEHICLE_ID;
@@ -115,9 +121,9 @@ stock License_OnLogin(playerid)
     new q[96];
     format(q, sizeof (q), "SELECT licenses FROM accounts WHERE id = %d", PlayerData[playerid][pID]);
     new DBResult:r = Database_Query(q);
-    PlayerLic[playerid] = LIC_DEFAULT;
+    PlayerLic[playerid] = 0;
     if (r != DBResult:0) {
-        if (DB_GetRowCount(r) > 0) PlayerLic[playerid] = DB_GetFieldIntByName(r, "licenses") | LIC_DEFAULT;
+        if (DB_GetRowCount(r) > 0) PlayerLic[playerid] = DB_GetFieldIntByName(r, "licenses");
         DB_FreeResultSet(r);
     }
 }
@@ -146,7 +152,7 @@ stock License_GetBits(playerid)
 
 stock License_SetBits(playerid, bits)
 {
-    PlayerLic[playerid] = bits | LIC_DEFAULT;
+    PlayerLic[playerid] = bits;
     License_Save(playerid);
 }
 
@@ -213,7 +219,7 @@ stock License_ShowSchool(playerid)
 
     new body[640], line[160], n = 0, money[16];
     format(body, sizeof (body), "Категория\tЗа какво\tСтатус\n");
-    for (new c = LIC_C; c < MAX_LICENSES; c++) {
+    for (new c = LIC_B; c < MAX_LICENSES; c++) {
         FormatMoney(LicensePrice[c], money);
         if (License_Has(playerid, c)) {
             format(line, sizeof (line), C_BRAND "%s\t" C_WHITE "%s\t" C_GREEN "имаш я\n", LicenseNames[c], LicenseDesc[c]);
@@ -257,6 +263,7 @@ static stock License_StartTheory(playerid)
 {
     new cat = LexCat[playerid];
     if (Delivery_HasJob(playerid)) return SendError(playerid, "Първо завърши или откажи курса си.");
+    if (!Tutorial_HasDocs(playerid)) return SendError(playerid, "Трябват ти лична карта и медицинско. Наставникът на гарата ще ти помогне.");
     if (PlayerData[playerid][pLevel] < LicenseLevel[cat]) return SendError(playerid, "Нивото ти не стига.");
     if (LicenseNeeds[cat] != -1 && !License_Has(playerid, LicenseNeeds[cat])) return SendError(playerid, "Първо вземи по-ниската категория.");
     if (!Money_Take(playerid, LicensePrice[cat])) return SendError(playerid, "Нямаш достатъчно пари.");
@@ -447,6 +454,8 @@ static stock License_Grant(playerid, cat)
     GameTextForPlayer(playerid, "~g~LICENSE %s~n~~w~PASSED!", 5000, 1, LicenseNames[cat]);
     SendClientMessage(playerid, COLOR_GREEN, "[АВТОШКОЛА] " C_WHITE "Поздравления! Вече имаш категория " C_BRAND "%s" C_WHITE " (%s).",
         LicenseNames[cat], LicenseDesc[cat]);
+    Docs_ShowLicenseCard(playerid);
+    Tutorial_OnLicense(playerid, cat);
 }
 
 // Чисти изпита (без съобщения)
@@ -524,7 +533,7 @@ stock License_OnDialogResponse(playerid, dialogid, response, listitem)
 {
     switch (dialogid) {
         case DIALOG_LIC_SCHOOL: {
-            if (!response || listitem < 0 || listitem >= MAX_LICENSES - 1) return 1;
+            if (!response || listitem < 0 || listitem >= MAX_LICENSES) return 1;
             new cat = LexSchoolMap[playerid][listitem];
             if (License_Has(playerid, cat)) {
                 SendClientMessage(playerid, COLOR_GREEN, "[АВТОШКОЛА] " C_WHITE "Вече имаш категория %s.", LicenseNames[cat]);

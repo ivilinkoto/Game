@@ -472,6 +472,7 @@ static stock Delivery_Complete(playerid)
     Level_GiveExp(playerid, exp);
     Company_OnDelivery(from, to, base);
     Economy_Put(to, good, Job[playerid][jbKg]);
+    Tutorial_OnDelivery(playerid);
 
     new sBase[16], sBonus[16], sLate[16], sDmg[16], sTotal[16], tons[16], sComp[16];
     FormatMoney(Job[playerid][jbCompanyBonus], sComp);

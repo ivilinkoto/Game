@@ -78,6 +78,12 @@ stock Spawn_OnPlayerSpawn(playerid)
     new bool:first = !SpawnDone[playerid];
     SpawnDone[playerid] = true;
 
+    // Новак без гараж и бус - на гарата
+    if (Tutorial_NeedsStation(playerid)) {
+        Tutorial_SpawnAtStation(playerid);
+        return;
+    }
+
     if (SpawnPref[playerid] == SPAWN_HOME && House_EnterOwned(playerid)) {
         City_ShowGarageIcon(playerid);
         return;

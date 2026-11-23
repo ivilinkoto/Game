@@ -200,6 +200,7 @@ stock Economy_RefreshLabels()
 
 stock Economy_ShowMarket(playerid)
 {
+    Tutorial_OnCareer(playerid);        // увод, задача 7
     new body[2400], line[200];
     format(body, sizeof (body), "Товар\tНай-търсен в\tПлащане\tНаличност\n");
     for (new g = 0; g < MAX_GOODS; g++) {

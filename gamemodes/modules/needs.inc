@@ -650,6 +650,7 @@ static stock Needs_Buy(playerid, item)
     if (ShopItems[item][itFood] > 0) PlayerPlaySound(playerid, 32200, 0.0, 0.0, 0.0);
     else PlayerPlaySound(playerid, 42600, 0.0, 0.0, 0.0);
     SendClientMessage(playerid, COLOR_BRAND, "[НУЖДИ] " C_WHITE "%s. Храна %d%%, жажда %d%%.", ShopItems[item][itName], NeedHunger[playerid], NeedThirst[playerid]);
+    if (price > 0 && ShopItems[item][itFood] > 0) Tutorial_OnFood(playerid);      // увод, задача 6
     return 1;
 }
 

@@ -226,6 +226,7 @@ static stock Fuel_Refuel(playerid)
         FuelWarned[playerid] = false;
         PlayerPlaySound(playerid, 1133, 0.0, 0.0, 0.0);
         SendClientMessage(playerid, COLOR_BRAND, "[ГОРИВО] " C_WHITE "Заредени " C_BRAND "%d л" C_WHITE " за " C_GREEN "$%d" C_WHITE " - плати компанията (карта за гориво).", liters, liters * FUEL_PRICE);
+        Tutorial_OnRefuel(playerid);
         return 1;
     }
     new affordable = Money_Get(playerid) / FUEL_PRICE;
@@ -237,6 +238,7 @@ static stock Fuel_Refuel(playerid)
     FuelWarned[playerid] = false;
     PlayerPlaySound(playerid, 1133, 0.0, 0.0, 0.0);
     SendClientMessage(playerid, COLOR_BRAND, "[ГОРИВО] " C_WHITE "Заредени " C_BRAND "%d л" C_WHITE " за " C_GREEN "$%d" C_WHITE ".", liters, liters * FUEL_PRICE);
+    Tutorial_OnRefuel(playerid);
     return 1;
 }
 

@@ -35,6 +35,7 @@ stock Garage_PutPlayerInside(playerid)
     new Float:x = GARAGE_X + GARAGE_FOOT_X, Float:y = GARAGE_Y + GARAGE_FOOT_Y, Float:z = GARAGE_Z + 1.0;
 
     PlayerData[playerid][pInGarage] = true;
+    Tutorial_OnEnterGarage(playerid);       // увод, задача 4: бусът се появява
     Veh_ParkAllInGarage(playerid);
 
     SetPlayerVirtualWorld(playerid, world);

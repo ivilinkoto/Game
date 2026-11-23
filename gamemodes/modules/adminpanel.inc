@@ -362,7 +362,7 @@ static stock AdminPanel_SetLicenses(playerid, bits)
         return;
     }
     new q[96];
-    format(q, sizeof (q), "UPDATE accounts SET licenses = %d WHERE id = %d", bits | LIC_DEFAULT, ApTargetAccount[playerid]);
+    format(q, sizeof (q), "UPDATE accounts SET licenses = %d WHERE id = %d", bits, ApTargetAccount[playerid]);
     Database_Exec(q);
 }
 
@@ -402,7 +402,11 @@ enum {
     APP_REMOVE_OBJECT,
     APP_RESTORE_OBJECTS,
     APP_HOUSE_ADD,
-    APP_HOUSE_DEL
+    APP_HOUSE_DEL,
+    APP_POINT_STATION,
+    APP_POINT_HALL,
+    APP_POINT_HOSP,
+    APP_POINT_CLERK
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -428,7 +432,11 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_RED "- " C_WHITE "Махни обекта от картата пред мен (порта, ограда...)\n" \
         C_GREY "  Върни последния махнат обект\n" \
         C_GREEN "+ " C_WHITE "Нова къща тук (застани на вратата, гледай навън)\n" \
-        C_RED "- " C_WHITE "Изтрий най-близката къща",
+        C_RED "- " C_WHITE "Изтрий най-близката къща\n" \
+        C_BRAND "> " C_WHITE "Гарата (спаун на новите) на град тук\n" \
+        C_BRAND "> " C_WHITE "Входът на кметството на град тук\n" \
+        C_BRAND "> " C_WHITE "Болницата (докторът) на град тук\n" \
+        C_BRAND "> " C_WHITE "Служителката в кметството тук (отвътре, зад гишето)",
         "Избери", "Назад");
 }
 
@@ -453,6 +461,12 @@ static stock AdminPanel_ShowCompanyPick(playerid)
 static stock AdminPanel_DoPlace(playerid, action)
 {
     if (!AdminPanel_Need(playerid, 3)) return;
+    if (action == APP_POINT_CLERK) {
+        if (!AdminPanel_Need(playerid, 5)) return;
+        Tutorial_SetClerk(playerid);
+        AdminPanel_ShowPlaces(playerid);
+        return;
+    }
     if (GetPlayerVirtualWorld(playerid) != 0) {
         SendError(playerid, "Трябва да си навън (не в гараж).");
         return;
@@ -522,7 +536,7 @@ static stock AdminPanel_DoPlace(playerid, action)
             AdminPanel_ShowCompanyPick(playerid);
             return;
         }
-        case APP_MOVE_GARAGE, APP_MOVE_DEALER: {
+        case APP_MOVE_GARAGE, APP_MOVE_DEALER, APP_POINT_STATION, APP_POINT_HALL, APP_POINT_HOSP: {
             if (!AdminPanel_Need(playerid, 5)) return;
             AdminPanel_ShowCityPick(playerid);
             return;
@@ -697,7 +711,6 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
         }
         case DIALOG_AP_LIC: {
             if (!response || listitem < 0 || listitem >= MAX_LICENSES) { AdminPanel_ShowEdit(playerid); return 1; }
-            if (listitem == LIC_B) { SendError(playerid, "Категория B е задължителна."); AdminPanel_ShowLicenses(playerid); return 1; }
             new bits = AdminPanel_GetLicenses(playerid) ^ LIC_BIT(listitem);
             AdminPanel_SetLicenses(playerid, bits);
             new list[24];
@@ -739,6 +752,9 @@ stock AdminPanel_OnDialogResponse(playerid, dialogid, response, listitem, const 
                 case APP_MOVE_COMPANY: AdminPanel_RunCmd(playerid, "compos", params);
                 case APP_MOVE_GARAGE:  AdminPanel_RunCmd(playerid, "garagepos", params);
                 case APP_MOVE_DEALER:  AdminPanel_RunCmd(playerid, "dealerpos", params);
+                case APP_POINT_STATION, APP_POINT_HALL, APP_POINT_HOSP: {
+                    if (listitem >= 0 && listitem < MAX_CITIES) Tutorial_SetPoint(playerid, ApPlaceAction[playerid] - APP_POINT_STATION, listitem);
+                }
             }
             AdminPanel_ShowPlaces(playerid);
             return 1;

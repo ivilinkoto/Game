@@ -3,6 +3,8 @@
 
 enum {
     MENU_ITEM_PROFILE,      // "Статистика"
+    MENU_ITEM_DOCS,
+    MENU_ITEM_TASKS,
     MENU_ITEM_MARKET,
     MENU_ITEM_GPS,          // гаражът, компанията и домът са в GPS > Моето имущество
     MENU_ITEM_CB,
@@ -22,10 +24,10 @@ stock Menu_Show(playerid)
 {
     if (PlayerData[playerid][pAdmin] >= 1) {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Статистика\nБорса на товарите\nGPS\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
+            "Статистика\nДокументи\nЗадачи\nБорса на товарите\nGPS\nCB радио\nНастройки\nПомощ\n" C_ADMIN "Админ панел", "Избери", "Затвори");
     } else {
         ShowPlayerDialog(playerid, DIALOG_MENU, DIALOG_STYLE_LIST, C_BRAND SERVER_NAME C_WHITE " | Меню",
-            "Статистика\nБорса на товарите\nGPS\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
+            "Статистика\nДокументи\nЗадачи\nБорса на товарите\nGPS\nCB радио\nНастройки\nПомощ", "Избери", "Затвори");
     }
 }
 
@@ -120,13 +122,16 @@ static stock Menu_ShowHelpPage(playerid, topic)
             C_WHITE "почти всичко е в менюта (бутон " C_BRAND "Y" C_WHITE ").",
             "Назад", "");
         case 1: ShowPlayerDialog(playerid, DIALOG_HELP_PAGE, DIALOG_STYLE_MSGBOX, title,
-            C_WHITE "1. Появяваш се в гаража си. Седни в буса и излез с " C_BRAND "H" C_WHITE ".\n" \
-            C_WHITE "2. Запали двигателя с " C_BRAND "CTRL" C_WHITE ".\n" \
-            C_WHITE "3. Натисни " C_BRAND "N" C_WHITE " - виждаш поръчките, подходящи за превозното ти средство.\n" \
-            C_WHITE "4. Избери поръчка и карай до червения маркер на компанията А, за да натовариш.\n" \
-            C_WHITE "5. Закарай товара до компанията Б и влез в маркера, за да разтовариш.\n\n" \
-            C_WHITE "Маршрутът се рисува на картата. Следи горивото, щетите и срока.\n" \
-            C_WHITE "Всичко останало е в менюто - бутон " C_BRAND "Y" C_WHITE ".",
+            C_WHITE "Пристигаш с влака на гарата на своя град. Там те чака " C_BRAND "Наставникът" C_WHITE " (ALT).\n" \
+            C_WHITE "Велосипедите до гарата са безплатни - с тях се движиш без книжка.\n\n" \
+            C_WHITE "1. Лична карта - кметството\n" \
+            C_WHITE "2. Медицинско - болницата\n" \
+            C_WHITE "3. Книжка B - автошколата в San Fierro\n" \
+            C_WHITE "4. Първият бус - гаражът ти\n" \
+            C_WHITE "5. Първа доставка (" C_BRAND "N" C_WHITE " в буса)\n" \
+            C_WHITE "6. Храна и гориво\n" \
+            C_WHITE "7. Борсата или кандидатстване в компания\n\n" \
+            C_WHITE "Напредъкът е в " C_BRAND "Меню > Задачи" C_WHITE ", документите - в " C_BRAND "Меню > Документи" C_WHITE ".",
             "Назад", "");
         case 2: ShowPlayerDialog(playerid, DIALOG_HELP_PAGE, DIALOG_STYLE_MSGBOX, title,
             C_WHITE "Всяка поръчка е от компания А до компания Б.\n" \
@@ -146,7 +151,7 @@ static stock Menu_ShowHelpPage(playerid, topic)
             C_WHITE "боя, неон и подобрения на двигателя, спирачките и бронята.",
             "Назад", "");
         case 4: ShowPlayerDialog(playerid, DIALOG_HELP_PAGE, DIALOG_STYLE_MSGBOX, title,
-            C_BRAND "B" C_WHITE " - бусове до 3.5 т (имаш я от началото)\n" \
+            C_BRAND "B" C_WHITE " - бусове до 3.5 т (задача 3 за начинаещи)\n" \
             C_BRAND "C" C_WHITE " - камиони (от ниво 2)\n" \
             C_BRAND "CE" C_WHITE " - влекачи с ремарке (от ниво 4, след C)\n" \
             C_BRAND "ADR" C_WHITE " - опасни товари, гориво (от ниво 4, след CE)\n\n" \
@@ -235,6 +240,8 @@ stock Menu_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 case MENU_ITEM_MARKET:   Economy_ShowMarket(playerid);
                 case MENU_ITEM_GPS:      Gps_ShowCategories(playerid);
                 case MENU_ITEM_PROFILE:  Menu_ShowProfile(playerid);
+                case MENU_ITEM_DOCS:     Docs_ShowMenu(playerid);
+                case MENU_ITEM_TASKS:    Tutorial_ShowList(playerid);
                 case MENU_ITEM_CB:       Menu_ShowCBChannel(playerid);
                 case MENU_ITEM_SETTINGS: Menu_ShowSettings(playerid);
                 case MENU_ITEM_HELP:     Menu_ShowHelp(playerid);

@@ -254,6 +254,7 @@ stock Firm_Apply(playerid, c)
         PlayerData[playerid][pID], c, safe, gettime());
     Database_Exec(q);
     SendClientMessage(playerid, COLOR_BRAND, "[ФИРМА] " C_WHITE "Кандидатства в " C_BRAND "%s" C_WHITE ". Чакай одобрение (имаш една молба наведнъж).", CompanyDefs[c][cdName]);
+    Tutorial_OnCareer(playerid);
     for (new i = 0; i < MAX_PLAYERS; i++) {
         if (IsPlayerLogged(i) && Firm_CanManage(i, c)) {
             SendClientMessage(i, COLOR_BRAND, "[ФИРМА] " C_WHITE "%s кандидатства за работа. Виж молбите в панела на компанията.", PlayerData[playerid][pName]);

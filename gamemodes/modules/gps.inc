@@ -16,7 +16,7 @@ enum {
     GPS_CAT_COUNT
 }
 
-#define GPS_IMPORTANT_COUNT     1       // важните места в Gps_GetPlace (засега само автошколата)
+#define GPS_IMPORTANT_COUNT     4       // автошкола, кметство, болница, гара (на твоя град)
 
 static const GpsCategoryNames[GPS_CAT_COUNT][] = {"Компании", "Бензиностанции", "Автокъщи", "Моето имущество", "Други", "Важни места", "Жилища за продан"};
 
@@ -27,6 +27,7 @@ static GpsListCount[MAX_PLAYERS];
 static bool:GpsActive[MAX_PLAYERS];
 static bool:GpsTpMode[MAX_PLAYERS];      // /tp: изборът телепортира вместо да води
 static GpsPropPick[MAX_PLAYERS];         // 0 гараж, 1 компания, 2 дом
+static GpsCity;                          // градът на играча, за когото се търсят "Важни места"
 
 stock Gps_Reset(playerid)
 {
@@ -88,6 +89,18 @@ static stock Gps_GetPlace(type, index, &Float:x, &Float:y, &Float:z, name[], siz
                     School_GetEntrance(x, y, z);
                     format(name, size, "Автошкола (San Fierro)");
                 }
+                case 1: {
+                    Tutorial_GetPoint(1, GpsCity, x, y, z);
+                    format(name, size, "Кметство (%s)", CityNames[GpsCity]);
+                }
+                case 2: {
+                    Tutorial_GetPoint(2, GpsCity, x, y, z);
+                    format(name, size, "Болница (%s)", CityNames[GpsCity]);
+                }
+                case 3: {
+                    Tutorial_GetPoint(0, GpsCity, x, y, z);
+                    format(name, size, "Гара (%s)", CityNames[GpsCity]);
+                }
                 default: return 0;
             }
         }
@@ -102,6 +115,7 @@ static stock Gps_GetPlace(type, index, &Float:x, &Float:y, &Float:z, name[], siz
 // Компании / бензиностанции / автокъщи – подредени по разстояние
 static stock Gps_ShowGameList(playerid, type)
 {
+    GpsCity = PlayerData[playerid][pGarageCity];
     new total;
     switch (type) {
         case GPS_CAT_COMPANIES: total = Company_Total();
@@ -377,6 +391,7 @@ stock Gps_OnDialogResponse(playerid, dialogid, response, listitem)
                 else Gps_SetTarget(playerid, index);
             } else {
                 new Float:x, Float:y, Float:z, name[48];
+                GpsCity = PlayerData[playerid][pGarageCity];
                 if (Gps_GetPlace(type, index, x, y, z, name, sizeof (name))) {
                     if (GpsTpMode[playerid]) Admin_TeleportTo(playerid, x, y, z);
                     else Gps_SetPoint(playerid, name, x, y, z);
