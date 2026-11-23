@@ -228,8 +228,12 @@ static stock Tutorial_BuildPoint(kind, city)
         }
         case WP_HOSPITAL: {
             if (DoctorActor[city] != INVALID_ACTOR_ID) DestroyActor(DoctorActor[city]);
-            DoctorActor[city] = CreateActor(DOCTOR_SKIN, Tut_OffX(kind, city, 1.2, 0.0), Tut_OffY(kind, city, 1.2, 0.0), z, WorldPoint[kind][city][3] + 180.0);
-            if (DoctorActor[city] != INVALID_ACTOR_ID) SetActorInvulnerable(DoctorActor[city], true);
+            // Докторът стои до точката и гледа натам, накъдето е гледал админът при поставянето
+            DoctorActor[city] = CreateActor(DOCTOR_SKIN, Tut_OffX(kind, city, 1.2, 0.0), Tut_OffY(kind, city, 1.2, 0.0), z, WorldPoint[kind][city][3]);
+            if (DoctorActor[city] != INVALID_ACTOR_ID) {
+                SetActorInvulnerable(DoctorActor[city], true);
+                ApplyActorAnimation(DoctorActor[city], "COP_AMBIENT", "Coplook_loop", 4.0, true, false, false, false, 0);
+            }
             WpPickup[kind][city] = CreateDynamicPickup(1240, 1, x, y, z, 0, 0);
             WpLabel[kind][city] = CreateDynamic3DTextLabel(C_RED "БОЛНИЦА\n" C_WHITE "Медицински преглед\n" C_GREY "ALT - при доктора", COLOR_WHITE,
                 x, y, z + 0.8, 20.0, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, 0, 0);
@@ -258,8 +262,12 @@ static stock Tutorial_BuildStation(city)
 
     new n = 0;
     // Табела "Добре дошли": две колони и оранжево табло
+    // Таблото: надписът е върху самата табела (текст като материал)
     Tutorial_StationObj(city, n, 19353, -1.6, 6.0, 1.75, 90.0);
-    if (n > 0) SetDynamicObjectMaterial(StationObj[city][n - 1], 0, 18646, "matcolours", "white", 0xFF2E3640);
+    if (n > 0) {
+        // 100 = 256x256, 1 = подравняване в центъра
+        SetDynamicObjectMaterialText(StationObj[city][n - 1], 0, "ДОБРЕ ДОШЛИ В\nCARGO STATE", 100, "Arial", 34, 1, 0xFFF5A623, 0xFF2E3640, 1);
+    }
     Tutorial_StationObj(city, n, 1290, -3.6, 6.2, 0.0, 0.0);
     Tutorial_StationObj(city, n, 1290, 0.4, 6.2, 0.0, 0.0);
     // Пейки и саксии от двете страни
@@ -273,15 +281,12 @@ static stock Tutorial_BuildStation(city)
     Tutorial_StationObj(city, n, 1226, -6.5, -2.0, 0.0, 0.0);
     Tutorial_StationObj(city, n, 1226, 6.5, -2.0, 0.0, 180.0);
 
-    new Float:sx = Tut_OffX(WP_STATION, city, -1.6, 6.0), Float:sy = Tut_OffY(WP_STATION, city, -1.6, 6.0);
-    StationLabel[city][0] = CreateDynamic3DTextLabel(C_BRAND "ДОБРЕ ДОШЛИ В\nCARGO STATE", COLOR_WHITE, sx, sy, WorldPoint[WP_STATION][city][2] + 2.0, 30.0,
-        INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, 0, 0);
 
     // Велосипеди в редица вдясно (сами се връщат, ако ги оставиш)
     for (new i = 0; i < STATION_BIKES; i++) {
         new Float:dx = 8.0, Float:dy = -1.0 + i * 1.3;
         StationBike[city][i] = CreateVehicle((i % 2 == 0) ? 510 : 509, Tut_OffX(WP_STATION, city, dx, dy), Tut_OffY(WP_STATION, city, dx, dy),
-            WorldPoint[WP_STATION][city][2], WorldPoint[WP_STATION][city][3] + 90.0, random(126), random(126), 180);
+            WorldPoint[WP_STATION][city][2] - 0.55, WorldPoint[WP_STATION][city][3] + 90.0, random(126), random(126), 180);
     }
     StationLabel[city][1] = CreateDynamic3DTextLabel(C_GREEN "БЕЗПЛАТНИ ВЕЛОСИПЕДИ\n" C_WHITE "за придвижване без книжка", COLOR_WHITE,
         Tut_OffX(WP_STATION, city, 8.0, 1.6), Tut_OffY(WP_STATION, city, 8.0, 1.6), WorldPoint[WP_STATION][city][2] + 1.0, 15.0,

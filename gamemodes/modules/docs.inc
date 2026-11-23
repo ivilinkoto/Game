@@ -26,6 +26,8 @@ static PlayerText:DocTD[MAX_PLAYERS][DOC_MAX_TD];
 static DocTDCount[MAX_PLAYERS];
 static DocHideTimer[MAX_PLAYERS];
 static DocPick[MAX_PLAYERS];
+static PlayerText:DocCloseTD[MAX_PLAYERS] = {PlayerText:INVALID_TEXT_DRAW, ...};
+static bool:DocOpen[MAX_PLAYERS];
 
 // ---------- Данни ----------
 
@@ -47,6 +49,7 @@ stock Docs_OnPlayerConnect(playerid)
     DocBlood[playerid] = 0;
     DocTDCount[playerid] = 0;
     DocHideTimer[playerid] = 0;
+    DocOpen[playerid] = false;
 }
 
 stock Docs_OnPlayerDisconnect(playerid)
@@ -134,6 +137,11 @@ static stock Docs_Hide(playerid)
 {
     for (new i = 0; i < DocTDCount[playerid]; i++) PlayerTextDrawDestroy(playerid, DocTD[playerid][i]);
     DocTDCount[playerid] = 0;
+    DocCloseTD[playerid] = PlayerText:INVALID_TEXT_DRAW;
+    if (DocOpen[playerid]) {
+        DocOpen[playerid] = false;
+        CancelSelectTextDraw(playerid);
+    }
     if (DocHideTimer[playerid] != 0) KillTimer(DocHideTimer[playerid]);
     DocHideTimer[playerid] = 0;
 }
@@ -256,7 +264,41 @@ stock Docs_Show(viewerid, ownerid, doc)
     Docs_Text(viewerid, X0 + 8.0, Y0 + H - 12.5, "CARGO STATE  -  TRUCK SIMULATOR", 0.13, 0.62, 0x857D70FF, TEXT_DRAW_FONT_2);
     Docs_Text(viewerid, X0 + W - 8.0, Y0 + H - 13.5, PlayerData[ownerid][pName], 0.18, 0.85, theme, TEXT_DRAW_FONT_0, TEXT_DRAW_ALIGN_RIGHT);
 
+    // Бутон X (горе вдясно) - затваря; ESC също затваря (виж Docs_OnClickTD)
+    if (DocTDCount[viewerid] < DOC_MAX_TD) {
+        new PlayerText:x = CreatePlayerTextDraw(viewerid, X0 + W - 7.0, Y0 - 13.0, "X");
+        PlayerTextDrawFont(viewerid, x, TEXT_DRAW_FONT_2);
+        PlayerTextDrawLetterSize(viewerid, x, 0.3, 1.2);
+        PlayerTextDrawAlignment(viewerid, x, TEXT_DRAW_ALIGN_CENTRE);
+        PlayerTextDrawColour(viewerid, x, 0xFFFFFFFF);
+        PlayerTextDrawUseBox(viewerid, x, true);
+        PlayerTextDrawBoxColour(viewerid, x, 0xB03A2EFF);
+        PlayerTextDrawTextSize(viewerid, x, 10.0, 12.0);
+        PlayerTextDrawSetShadow(viewerid, x, 0);
+        PlayerTextDrawSetSelectable(viewerid, x, true);
+        PlayerTextDrawShow(viewerid, x);
+        DocTD[viewerid][DocTDCount[viewerid]++] = x;
+        DocCloseTD[viewerid] = x;
+    }
+    DocOpen[viewerid] = true;
+    SelectTextDraw(viewerid, 0xF5A623FF);
     DocHideTimer[viewerid] = SetTimerEx("Docs_HideTimer", DOC_SHOW_MS, false, "i", viewerid);
+}
+
+// ESC (клик никъде) или X - затваря картата
+stock Docs_OnClickTD(playerid, Text:clickedid)
+{
+    if (!DocOpen[playerid] || clickedid != INVALID_TEXT_DRAW) return 0;
+    DocOpen[playerid] = false;           // изборът вече е прекратен от ESC
+    Docs_Hide(playerid);
+    return 1;
+}
+
+stock Docs_OnClickPlayerTD(playerid, PlayerText:td)
+{
+    if (!DocOpen[playerid] || td != DocCloseTD[playerid]) return 0;
+    Docs_Hide(playerid);
+    return 1;
 }
 
 stock Docs_ShowLicenseCard(playerid)

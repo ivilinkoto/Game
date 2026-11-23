@@ -352,6 +352,7 @@ public OnVehicleSpawn(vehicleid)
 
 public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 {
+    if (Docs_OnClickPlayerTD(playerid, playertextid)) return 1;
     if (SkinSelect_OnClickPlayerTD(playerid, playertextid)) return 1;
     if (Dealer_OnClickPlayerTD(playerid, playertextid)) return 1;
     return 0;
@@ -359,6 +360,7 @@ public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 
 public OnPlayerClickTextDraw(playerid, Text:clickedid)
 {
+    if (Docs_OnClickTD(playerid, clickedid)) return 1;
     if (SkinSelect_OnClickTD(playerid, clickedid)) return 1;
     if (Dealer_OnClickTD(playerid, clickedid)) return 1;
     return 0;
