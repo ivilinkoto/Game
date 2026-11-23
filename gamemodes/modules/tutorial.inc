@@ -266,7 +266,7 @@ static stock Tutorial_BuildStation(city)
     Tutorial_StationObj(city, n, 19353, -1.6, 6.0, 1.75, 90.0);
     if (n > 0) {
         // 100 = 256x256, 1 = подравняване в центъра
-        SetDynamicObjectMaterialText(StationObj[city][n - 1], 0, "ДОБРЕ ДОШЛИ В\nCARGO STATE", 100, "Arial", 34, 1, 0xFFF5A623, 0xFF2E3640, 1);
+        SetDynamicObjectMaterialText(StationObj[city][n - 1], 0, "ДОБРЕ ДОШЛИ В\nCARGO STATE", 100, "Arial", 22, 1, 0xFFF5A623, 0xFF2E3640, 1);
     }
     Tutorial_StationObj(city, n, 1290, -3.6, 6.2, 0.0, 0.0);
     Tutorial_StationObj(city, n, 1290, 0.4, 6.2, 0.0, 0.0);

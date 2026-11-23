@@ -28,7 +28,10 @@ static DocHideTimer[MAX_PLAYERS];
 static DocPick[MAX_PLAYERS];
 
 // Снимката: ъгли и приближение на модела (админ ги настройва с /docphoto, за да се вижда главата)
-static Float:DocPhotoRX = -8.0, Float:DocPhotoRZ = 0.0, Float:DocPhotoZoom = 0.75;
+// Трикът за "само лицето": полето на модела е много по-високо от прозорчето на снимката и продължава
+// надолу извън екрана (картата е долу), а частта под прозорчето е закрита от хартията на картата.
+// Моделът се центрира в средата на полето, така главата идва горе - в прозорчето.
+static Float:DocPhotoRX = 0.0, Float:DocPhotoRZ = 0.0, Float:DocPhotoZoom = 1.0, Float:DocPhotoBoxH = 260.0;
 static PlayerText:DocCloseTD[MAX_PLAYERS] = {PlayerText:INVALID_TEXT_DRAW, ...};
 static bool:DocOpen[MAX_PLAYERS];
 
@@ -195,7 +198,8 @@ static stock Docs_Field(playerid, Float:x, Float:y, const label[], const value[]
 stock Docs_Show(viewerid, ownerid, doc)
 {
     Docs_Hide(viewerid);
-    new Float:X0 = 200.0, Float:Y0 = 135.0, Float:W = 240.0, Float:H = 150.0;
+    // Картата е долу в средата - полето на снимката продължава извън екрана
+    new Float:X0 = 200.0, Float:Y0 = 296.0, Float:W = 240.0, Float:H = 152.0;
     new theme = DocThemes[doc], text[48], date[16];
 
     // Сянка, хартия, лента горе
@@ -216,12 +220,14 @@ stock Docs_Show(viewerid, ownerid, doc)
         PlayerTextDrawUseBox(viewerid, p, true);
         PlayerTextDrawBoxColour(viewerid, p, 0x00000000);
         PlayerTextDrawBackgroundColour(viewerid, p, 0xD6DEE6FF);
-        PlayerTextDrawTextSize(viewerid, p, 58.0, 74.0);
+        PlayerTextDrawTextSize(viewerid, p, 58.0, DocPhotoBoxH);
         PlayerTextDrawSetPreviewModel(viewerid, p, GetPlayerSkin(ownerid));
         PlayerTextDrawSetPreviewRot(viewerid, p, DocPhotoRX, 0.0, DocPhotoRZ, DocPhotoZoom);
         PlayerTextDrawShow(viewerid, p);
         DocTD[viewerid][DocTDCount[viewerid]++] = p;
     }
+    // Закрива частта от модела под прозорчето (до края на екрана)
+    Docs_Rect(viewerid, X0 + 9.0, Y0 + 111.0, 60.0, 460.0 - (Y0 + 111.0), 0xF4F0E6FF);
 
     new Float:fx = X0 + 78.0, Float:fy = Y0 + 34.0;
     Docs_Field(viewerid, fx, fy, "NAME", PlayerData[ownerid][pName]);
@@ -383,21 +389,26 @@ stock Docs_OnDialogResponse(playerid, dialogid, response, listitem)
     return 0;
 }
 
-// Проба на снимката: /docphoto [ъгъл X] [ъгъл Z] [приближение] - показва личната ти карта с тези стойности
+// Проба на снимката: /docphoto [ъгъл X] [ъгъл Z] [приближение] [височина на полето]
 CMD:docphoto(playerid, params[])
 {
     if (!Admin_Check(playerid, 5)) return 1;
-    new a[16], b[16], c[16];
+    new a[16], b[16], c[16], d[16];
     if (!GetParam(params, 0, a) || !GetParam(params, 1, b) || !GetParam(params, 2, c)) {
-        SendClientMessage(playerid, COLOR_ADMIN, "[A] Сега: X %.1f, Z %.1f, приближение %.2f. Пример: /docphoto 60 0 0.4", DocPhotoRX, DocPhotoRZ, DocPhotoZoom);
+        SendClientMessage(playerid, COLOR_ADMIN, "[A] Сега: X %.1f, Z %.1f, приближение %.2f, поле %.0f. Пример: /docphoto 0 0 0.6 300", DocPhotoRX, DocPhotoRZ, DocPhotoZoom, DocPhotoBoxH);
         return 1;
     }
     DocPhotoRX = floatstr(a);
     DocPhotoRZ = floatstr(b);
     DocPhotoZoom = floatstr(c);
     if (DocPhotoZoom < 0.05) DocPhotoZoom = 0.05;
+    if (GetParam(params, 3, d)) {
+        DocPhotoBoxH = floatstr(d);
+        if (DocPhotoBoxH < 74.0) DocPhotoBoxH = 74.0;
+        if (DocPhotoBoxH > 800.0) DocPhotoBoxH = 800.0;
+    }
     Docs_Show(playerid, playerid, DOC_ID);
-    SendClientMessage(playerid, COLOR_ADMIN, "[A] Снимка: X %.1f, Z %.1f, приближение %.2f (до рестарт).", DocPhotoRX, DocPhotoRZ, DocPhotoZoom);
+    SendClientMessage(playerid, COLOR_ADMIN, "[A] Снимка: X %.1f, Z %.1f, приближение %.2f, поле %.0f (до рестарт).", DocPhotoRX, DocPhotoRZ, DocPhotoZoom, DocPhotoBoxH);
     return 1;
 }
 
