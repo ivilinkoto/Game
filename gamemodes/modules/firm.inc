@@ -517,6 +517,7 @@ static stock Firm_Rename(playerid, c, const name[])
     Database_Exec(q);
     Company_Save(c);
     Company_CreateMarkers(c);
+    Office_Refresh(c);
     format(log, sizeof (log), "Смяна на името (беше %s)", old);
     Firm_Log(c, -FIRM_RENAME_PRICE, log);
     SendClientMessageToAll(COLOR_BRAND, "[CARGO] " C_WHITE "Компанията " C_GREY "%s" C_WHITE " вече се казва " C_BRAND "%s" C_WHITE ".", old, name);
@@ -625,6 +626,10 @@ stock Firm_ShowOwnerExtras(playerid, c, body[], size)
     strcat(body, line, size);
     format(line, sizeof (line), "Подобрения и ниво\t" C_BRAND "ниво %d" C_GREY ", репутация %d%%\t\n", Firm_Level(c), Company[c][cpRep]);
     strcat(body, line, size);
+    if (FirmOrder_Active(c)) strcat(body, "Собствена поръчка\t" C_GREEN "активна\t\n", size);
+    else strcat(body, "Собствена поръчка\t" C_GREY "няма\t\n", size);
+    format(line, sizeof (line), "Автопарк и офис\t%d / %d камиона\t\n", Fleet_Count(c), Fleet_Slots(c));
+    strcat(body, line, size);
 }
 
 // Изборът в панела на собственика (редове 0-6 от Firm_ShowOwnerExtras)
@@ -639,6 +644,8 @@ stock Firm_OwnerPick(playerid, c, row)
         case 4: Firm_ShowLook(playerid, c);
         case 5: Firm_ShowTerms(playerid, c);
         case 6: Firm_OpenUpgrades(playerid, c);
+        case 7: Firm_OrderShow(playerid, c);
+        case 8: Fleet_ShowMenu(playerid, c);
     }
 }
 
@@ -908,6 +915,7 @@ stock Firm_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
                 Company[c][cpColor] = FirmColors[listitem][fcRGB];
                 Company_Save(c);
                 Company_CreateMarkers(c);
+                Office_Refresh(c);
             }
             Firm_ShowLook(playerid, c);
             return 1;

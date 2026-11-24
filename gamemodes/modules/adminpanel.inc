@@ -406,7 +406,8 @@ enum {
     APP_POINT_STATION,
     APP_POINT_HALL,
     APP_POINT_HOSP,
-    APP_POINT_CLERK
+    APP_POINT_CLERK,
+    APP_POINT_SECRETARY
 }
 
 static stock AdminPanel_ShowPlaces(playerid)
@@ -436,7 +437,8 @@ static stock AdminPanel_ShowPlaces(playerid)
         C_BRAND "> " C_WHITE "Гарата (спаун на новите) на град тук\n" \
         C_BRAND "> " C_WHITE "Входът на кметството на град тук\n" \
         C_BRAND "> " C_WHITE "Болницата (докторът) на град тук\n" \
-        C_BRAND "> " C_WHITE "Служителката в кметството тук (отвътре, зад гишето)",
+        C_BRAND "> " C_WHITE "Служителката в кметството тук (отвътре, зад гишето)\n" \
+        C_BRAND "> " C_WHITE "Секретарката в офисите на компаниите тук (отвътре)",
         "Избери", "Назад");
 }
 
@@ -464,6 +466,12 @@ static stock AdminPanel_DoPlace(playerid, action)
     if (action == APP_POINT_CLERK) {
         if (!AdminPanel_Need(playerid, 5)) return;
         Tutorial_SetClerk(playerid);
+        AdminPanel_ShowPlaces(playerid);
+        return;
+    }
+    if (action == APP_POINT_SECRETARY) {
+        if (!AdminPanel_Need(playerid, 5)) return;
+        Office_SetSecretary(playerid);
         AdminPanel_ShowPlaces(playerid);
         return;
     }

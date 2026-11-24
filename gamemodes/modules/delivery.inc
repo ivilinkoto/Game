@@ -36,7 +36,8 @@ enum E_CONTRACT {
     ctGood,
     ctFrom,
     ctTo,
-    ctKg
+    ctKg,
+    ctOrder             // собствена поръчка на компания (firm3.inc), -1 = обикновена
 }
 
 static Contracts[MAX_CONTRACTS][E_CONTRACT];
@@ -66,7 +67,8 @@ enum E_JOB {
     jbAcceptedAt,
     jbDeadline,             // gettime(), когато трябва да е доставено (след товарене)
     Float:jbStartHealth,
-    jbTimerEnd              // GetTickCount() за края на товарене/разтоварване
+    jbTimerEnd,             // GetTickCount() за края на товарене/разтоварване
+    jbOrder                 // компанията на собствената поръчка, -1 = обикновен курс
 }
 
 static Job[MAX_PLAYERS][E_JOB];
@@ -75,8 +77,53 @@ static BoardCount[MAX_PLAYERS];
 
 // ---------- Пул с поръчки ----------
 
+// Поръчка към компания с активна собствена поръчка (firm3.inc). 1 = успя.
+static stock Contracts_GenerateOrder(slot)
+{
+    new c, good, maxKg;
+    if (!Firm_PickOrder(c, good, maxKg)) return 0;
+    for (new attempt = 0; attempt < 10; attempt++) {
+        new producers[MAX_COMPANIES], np = 0;
+        for (new p = 0; p < MAX_COMPANIES; p++) {
+            if (p != c && Company_Produces(p, good) && CompanyStock[p][good] >= Goods[good][gdMinKg]) producers[np++] = p;
+        }
+        if (np == 0) return 0;
+        new from = producers[random(np)];
+        if (Company_Distance(from, c) < 300.0) continue;
+        new minKg = Goods[good][gdMinKg], top = Goods[good][gdMaxKg];
+        new cargo = Goods[good][gdCargo];
+        if (cargo == CARGO_LIQUID || ((cargo == CARGO_BOX || cargo == CARGO_BULK) && random(100) < TRAILER_CHANCE)) {
+            minKg = TRAILER_MIN_KG;
+            top = TRAILER_MAX_KG;
+        }
+        if (top > maxKg) top = maxKg;
+        if (top < minKg) minKg = top;
+        new kg = minKg + random(top - minKg + 1);
+        kg = (kg / 100) * 100;
+        if (kg < 100) kg = 100;
+        if (CompanyStock[from][good] < kg) continue;
+        Contracts[slot][ctActive] = true;
+        Contracts[slot][ctGood] = good;
+        Contracts[slot][ctFrom] = from;
+        Contracts[slot][ctTo] = c;
+        Contracts[slot][ctKg] = kg;
+        Contracts[slot][ctOrder] = c;
+        return 1;
+    }
+    return 0;
+}
+
+// Нова собствена поръчка: веднага няколко оферти на борсата
+stock Contracts_AddOrderOffers()
+{
+    for (new i = 0; i < 3; i++) Contracts_GenerateOrder(random(MAX_CONTRACTS));
+}
+
 static stock Contracts_Generate(slot)
 {
+    // Понякога - оферта по собствена поръчка на компания
+    if (random(100) < 35 && Contracts_GenerateOrder(slot)) return 1;
+    Contracts[slot][ctOrder] = -1;
     // Опитваме няколко пъти да намерим двойка дава/приема
     for (new attempt = 0; attempt < 40; attempt++) {
         new good = random(MAX_GOODS);
@@ -143,6 +190,8 @@ static stock Contracts_GetPay(slot)
 {
     new base = Goods_CalcPay(Contracts[slot][ctGood], Contracts[slot][ctKg],
         Company_Distance(Contracts[slot][ctFrom], Contracts[slot][ctTo]));
+    // Собствена поръчка: плаща компанията по своята цена на тон
+    if (Contracts[slot][ctOrder] != -1) return Contracts[slot][ctKg] * Firm_OrderPPT(Contracts[slot][ctOrder]) / 1000;
     base = base * Economy_DemandPercent(Contracts[slot][ctTo], Contracts[slot][ctGood]) / 100;
     return base * Firm_RepPay(Contracts[slot][ctFrom]) / 100;      // репутация на компанията А (90-110%)
 }
@@ -168,7 +217,7 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
     }
 
     new vehicleid = GetPlayerVehicleID(playerid);
-    if (vehicleid == 0 || GetPlayerState(playerid) != PLAYER_STATE_DRIVER || Veh_GetOwner(vehicleid) != playerid) {
+    if (vehicleid == 0 || GetPlayerState(playerid) != PLAYER_STATE_DRIVER || !Fleet_CanWork(playerid, vehicleid)) {
         ShowPlayerDialog(playerid, DIALOG_MENU_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Работа",
             C_WHITE "Седни зад волана на своето превозно средство,\nза да видиш поръчките, които то може да кара.", "Добре", "");
         return 1;
@@ -223,6 +272,7 @@ stock Delivery_ShowBoard(playerid, onlyFrom = -1)
         else if (demand < 0) format(payStr, sizeof (payStr), "%s " C_RED "%d%%", money, demand);
         else format(payStr, sizeof (payStr), "%s", money);
         if (Firm_OrderBonus(playerid, Contracts[i][ctFrom]) > 0) strcat(payStr, " " C_BRAND "ФИРМА");
+        if (Contracts[i][ctOrder] != -1) strcat(payStr, " " C_CB "ПОРЪЧКА");
         new gname[64];
         Delivery_GoodLabel(good, gname);
         format(line, sizeof (line), "%s\t%s > %s\t%s, %.1f км\t" C_GREEN "$%s\n",
@@ -292,7 +342,7 @@ static stock Delivery_Accept(playerid, slot)
         return;
     }
     new vehicleid = GetPlayerVehicleID(playerid);
-    if (vehicleid == 0 || Veh_GetOwner(vehicleid) != playerid || !Delivery_CanCarry(GetVehicleModel(vehicleid), slot)) {
+    if (vehicleid == 0 || !Fleet_CanWork(playerid, vehicleid) || !Delivery_CanCarry(GetVehicleModel(vehicleid), slot)) {
         SendError(playerid, "Трябва да си в своето превозно средство, което може да кара този товар.");
         return;
     }
@@ -303,7 +353,8 @@ static stock Delivery_Accept(playerid, slot)
     }
     // Складът може да се е изпразнил междувременно
     if (!Economy_HasStock(Contracts[slot][ctFrom], Contracts[slot][ctGood], Contracts[slot][ctKg])
-        || !Economy_CanAccept(Contracts[slot][ctTo], Contracts[slot][ctGood])) {
+        || (Contracts[slot][ctOrder] == -1 && !Economy_CanAccept(Contracts[slot][ctTo], Contracts[slot][ctGood]))
+        || (Contracts[slot][ctOrder] != -1 && !FirmOrder_Active(Contracts[slot][ctOrder]))) {
         SendError(playerid, "Поръчката вече не е актуална (складът се промени). Избери друга.");
         Contracts_Generate(slot);
         Delivery_ShowBoard(playerid);
@@ -317,6 +368,7 @@ static stock Delivery_Accept(playerid, slot)
     Job[playerid][jbFrom] = Contracts[slot][ctFrom];
     Job[playerid][jbTo] = Contracts[slot][ctTo];
     Job[playerid][jbKg] = Contracts[slot][ctKg];
+    Job[playerid][jbOrder] = Contracts[slot][ctOrder];
     Job[playerid][jbBasePay] = Contracts_GetPay(slot);
     Job[playerid][jbCompanyBonus] = Company_GetBonusAmount(Contracts[slot][ctFrom], Job[playerid][jbBasePay]);
     if (Job[playerid][jbCompanyBonus] > 0) {
@@ -473,6 +525,7 @@ static stock Delivery_Complete(playerid)
     Level_GiveExp(playerid, exp);
     Company_OnDelivery(from, to, base);
     Economy_Put(to, good, Job[playerid][jbKg]);
+    if (Job[playerid][jbOrder] != -1) Firm_OrderDelivered(Job[playerid][jbOrder], Job[playerid][jbKg], base);
     Tutorial_OnDelivery(playerid);
 
     new sBase[16], sBonus[16], sLate[16], sDmg[16], sTotal[16], tons[16], sComp[16];

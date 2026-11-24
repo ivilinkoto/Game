@@ -294,6 +294,7 @@ stock Company_Create(const name[], const place[], size, produces, accepts, Float
     for (new i = 0; i < 6; i++) Company[c][cpUp][i] = 0;
     Economy_OnCompanyCreated(c);
     Company_CreateMarkers(c);
+    Firm3_OnCompanyCreated(c);
     return c;
 }
 
@@ -333,6 +334,7 @@ stock Company_Delete(c)
     Company[c][cpOwner] = 0;
     Company[c][cpZ] = -10000.0;
     Economy_ClearCompany(c);
+    Firm3_OnCompanyDeleted(c);
     return 1;
 }
 

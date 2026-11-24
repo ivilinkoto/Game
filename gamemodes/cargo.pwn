@@ -47,6 +47,7 @@ forward bool:Veh_Remove(playerid, slot);
 forward Float:Veh_GetFuel(vehicleid);
 forward bool:Fuel_IsNearStation(playerid);
 forward bool:License_Has(playerid, cat);
+forward bool:FirmOrder_Active(c);
 forward bool:License_CanDrive(playerid, model);
 
 #include "maps/garage.inc"
@@ -72,6 +73,7 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/dealer.inc"
 #include "modules/business.inc"
 #include "modules/firm.inc"
+#include "modules/firm3.inc"
 #include "modules/fuel.inc"
 #include "modules/needs.inc"
 #include "modules/spawn.inc"
@@ -129,6 +131,8 @@ public OnGameModeInit()
     School_Init();
     Removed_Init();
     Houses_Init();
+    Firm3_Init();
+    Office_CreateExits();
     Spawn_Init();
     Docs_Init();
     Tutorial_Init();
@@ -271,6 +275,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Tune_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (Office_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Business_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (School_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Tutorial_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
@@ -301,6 +306,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Delivery_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Dealer_OnDialogResponse(playerid, dialogid, response)) return 1;
     if (Business_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (Firm3_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Firm_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
@@ -323,6 +329,7 @@ public OnPlayerStateChange(playerid, PLAYER_STATE:newstate, PLAYER_STATE:oldstat
     if (newstate == PLAYER_STATE_DRIVER) {
         Tune_ResetArmor(GetPlayerVehicleID(playerid));
         License_OnDriverEnter(playerid);
+        Fleet_OnDriverEnter(playerid);
     }
     return 1;
 }
