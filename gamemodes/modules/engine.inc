@@ -15,6 +15,13 @@ stock bool:Engine_IsOn(vehicleid)
     return (engine == 1);
 }
 
+// Велосипеди: нямат двигател - "пали" се сам
+stock bool:Engine_IsBike(vehicleid)
+{
+    new model = GetVehicleModel(vehicleid);
+    return (model == 481 || model == 509 || model == 510);
+}
+
 stock Engine_Set(vehicleid, bool:on)
 {
     SetVehicleParamsEx(vehicleid, on ? 1 : 0, on ? 1 : 0);
@@ -24,6 +31,7 @@ stock Engine_Toggle(playerid)
 {
     new vehicleid = GetPlayerVehicleID(playerid);
     if (vehicleid == 0 || GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return 0;
+    if (Engine_IsBike(vehicleid)) return 1;
 
     if (Engine_IsOn(vehicleid)) {
         Engine_Set(vehicleid, false);
@@ -58,6 +66,10 @@ stock Engine_OnPlayerStateChange(playerid, PLAYER_STATE:newstate)
 {
     if (newstate != PLAYER_STATE_DRIVER) return;
     new vehicleid = GetPlayerVehicleID(playerid);
+    if (Engine_IsBike(vehicleid)) {
+        Engine_Set(vehicleid, true);
+        return;
+    }
     if (!Engine_IsOn(vehicleid)) {
         GameTextForPlayer(playerid, "~w~PRESS ~y~CTRL ~w~TO START ENGINE", 3000, 4);
     }

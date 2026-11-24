@@ -52,6 +52,7 @@ forward bool:License_CanDrive(playerid, model);
 
 #include "maps/garage.inc"
 #include "maps/school.inc"
+#include "maps/office.inc"
 
 #include "modules/money.inc"
 #include "modules/levels.inc"
@@ -171,6 +172,7 @@ public Server_Tick()
     if (gSecondsCounter % ECONOMY_TICK_SECONDS == 0) Economy_Tick();
     if (autosave) Economy_Save();
     Places_GateTick();
+    if (gSecondsCounter % 10 == 0) Fleet_Tick();
     School_DoorTick();
     Payday_Tick();
 
@@ -359,6 +361,7 @@ public OnPlayerEnterRaceCheckpoint(playerid)
 
 public OnVehicleSpawn(vehicleid)
 {
+    if (Fleet_OnVehicleSpawn(vehicleid)) return 1;
     Veh_OnVehicleSpawn(vehicleid);
     return 1;
 }

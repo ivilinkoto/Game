@@ -110,6 +110,8 @@ enum {
     DIALOG_FLEET,
     DIALOG_FLEET_BUY,
     DIALOG_FLEET_SELL,
+    DIALOG_FLEET_ACT,
+    DIALOG_FLEET_TAKE,
 
     // Документи и увод
     DIALOG_DOCS,

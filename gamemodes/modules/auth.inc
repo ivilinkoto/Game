@@ -330,7 +330,7 @@ stock Auth_SaveAccount(playerid)
 
     if (PlayerData[playerid][pSpawned]) {
         new PLAYER_STATE:st = GetPlayerState(playerid);
-        if (st != PLAYER_STATE_WASTED && st != PLAYER_STATE_SPECTATING && GetPlayerInterior(playerid) == 0 && !School_IsInside(playerid)) {
+        if (st != PLAYER_STATE_WASTED && st != PLAYER_STATE_SPECTATING && GetPlayerInterior(playerid) == 0 && !School_IsInside(playerid) && Office_Inside(playerid) == -1) {
             GetPlayerPos(playerid, PlayerData[playerid][pPosX], PlayerData[playerid][pPosY], PlayerData[playerid][pPosZ]);
             GetPlayerFacingAngle(playerid, PlayerData[playerid][pPosA]);
             PlayerData[playerid][pHasPos] = true;

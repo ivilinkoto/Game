@@ -4,8 +4,9 @@
 //   Цялата сума се заделя от касата. Поръчките излизат на борсата ("ПОРЪЧКА"), всеки може да ги кара,
 //   а служителите получават и фирмения бонус. Поръчката важи 24 ч; остатъкът се връща в касата.
 // Автопарк: компанията купува камиони от каталога (от касата). Карат ги само нейните хора (с нужната
-//   категория), без гориво. Стоят на паркинга на компанията и се връщат там, ако ги оставиш.
-// Офис: всяка компания има офис (интериорът Atrium от играта, отделен свят за всяка компания).
+//   категория), без гориво. Стоят "в гаража" на компанията; изкарват се от панела - появяват се на
+//   базата (там, където се товари). Оставен 5 мин без шофьор - прибира се сам.
+// Офис: наш интериор (maps/office.inc), отделен свят за всяка компания, с името й на стената.
 //   Входът е до базата (собственикът го мести). Вътре секретарката (ALT) отваря панела на компанията.
 
 #define FIRM_ORDER_HOURS        24
@@ -16,11 +17,7 @@
 #define FLEET_SELL_PERCENT      60
 #define FLEET_RESPAWN_SEC       300
 
-#define OFFICE_INTERIOR         18
 #define OFFICE_WORLD_BASE       7000
-#define OFFICE_X                1710.4337
-#define OFFICE_Y                -1669.3793
-#define OFFICE_Z                20.2250
 #define OFFICE_SECRETARY_SKIN   141
 
 static const FleetSlots[] = {3, 5, 8};
@@ -52,7 +49,7 @@ static FleetDBID[MAX_COMPANIES][FLEET_MAX];
 static FleetModel[MAX_COMPANIES][FLEET_MAX];
 static FleetVeh[MAX_COMPANIES][FLEET_MAX];
 static FleetCompanyOf[MAX_VEHICLES] = {-1, ...};
-static Float:FleetPark[MAX_COMPANIES][4];
+static FleetIdle[MAX_COMPANIES][FLEET_MAX];
 static FleetPick[MAX_PLAYERS];
 static FleetBuyMap[MAX_PLAYERS][16];
 
@@ -63,7 +60,7 @@ static OfficePickup[MAX_COMPANIES] = {-1, ...};
 static Text3D:OfficeLabel[MAX_COMPANIES] = {Text3D:-1, ...};
 static OfficeActor[MAX_COMPANIES] = {INVALID_ACTOR_ID, ...};
 static Text3D:OfficeInLabel[MAX_COMPANIES] = {Text3D:-1, ...};
-static Float:SecretaryPos[4] = {1714.2, -1664.6, 20.22, 180.0};
+static OfficeSign[MAX_COMPANIES];
 
 // =====================================================================
 // Начало
@@ -81,10 +78,6 @@ stock Firm3_Init()
         OfficeDoor[c][1] = Company[c][cpY] + 6.0;
         OfficeDoor[c][2] = Company[c][cpZ];
         OfficeDoor[c][3] = 0.0;
-        FleetPark[c][0] = Company[c][cpX] - 10.0;
-        FleetPark[c][1] = Company[c][cpY];
-        FleetPark[c][2] = Company[c][cpZ];
-        FleetPark[c][3] = 0.0;
         for (new i = 0; i < FLEET_MAX; i++) {
             FleetDBID[c][i] = 0;
             FleetVeh[c][i] = INVALID_VEHICLE_ID;
@@ -95,23 +88,11 @@ stock Firm3_Init()
         new rows = DB_GetRowCount(r);
         for (new i = 0; i < rows; i++) {
             new c = DB_GetFieldIntByName(r, "company"), kind = DB_GetFieldIntByName(r, "kind");
-            if (c == -1 && kind == 9) {
-                SecretaryPos[0] = DB_GetFieldFloatByName(r, "x");
-                SecretaryPos[1] = DB_GetFieldFloatByName(r, "y");
-                SecretaryPos[2] = DB_GetFieldFloatByName(r, "z");
-                SecretaryPos[3] = DB_GetFieldFloatByName(r, "a");
-            } else if (c >= 0 && c < MAX_COMPANIES) {
-                if (kind == 0) {
-                    OfficeDoor[c][0] = DB_GetFieldFloatByName(r, "x");
-                    OfficeDoor[c][1] = DB_GetFieldFloatByName(r, "y");
-                    OfficeDoor[c][2] = DB_GetFieldFloatByName(r, "z");
-                    OfficeDoor[c][3] = DB_GetFieldFloatByName(r, "a");
-                } else if (kind == 1) {
-                    FleetPark[c][0] = DB_GetFieldFloatByName(r, "x");
-                    FleetPark[c][1] = DB_GetFieldFloatByName(r, "y");
-                    FleetPark[c][2] = DB_GetFieldFloatByName(r, "z");
-                    FleetPark[c][3] = DB_GetFieldFloatByName(r, "a");
-                }
+            if (c >= 0 && c < MAX_COMPANIES && kind == 0) {
+                OfficeDoor[c][0] = DB_GetFieldFloatByName(r, "x");
+                OfficeDoor[c][1] = DB_GetFieldFloatByName(r, "y");
+                OfficeDoor[c][2] = DB_GetFieldFloatByName(r, "z");
+                OfficeDoor[c][3] = DB_GetFieldFloatByName(r, "a");
             }
             DB_SelectNextRow(r);
         }
@@ -154,10 +135,10 @@ stock Firm3_Init()
         DB_FreeResultSet(r);
     }
 
+    Office_CreateMap();
     for (new c = 0; c < MAX_COMPANIES; c++) {
         if (!Company_IsValid(c)) continue;
         Office_Build(c);
-        for (new s = 0; s < FLEET_MAX; s++) Fleet_Spawn(c, s);
     }
 }
 
@@ -295,23 +276,92 @@ stock Fleet_CompanyOf(vehicleid)
     return FleetCompanyOf[vehicleid];
 }
 
+// Изкарва служебния камион на базата (там, където се товари)
 static stock Fleet_Spawn(c, s)
 {
-    if (FleetDBID[c][s] == 0) return;
-    if (FleetVeh[c][s] != INVALID_VEHICLE_ID) return;
-    new Float:a = FleetPark[c][3];
-    // В редица надясно от точката на паркинга, през 5 м
-    new Float:x = FleetPark[c][0] + s * 5.0 * floatcos(-a, degrees);
-    new Float:y = FleetPark[c][1] - s * 5.0 * floatsin(-a, degrees);
+    if (FleetDBID[c][s] == 0 || FleetVeh[c][s] != INVALID_VEHICLE_ID) return INVALID_VEHICLE_ID;
+    // Ако на базата вече има изкаран камион - малко встрани
+    new out = 0;
+    for (new k = 0; k < FLEET_MAX; k++) if (FleetVeh[c][k] != INVALID_VEHICLE_ID) out++;
     new col = (Company[c][cpColor] != 0) ? 1 : random(126);
-    new v = CreateVehicle(FleetModel[c][s], x, y, FleetPark[c][2] + 1.0, a, col, col, FLEET_RESPAWN_SEC);
-    if (v == INVALID_VEHICLE_ID) return;
+    new v = CreateVehicle(FleetModel[c][s], Company[c][cpX] + out * 4.0, Company[c][cpY], Company[c][cpZ] + 1.0, 0.0, col, col, -1);
+    if (v == INVALID_VEHICLE_ID) return INVALID_VEHICLE_ID;
     FleetVeh[c][s] = v;
     FleetCompanyOf[v] = c;
+    FleetIdle[c][s] = 0;
     new plate[16];
     if (Company[c][cpTag][0] != EOS) format(plate, sizeof (plate), "%s %d", Company[c][cpTag], FleetDBID[c][s]);
     else format(plate, sizeof (plate), "FIRM %d", FleetDBID[c][s]);
     SetVehicleNumberPlate(v, plate);
+    return v;
+}
+
+// Всеки 10 сек: служебен камион без шофьор 5 мин се прибира
+stock Fleet_Tick()
+{
+    for (new c = 0; c < MAX_COMPANIES; c++) {
+        for (new s = 0; s < FLEET_MAX; s++) {
+            new v = FleetVeh[c][s];
+            if (v == INVALID_VEHICLE_ID) continue;
+            new busy = 0;
+            for (new i = 0; i < MAX_PLAYERS; i++) {
+                if (IsPlayerConnected(i) && GetPlayerVehicleID(i) == v) { busy = 1; break; }
+            }
+            if (busy) { FleetIdle[c][s] = 0; continue; }
+            FleetIdle[c][s] += 10;
+            if (FleetIdle[c][s] >= FLEET_RESPAWN_SEC) Fleet_Despawn(c, s);
+        }
+    }
+}
+
+// Разбит служебен камион: прибира се (вместо да се появи наново)
+stock Fleet_OnVehicleSpawn(vehicleid)
+{
+    new c = Fleet_CompanyOf(vehicleid);
+    if (c == -1) return 0;
+    for (new s = 0; s < FLEET_MAX; s++) {
+        if (FleetVeh[c][s] == vehicleid) Fleet_Despawn(c, s);
+    }
+    return 1;
+}
+
+// Изкарай служебния камион s: появява се на базата и шофьорът е в него
+static stock Fleet_TakeOut(playerid, c, s)
+{
+    if (Firm_GetCompany(playerid) != c) return SendError(playerid, "Не работиш в тази компания.");
+    if (FleetDBID[c][s] == 0) return 1;
+    if (FleetVeh[c][s] != INVALID_VEHICLE_ID) return SendError(playerid, "Този камион вече е навън.");
+    if (!License_CanDrive(playerid, FleetModel[c][s])) return SendError(playerid, "Нямаш нужната категория за този камион.");
+    if (IsPlayerInAnyVehicle(playerid)) return SendError(playerid, "Първо слез от превозното средство.");
+    new v = Fleet_Spawn(c, s);
+    if (v == INVALID_VEHICLE_ID) return SendError(playerid, "Не успях да изкарам камиона.");
+    SetPlayerInterior(playerid, 0);
+    SetPlayerVirtualWorld(playerid, 0);
+    PutPlayerInVehicle(playerid, v, 0);
+    return 1;
+}
+
+// Служител: списък със свободните камиони
+stock Fleet_ShowTake(playerid, c)
+{
+    Firm3Company[playerid] = c;
+    new body[1024], line[128], name[24], payload[16], n = 0;
+    format(body, sizeof (body), "Камион\tТовароносимост\tСъстояние\n");
+    for (new s = 0; s < FLEET_MAX; s++) {
+        if (FleetDBID[c][s] == 0) continue;
+        Veh_GetModelName(FleetModel[c][s], name);
+        Catalog_FormatPayload(FleetModel[c][s], payload);
+        if (FleetVeh[c][s] == INVALID_VEHICLE_ID) format(line, sizeof (line), "%s\t%s\t" C_GREEN "в гаража\n", name, payload);
+        else format(line, sizeof (line), "%s\t%s\t" C_GREY "навън\n", name, payload);
+        strcat(body, line);
+        FleetBuyMap[playerid][n++] = s;
+    }
+    if (n == 0) {
+        ShowPlayerDialog(playerid, DIALOG_FIRM_INFO, DIALOG_STYLE_MSGBOX, C_BRAND "Служебни камиони",
+            C_WHITE "Компанията още няма служебни камиони.", "Назад", "");
+        return;
+    }
+    ShowPlayerDialog(playerid, DIALOG_FLEET_TAKE, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Изкарай служебен камион", "%s", "Изкарай", "Назад", body);
 }
 
 static stock Fleet_Despawn(c, s)
@@ -372,13 +422,13 @@ stock Fleet_ShowMenu(playerid, c)
             if (IsPlayerConnected(i) && GetPlayerVehicleID(i) == v && GetPlayerState(i) == PLAYER_STATE_DRIVER) { driver = i; break; }
         }
         if (driver != INVALID_PLAYER_ID) format(status, sizeof (status), C_BRAND "кара го %s", PlayerData[driver][pName]);
-        else format(status, sizeof (status), C_GREEN "свободен");
+        else if (v != INVALID_VEHICLE_ID) format(status, sizeof (status), C_GREY "навън, без шофьор");
+        else format(status, sizeof (status), C_GREEN "в гаража");
         format(line, sizeof (line), "%s\t%s\t%s\n", name, payload, status);
         strcat(body, line);
     }
     format(line, sizeof (line), C_GREEN "+ Купи камион " C_GREY "(%d / %d)\t\t\n", Fleet_Count(c), Fleet_Slots(c));
     strcat(body, line);
-    strcat(body, C_BRAND "> Паркингът на автопарка е тук\t\t\n");
     strcat(body, C_BRAND "> Входът на офиса е тук\t\t");
     ShowPlayerDialog(playerid, DIALOG_FLEET, DIALOG_STYLE_TABLIST_HEADERS, C_BRAND "Автопарк", "%s", "Избери", "Назад", body);
 }
@@ -455,36 +505,6 @@ static stock Fleet_Sell(playerid, c, s)
     return 1;
 }
 
-static stock Fleet_SetPark(playerid, c)
-{
-    if (IsPlayerInAnyVehicle(playerid)) {
-        new v = GetPlayerVehicleID(playerid);
-        GetVehiclePos(v, FleetPark[c][0], FleetPark[c][1], FleetPark[c][2]);
-        GetVehicleZAngle(v, FleetPark[c][3]);
-    } else {
-        GetPlayerPos(playerid, FleetPark[c][0], FleetPark[c][1], FleetPark[c][2]);
-        GetPlayerFacingAngle(playerid, FleetPark[c][3]);
-    }
-    if (VectorSize(FleetPark[c][0] - Company[c][cpX], FleetPark[c][1] - Company[c][cpY], 0.0) > 120.0) {
-        SendError(playerid, "Паркингът трябва да е до 120 м от базата.");
-        FleetPark[c][0] = Company[c][cpX] - 10.0;
-        FleetPark[c][1] = Company[c][cpY];
-        return;
-    }
-    Firm3_SavePoint(c, 1, FleetPark[c]);
-    // Свободните камиони отиват на новото място
-    for (new s = 0; s < FLEET_MAX; s++) {
-        new v = FleetVeh[c][s], busy = 0;
-        if (v == INVALID_VEHICLE_ID) continue;
-        for (new i = 0; i < MAX_PLAYERS; i++) if (IsPlayerConnected(i) && GetPlayerVehicleID(i) == v) busy = 1;
-        if (!busy) {
-            Fleet_Despawn(c, s);
-            Fleet_Spawn(c, s);
-        }
-    }
-    SendClientMessage(playerid, COLOR_BRAND, "[АВТОПАРК] " C_WHITE "Паркингът е тук: камионите застават в редица надясно, с лице натам, накъдето гледаш.");
-}
-
 // =====================================================================
 // Офис
 // =====================================================================
@@ -495,39 +515,43 @@ static stock Office_Build(c)
     if (OfficeLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(OfficeLabel[c]);
     if (OfficeActor[c] != INVALID_ACTOR_ID) DestroyActor(OfficeActor[c]);
     if (OfficeInLabel[c] != Text3D:-1) DestroyDynamic3DTextLabel(OfficeInLabel[c]);
+    if (OfficeSign[c] != 0) DestroyDynamicObject(OfficeSign[c]);
     OfficePickup[c] = -1;
     OfficeLabel[c] = Text3D:-1;
     OfficeActor[c] = INVALID_ACTOR_ID;
     OfficeInLabel[c] = Text3D:-1;
+    OfficeSign[c] = 0;
     if (!Company_IsValid(c)) return;
 
+    new rgb = (Company[c][cpColor] != 0) ? Company[c][cpColor] : 0xF5A623;
     new col[12], text[160];
-    format(col, sizeof (col), "{%06x}", (Company[c][cpColor] != 0) ? Company[c][cpColor] : 0xF5A623);
+    format(col, sizeof (col), "{%06x}", rgb);
     format(text, sizeof (text), "%s%s\n" C_WHITE "ОФИС\n" C_GREY "ALT - влез", col, CompanyDefs[c][cdName]);
     OfficePickup[c] = CreateDynamicPickup(1318, 1, OfficeDoor[c][0], OfficeDoor[c][1], OfficeDoor[c][2], 0, 0);
     OfficeLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, OfficeDoor[c][0], OfficeDoor[c][1], OfficeDoor[c][2] + 0.8, 20.0,
         INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 1, 0, 0);
 
-    // Вътре: секретарката и името на компанията над рецепцията
+    // Вътре: табелата с името, секретарката и надпис над рецепцията
     new world = OFFICE_WORLD_BASE + c;
-    OfficeActor[c] = CreateActor(OFFICE_SECRETARY_SKIN, SecretaryPos[0], SecretaryPos[1], SecretaryPos[2], SecretaryPos[3]);
+    OfficeSign[c] = Office_CreateSign(world, CompanyDefs[c][cdName], rgb);
+    OfficeActor[c] = CreateActor(OFFICE_SECRETARY_SKIN, OFFICE_X, OFFICE_Y + OFFICE_SECRETARY_Y, OFFICE_Z + 1.0, 180.0);
     if (OfficeActor[c] != INVALID_ACTOR_ID) {
         SetActorVirtualWorld(OfficeActor[c], world);
         SetActorInvulnerable(OfficeActor[c], true);
     }
-    format(text, sizeof (text), "%s%s\n" C_WHITE "Рецепция - ALT", col, CompanyDefs[c][cdName]);
-    OfficeInLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, SecretaryPos[0], SecretaryPos[1], SecretaryPos[2] + 1.2, 15.0,
-        INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, world, OFFICE_INTERIOR);
+    format(text, sizeof (text), C_BRAND "Рецепция\n" C_WHITE "ALT");
+    OfficeInLabel[c] = CreateDynamic3DTextLabel(text, COLOR_WHITE, OFFICE_X, OFFICE_Y + OFFICE_DESK_Y + 0.5, OFFICE_Z + 1.5, 8.0,
+        INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, world, -1);
 }
 
-// Изходът и надписите в офиса (създават се веднъж за всички светове)
+// Изходът в офиса (веднъж за всички светове)
 stock Office_CreateExits()
 {
     for (new c = 0; c < MAX_COMPANIES; c++) {
         new world = OFFICE_WORLD_BASE + c;
-        CreateDynamicPickup(1318, 1, OFFICE_X, OFFICE_Y, OFFICE_Z, world, OFFICE_INTERIOR);
-        CreateDynamic3DTextLabel(C_WHITE "ИЗХОД\n" C_BRAND "ALT", COLOR_WHITE, OFFICE_X, OFFICE_Y, OFFICE_Z + 0.8, 10.0,
-            INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, world, OFFICE_INTERIOR);
+        CreateDynamicPickup(1318, 1, OFFICE_X + OFFICE_ENTRY_X, OFFICE_Y + OFFICE_ENTRY_Y, OFFICE_Z + 1.0, world, -1);
+        CreateDynamic3DTextLabel(C_WHITE "ИЗХОД\n" C_BRAND "ALT", COLOR_WHITE, OFFICE_X + OFFICE_ENTRY_X, OFFICE_Y + OFFICE_ENTRY_Y, OFFICE_Z + 1.8, 10.0,
+            INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, world, -1);
     }
 }
 
@@ -537,7 +561,7 @@ stock Office_Refresh(c)
     Office_Build(c);
 }
 
-// Закрита компания: автопаркът се продава в нищото, поръчката се маха
+// Закрита компания: автопаркът изчезва, поръчката се маха
 stock Firm3_OnCompanyDeleted(c)
 {
     for (new s = 0; s < FLEET_MAX; s++) {
@@ -559,17 +583,17 @@ stock Firm3_OnCompanyCreated(c)
     OfficeDoor[c][0] = Company[c][cpX] + 6.0;
     OfficeDoor[c][1] = Company[c][cpY] + 6.0;
     OfficeDoor[c][2] = Company[c][cpZ];
-    FleetPark[c][0] = Company[c][cpX] - 10.0;
-    FleetPark[c][1] = Company[c][cpY];
-    FleetPark[c][2] = Company[c][cpZ];
     Office_Build(c);
 }
 
 static stock Office_Enter(playerid, c)
 {
+    new Float:x = OFFICE_X + OFFICE_ENTRY_X, Float:y = OFFICE_Y + OFFICE_ENTRY_Y + 0.6, Float:z = OFFICE_Z + 1.0;
     SetPlayerInterior(playerid, OFFICE_INTERIOR);
     SetPlayerVirtualWorld(playerid, OFFICE_WORLD_BASE + c);
-    SetPlayerPos(playerid, OFFICE_X, OFFICE_Y, OFFICE_Z);
+    Streamer_UpdateEx(playerid, x, y, z, OFFICE_WORLD_BASE + c, OFFICE_INTERIOR);
+    SetPlayerPos(playerid, x, y, z);
+    SetPlayerFacingAngle(playerid, 0.0);
     SetCameraBehindPlayer(playerid);
     GameTextForPlayer(playerid, "~y~OFFICE", 2000, 1);
 }
@@ -584,10 +608,10 @@ static stock Office_Exit(playerid, c)
     SetCameraBehindPlayer(playerid);
 }
 
-static stock Office_Inside(playerid)
+stock Office_Inside(playerid)
 {
     new c = GetPlayerVirtualWorld(playerid) - OFFICE_WORLD_BASE;
-    if (GetPlayerInterior(playerid) != OFFICE_INTERIOR || c < 0 || c >= MAX_COMPANIES) return -1;
+    if (c < 0 || c >= MAX_COMPANIES) return -1;
     return c;
 }
 
@@ -607,18 +631,6 @@ static stock Office_SetDoor(playerid, c)
     return 1;
 }
 
-// Админ: секретарката във всички офиси застава тук
-stock Office_SetSecretary(playerid)
-{
-    if (Office_Inside(playerid) == -1) return SendError(playerid, "Влез в офис на компания и застани на рецепцията.");
-    GetPlayerPos(playerid, SecretaryPos[0], SecretaryPos[1], SecretaryPos[2]);
-    GetPlayerFacingAngle(playerid, SecretaryPos[3]);
-    Firm3_SavePoint(-1, 9, SecretaryPos);
-    for (new c = 0; c < MAX_COMPANIES; c++) Office_Build(c);
-    SendClientMessage(playerid, COLOR_ADMIN, "[A] Секретарките във всички офиси стоят тук.");
-    return 1;
-}
-
 stock Office_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 {
     if (!((newkeys & KEY_WALK) && !(oldkeys & KEY_WALK))) return 0;
@@ -626,12 +638,12 @@ stock Office_OnKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
 
     new inside = Office_Inside(playerid);
     if (inside != -1) {
-        if (IsPlayerInRangeOfPoint(playerid, 2.5, SecretaryPos[0], SecretaryPos[1], SecretaryPos[2])) {
+        if (IsPlayerInRangeOfPoint(playerid, 2.5, OFFICE_X, OFFICE_Y + OFFICE_DESK_Y, OFFICE_Z + 1.0)) {
             if (OfficeActor[inside] != INVALID_ACTOR_ID) ApplyActorAnimation(OfficeActor[inside], "PED", "IDLE_CHAT", 4.1, false, false, false, false, 0);
             Business_Show(playerid, inside);
             return 1;
         }
-        if (IsPlayerInRangeOfPoint(playerid, 2.5, OFFICE_X, OFFICE_Y, OFFICE_Z)) {
+        if (IsPlayerInRangeOfPoint(playerid, 2.0, OFFICE_X + OFFICE_ENTRY_X, OFFICE_Y + OFFICE_ENTRY_Y, OFFICE_Z + 1.0)) {
             Office_Exit(playerid, inside);
             return 1;
         }
@@ -721,15 +733,12 @@ stock Firm3_OnDialogResponse(playerid, dialogid, response, listitem, const input
                     if (FleetDBID[c][s] == 0) continue;
                     if (k++ == listitem) { FleetPick[playerid] = s; break; }
                 }
-                new name[24];
+                new name[24], title[48];
                 Veh_GetModelName(FleetModel[c][FleetPick[playerid]], name);
-                ShowPlayerDialog(playerid, DIALOG_FLEET_SELL, DIALOG_STYLE_MSGBOX, C_BRAND "Служебен камион",
-                    C_WHITE "%s\n\nДа го продам ли? Касата получава %d%% от цената.", "Продай", "Назад", name, FLEET_SELL_PERCENT);
+                format(title, sizeof (title), C_BRAND "%s", name);
+                ShowPlayerDialog(playerid, DIALOG_FLEET_ACT, DIALOG_STYLE_LIST, title, "Изкарай го на базата\n" C_RED "Продай го", "Избери", "Назад");
             } else if (listitem == n) Fleet_ShowBuy(playerid, c);
-            else if (listitem == n + 1) {
-                Fleet_SetPark(playerid, c);
-                Fleet_ShowMenu(playerid, c);
-            } else {
+            else {
                 Office_SetDoor(playerid, c);
                 Fleet_ShowMenu(playerid, c);
             }
@@ -738,6 +747,22 @@ stock Firm3_OnDialogResponse(playerid, dialogid, response, listitem, const input
         case DIALOG_FLEET_BUY: {
             if (response && listitem >= 0 && listitem < 16) Fleet_Buy(playerid, c, FleetBuyMap[playerid][listitem]);
             Fleet_ShowMenu(playerid, c);
+            return 1;
+        }
+        case DIALOG_FLEET_ACT: {
+            if (!response) { Fleet_ShowMenu(playerid, c); return 1; }
+            if (listitem == 0) Fleet_TakeOut(playerid, c, FleetPick[playerid]);
+            else {
+                new name[24];
+                Veh_GetModelName(FleetModel[c][FleetPick[playerid]], name);
+                ShowPlayerDialog(playerid, DIALOG_FLEET_SELL, DIALOG_STYLE_MSGBOX, C_BRAND "Служебен камион",
+                    C_WHITE "%s\n\nДа го продам ли? Касата получава %d%% от цената.", "Продай", "Назад", name, FLEET_SELL_PERCENT);
+            }
+            return 1;
+        }
+        case DIALOG_FLEET_TAKE: {
+            if (!response) { Business_OpenOwn(playerid); return 1; }
+            if (listitem >= 0 && listitem < FLEET_MAX) Fleet_TakeOut(playerid, c, FleetBuyMap[playerid][listitem]);
             return 1;
         }
         case DIALOG_FLEET_SELL: {

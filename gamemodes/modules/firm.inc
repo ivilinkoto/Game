@@ -593,7 +593,8 @@ stock Firm_ShowMemberPanel(playerid)
         "Комисионна\t" C_RED "%d%%\n" \
         "Заплата на PayDay\t" C_GREEN "$%s\n" \
         "Карта за гориво\t%s\n" \
-        "Каса и история\t\n",
+        "Каса и история\t\n" \
+        "Изкарай служебен камион\t\n",
         FirmRankNames[FirmRank[playerid]], bonus, Company[c][cpCommission], salary,
         Company[c][cpFuelCard] ? (C_GREEN "да") : (C_GREY "не"));
     if (FirmRank[playerid] == FIRM_RANK_MANAGER) {
@@ -972,16 +973,17 @@ stock Firm_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
         }
         case DIALOG_FIRM_MEMBER_PANEL: {
             if (!response || FirmCompany[playerid] != c) return 1;
-            // Редове: 0-4 информация, 5 каса, (мениджър: 6 служители, 7 молби, 8 покани), последният - напусни
-            new leaveRow = (FirmRank[playerid] == FIRM_RANK_MANAGER) ? 9 : 6;
+            // Редове: 0-4 информация, 5 каса, 6 служебен камион, (мениджър: 7 служители, 8 молби, 9 покани), последният - напусни
+            new leaveRow = (FirmRank[playerid] == FIRM_RANK_MANAGER) ? 10 : 7;
             if (listitem == 5) Firm_ShowCash(playerid, c);
+            else if (listitem == 6) Fleet_ShowTake(playerid, c);
             else if (listitem == leaveRow) {
                 ShowPlayerDialog(playerid, DIALOG_FIRM_LEAVE, DIALOG_STYLE_MSGBOX, C_RED "Напускане",
                     C_WHITE "Сигурен ли си, че напускаш " C_BRAND "%s" C_WHITE "?", "Напусни", "Назад", CompanyDefs[c][cdName]);
             }
-            else if (FirmRank[playerid] == FIRM_RANK_MANAGER && listitem == 6) Firm_ShowMembers(playerid, c);
-            else if (FirmRank[playerid] == FIRM_RANK_MANAGER && listitem == 7) Firm_ShowApplications(playerid, c);
-            else if (FirmRank[playerid] == FIRM_RANK_MANAGER && listitem == 8) Firm_AskInvite(playerid, c);
+            else if (FirmRank[playerid] == FIRM_RANK_MANAGER && listitem == 7) Firm_ShowMembers(playerid, c);
+            else if (FirmRank[playerid] == FIRM_RANK_MANAGER && listitem == 8) Firm_ShowApplications(playerid, c);
+            else if (FirmRank[playerid] == FIRM_RANK_MANAGER && listitem == 9) Firm_AskInvite(playerid, c);
             else Firm_ShowMemberPanel(playerid);
             return 1;
         }
