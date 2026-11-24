@@ -129,7 +129,13 @@ stock Tutorial_Init()
             Tutorial_BuildPoint(k, c);
         }
     }
-    for (new c = 0; c < MAX_CITIES; c++) Tutorial_BuildClerk(c);
+    for (new c = 0; c < MAX_CITIES; c++) {
+        Tutorial_BuildClerk(c);
+        // Изход от кметството (отвътре, на входната точка)
+        CreateDynamicPickup(1318, 1, HALL_ENTRY_X, HALL_ENTRY_Y, HALL_ENTRY_Z, HALL_WORLD_BASE + c, HALL_INTERIOR);
+        CreateDynamic3DTextLabel(C_WHITE "ИЗХОД\n" C_BRAND "ALT", COLOR_WHITE, HALL_ENTRY_X, HALL_ENTRY_Y, HALL_ENTRY_Z + 0.8, 10.0,
+            INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, HALL_WORLD_BASE + c, HALL_INTERIOR);
+    }
 }
 
 stock Tutorial_OnPlayerConnect(playerid)
