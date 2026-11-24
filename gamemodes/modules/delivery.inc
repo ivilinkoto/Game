@@ -143,7 +143,8 @@ static stock Contracts_GetPay(slot)
 {
     new base = Goods_CalcPay(Contracts[slot][ctGood], Contracts[slot][ctKg],
         Company_Distance(Contracts[slot][ctFrom], Contracts[slot][ctTo]));
-    return base * Economy_DemandPercent(Contracts[slot][ctTo], Contracts[slot][ctGood]) / 100;
+    base = base * Economy_DemandPercent(Contracts[slot][ctTo], Contracts[slot][ctGood]) / 100;
+    return base * Firm_RepPay(Contracts[slot][ctFrom]) / 100;      // репутация на компанията А (90-110%)
 }
 
 // ---------- Табло ----------
@@ -515,10 +516,10 @@ stock Delivery_OnEnterRaceCP(playerid)
         return 1;
     }
     if (stage == JOB_TO_PICKUP) {
-        Delivery_StartTimer(playerid, JOB_LOADING, DELIVERY_LOAD_MS);
+        Delivery_StartTimer(playerid, JOB_LOADING, DELIVERY_LOAD_MS * Firm_DockPercent(Job[playerid][jbFrom]) / 100);
         SendClientMessage(playerid, COLOR_BRAND, "[КУРС] " C_WHITE "Товарене...");
     } else {
-        Delivery_StartTimer(playerid, JOB_UNLOADING, DELIVERY_UNLOAD_MS);
+        Delivery_StartTimer(playerid, JOB_UNLOADING, DELIVERY_UNLOAD_MS * Firm_DockPercent(Job[playerid][jbTo]) / 100);
         SendClientMessage(playerid, COLOR_BRAND, "[КУРС] " C_WHITE "Разтоварване...");
     }
     return 1;

@@ -90,7 +90,7 @@ static stock Business_ShowInfo(playerid, c)
         Company[c][cpDeliveries], COMPANY_COMMISSION, status);
 }
 
-// Редове: 0-5 фирмата (firm.inc), 6 бонус, 7 статистика, 8 продажба
+// Редове: 0-6 фирмата (firm.inc), 7 бонус, 8 статистика, 9 продажба
 static stock Business_ShowOwnerPanel(playerid, c)
 {
     new earned[16], body[1024], line[160];
@@ -240,10 +240,10 @@ stock Business_OnDialogResponse(playerid, dialogid, response, listitem)
         case DIALOG_BIZ_OWNER: {
             if (!response || Company[c][cpOwner] != PlayerData[playerid][pID]) return 1;
             switch (listitem) {
-                case 0, 1, 2, 3, 4, 5: Firm_OwnerPick(playerid, c, listitem);
-                case 6: Business_ShowBonus(playerid, c);
-                case 7: Business_ShowOwnerPanel(playerid, c);
-                case 8: Business_AskSell(playerid, c);
+                case 0, 1, 2, 3, 4, 5, 6: Firm_OwnerPick(playerid, c, listitem);
+                case 7: Business_ShowBonus(playerid, c);
+                case 8: Business_ShowOwnerPanel(playerid, c);
+                case 9: Business_AskSell(playerid, c);
             }
             return 1;
         }

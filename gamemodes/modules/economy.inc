@@ -22,7 +22,8 @@ new CompanyStock[MAX_COMPANIES][MAX_GOODS];
 
 stock Economy_Capacity(c)
 {
-    return EconomyCapacity[CompanyDefs[c][cdSize]];
+    // + подобрение "Склад" (firm.inc)
+    return EconomyCapacity[CompanyDefs[c][cdSize]] * (100 + Firm_UpEffect(c, 0)) / 100;
 }
 
 // Пълнота 0-100 %
@@ -139,7 +140,8 @@ stock Economy_Tick()
             for (new g = 0; g < MAX_GOODS; g++) {
                 if (accepts & GOOD_BIT(g)) inputKg += CompanyStock[c][g];
             }
-            new base = EconomyProduction[size], made;
+            // + подобрение "Производство" и репутация (firm.inc)
+        new base = EconomyProduction[size] * (100 + Firm_UpEffect(c, 1)) / 100 * Firm_RepProduction(c) / 100, made;
             if (accepts == 0) {
                 made = base;                            // внос / добив - без суровини
             } else if (inputKg > 0) {

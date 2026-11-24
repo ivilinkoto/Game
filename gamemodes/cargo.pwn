@@ -80,6 +80,7 @@ forward bool:License_CanDrive(playerid, model);
 #include "modules/docs.inc"
 #include "modules/tutorial.inc"
 #include "modules/tuning.inc"
+#include "modules/firmbase.inc"
 #include "modules/adminpanel.inc"
 #include "modules/skin_select.inc"
 #include "modules/auth.inc"
@@ -159,7 +160,10 @@ public Server_Tick()
 {
     gSecondsCounter++;
     new bool:autosave = (gSecondsCounter % AUTOSAVE_SECONDS == 0);
-    if (gSecondsCounter % 3600 == 0) Business_CheckInactive();
+    if (gSecondsCounter % 3600 == 0) {
+        Business_CheckInactive();
+        Firm_HourlyTick();
+    }
     if (gSecondsCounter % ECONOMY_TICK_SECONDS == 0) Economy_Tick();
     if (autosave) Economy_Save();
     Places_GateTick();
@@ -263,6 +267,7 @@ public OnPlayerKeyStateChange(playerid, KEY:newkeys, KEY:oldkeys)
     if (Engine_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Garage_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Fuel_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
+    if (FirmBase_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Tune_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Delivery_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
     if (Dealer_OnKeyStateChange(playerid, newkeys, oldkeys)) return 1;
@@ -299,6 +304,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
     if (Firm_OnDialogResponse(playerid, dialogid, response, listitem, inputtext)) return 1;
     if (Fuel_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Tune_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
+    if (FirmBase_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (Needs_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (License_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;
     if (House_OnDialogResponse(playerid, dialogid, response, listitem)) return 1;

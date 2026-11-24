@@ -126,7 +126,7 @@ static stock bool:Firm_CanManage(playerid, c)
 
 stock Firm_Slots(c)
 {
-    return FirmSlots[CompanyDefs[c][cdSize]];
+    return FirmSlots[CompanyDefs[c][cdSize]] + Firm_ExtraSlots(c);
 }
 
 stock Firm_CountMembers(c)
@@ -623,9 +623,11 @@ stock Firm_ShowOwnerExtras(playerid, c, body[], size)
     strcat(body, "Облик: име, таг, цвят, слоган\t\t\n", size);
     format(line, sizeof (line), "Условия за служителите\t" C_GREY "%d%%, заплата, гориво\t\n", Company[c][cpCommission]);
     strcat(body, line, size);
+    format(line, sizeof (line), "Подобрения и ниво\t" C_BRAND "ниво %d" C_GREY ", репутация %d%%\t\n", Firm_Level(c), Company[c][cpRep]);
+    strcat(body, line, size);
 }
 
-// Изборът в панела на собственика (редове 0-5 от Firm_ShowOwnerExtras)
+// Изборът в панела на собственика (редове 0-6 от Firm_ShowOwnerExtras)
 stock Firm_OwnerPick(playerid, c, row)
 {
     FirmPanelCompany[playerid] = c;
@@ -636,6 +638,7 @@ stock Firm_OwnerPick(playerid, c, row)
         case 3: Firm_AskInvite(playerid, c);
         case 4: Firm_ShowLook(playerid, c);
         case 5: Firm_ShowTerms(playerid, c);
+        case 6: Firm_OpenUpgrades(playerid, c);
     }
 }
 
@@ -645,7 +648,8 @@ stock Firm_OwnerPick(playerid, c, row)
 stock Firm_OrderBonus(playerid, from)
 {
     if (FirmCompany[playerid] == -1 || FirmCompany[playerid] != from) return 0;
-    return (FirmRank[playerid] >= FIRM_RANK_SENIOR) ? FIRM_BONUS_SENIOR : FIRM_BONUS_DRIVER;
+    // + ниво на компанията (по 1% за всяко ниво над 1)
+    return ((FirmRank[playerid] >= FIRM_RANK_SENIOR) ? FIRM_BONUS_SENIOR : FIRM_BONUS_DRIVER) + Firm_Level(from) - 1;
 }
 
 // След доставка: бонус за фирмена поръчка и комисионна. Връща промяната в плащането на шофьора.
@@ -742,6 +746,7 @@ CMD:f(playerid, params[])
 
 stock Firm_OnDialogResponse(playerid, dialogid, response, listitem, const inputtext[])
 {
+    if (Firm_UpgradesDialog(playerid, dialogid, response, listitem)) return 1;
     new c = FirmPanelCompany[playerid];
     switch (dialogid) {
         case DIALOG_FIRM_INFO: {
@@ -984,4 +989,190 @@ stock Firm_OnDialogResponse(playerid, dialogid, response, listitem, const inputt
         }
     }
     return 0;
+}
+
+// =====================================================================
+// Етап 2: подобрения на базата, ниво и репутация на компанията
+// =====================================================================
+//
+// Подобрения (по 3 нива, плащат се от касата; по-високите искат по-високо ниво на компанията):
+//   0 Склад        - по-голям капацитет (+25/50/100%)
+//   1 Производство - произвежда повече (+20/40/70%)
+//   2 Товарна рампа - по-бързо товарене/разтоварване в базата (-20/35/50% време)
+//   3 Колонка      - служителите зареждат на базата с отстъпка (25/40/50%)
+//   4 Сервиз       - служителите ремонтират на базата с отстъпка (25/50/75%)
+//   5 Офис         - още места за служители (+3/6/10)
+// Ниво: опит от всеки курс от/до компанията. Всяко ниво над 1 дава +1% на фирмените поръчки.
+// Репутация 0-100: +1 на курс, -2 на час, ако 24 ч няма курс. Влияе на производството (75-125%)
+// и на плащането на поръчките от компанията (90-110%).
+
+#define FIRM_UPGRADES       6
+#define FIRM_MAX_LEVEL      10
+
+static const FirmUpNames[FIRM_UPGRADES][] = {"Склад", "Производство", "Товарна рампа", "Фирмена колонка", "Сервиз", "Офис"};
+static const FirmUpEffect[FIRM_UPGRADES][4] = {
+    {0, 25, 50, 100},       // % капацитет
+    {0, 20, 40, 70},        // % производство
+    {0, 20, 35, 50},        // % по-малко време
+    {0, 25, 40, 50},        // % отстъпка гориво
+    {0, 25, 50, 75},        // % отстъпка ремонт
+    {0, 3, 6, 10}           // места
+};
+static const FirmUpPrice[4] = {0, 15000, 40000, 90000};
+static const FirmUpNeedLevel[4] = {0, 1, 3, 5};
+static const FirmLevelXP[FIRM_MAX_LEVEL] = {0, 500, 1500, 3000, 5000, 7500, 10500, 14000, 18000, 22500};
+static FirmUpPick[MAX_PLAYERS];
+
+stock Firm_Level(c)
+{
+    new level = 1;
+    for (new i = 0; i < FIRM_MAX_LEVEL; i++) {
+        if (Company[c][cpXP] >= FirmLevelXP[i]) level = i + 1;
+    }
+    return level;
+}
+
+stock Firm_UpEffect(c, up)
+{
+    return FirmUpEffect[up][Company[c][cpUp][up]];
+}
+
+// Опит и репутация от курс (вика се от Company_OnDelivery)
+stock Firm_AddXP(c, xp)
+{
+    if (!Company_IsValid(c)) return;
+    new before = Firm_Level(c);
+    Company[c][cpXP] += xp;
+    if (Company[c][cpRep] < 100) Company[c][cpRep]++;
+    Company[c][cpLastDelivery] = gettime();
+    new after = Firm_Level(c);
+    if (after > before && Company[c][cpOwner] != 0) {
+        new msg[96];
+        format(msg, sizeof (msg), "Компанията стана ниво %d! Фирмените поръчки вече дават още +%d%%.", after, after - 1);
+        Firm_Broadcast(c, msg);
+    }
+}
+
+// Всеки час: репутацията пада, ако 24 ч няма курс
+stock Firm_HourlyTick()
+{
+    new limit = gettime() - 86400;
+    for (new c = 0; c < MAX_COMPANIES; c++) {
+        if (!Company_IsValid(c)) continue;
+        if (Company[c][cpLastDelivery] < limit && Company[c][cpRep] > 0) {
+            Company[c][cpRep] -= 2;
+            if (Company[c][cpRep] < 0) Company[c][cpRep] = 0;
+            Company_Save(c);
+        }
+    }
+}
+
+// % множител на производството от репутацията (75-125)
+stock Firm_RepProduction(c)
+{
+    return 75 + Company[c][cpRep] / 2;
+}
+
+// % множител на плащането на поръчка от компанията (90-110)
+stock Firm_RepPay(c)
+{
+    return 90 + Company[c][cpRep] / 5;
+}
+
+// Колко % от времето за товарене остава на базата на компанията
+stock Firm_DockPercent(c)
+{
+    if (!Company_IsValid(c)) return 100;
+    return 100 - Firm_UpEffect(c, 2);
+}
+
+// Допълнителни места (офис)
+stock Firm_ExtraSlots(c)
+{
+    return Firm_UpEffect(c, 5);
+}
+
+// ---------- Прозорец "Подобрения и ниво" ----------
+
+static stock Firm_ShowUpgrades(playerid, c)
+{
+    new body[1400], line[200], level = Firm_Level(c), next[48];
+    if (level < FIRM_MAX_LEVEL) format(next, sizeof (next), "още %d опит до ниво %d", FirmLevelXP[level] - Company[c][cpXP], level + 1);
+    else format(next, sizeof (next), "максимално ниво");
+    format(body, sizeof (body), "Подобрение\tНиво\tЕфект\tСледващо\n");
+    for (new u = 0; u < FIRM_UPGRADES; u++) {
+        new lv = Company[c][cpUp][u], eff[48], nxt[64];
+        switch (u) {
+            case 0: format(eff, sizeof (eff), "+%d%% склад", FirmUpEffect[u][lv]);
+            case 1: format(eff, sizeof (eff), "+%d%% производство", FirmUpEffect[u][lv]);
+            case 2: format(eff, sizeof (eff), "-%d%% време товарене", FirmUpEffect[u][lv]);
+            case 3: format(eff, sizeof (eff), "-%d%% гориво", FirmUpEffect[u][lv]);
+            case 4: format(eff, sizeof (eff), "-%d%% ремонт", FirmUpEffect[u][lv]);
+            default: format(eff, sizeof (eff), "+%d места", FirmUpEffect[u][lv]);
+        }
+        if (lv >= 3) format(nxt, sizeof (nxt), C_GREY "максимум");
+        else if (level < FirmUpNeedLevel[lv + 1]) format(nxt, sizeof (nxt), C_RED "ниво %d на компанията", FirmUpNeedLevel[lv + 1]);
+        else format(nxt, sizeof (nxt), C_GREEN "$%d", FirmUpPrice[lv + 1]);
+        format(line, sizeof (line), "%s\t%d/3\t%s\t%s\n", FirmUpNames[u], lv, eff, nxt);
+        strcat(body, line);
+    }
+    new title[128];
+    format(title, sizeof (title), C_BRAND "Ниво %d" C_WHITE " (%s) | репутация %d%%", level, next, Company[c][cpRep]);
+    FirmPanelCompany[playerid] = c;
+    ShowPlayerDialog(playerid, DIALOG_FIRM_UPGRADES, DIALOG_STYLE_TABLIST_HEADERS, title, "%s", "Подобри", "Назад", body);
+}
+
+static stock Firm_BuyUpgrade(playerid, c, u)
+{
+    if (!Firm_IsOwner(playerid, c)) return SendError(playerid, "Само собственикът подобрява базата.");
+    new lv = Company[c][cpUp][u];
+    if (lv >= 3) return SendError(playerid, "Това подобрение е на максимум.");
+    if (Firm_Level(c) < FirmUpNeedLevel[lv + 1]) {
+        SendClientMessage(playerid, COLOR_RED, "[!] " C_WHITE "Трябва ниво %d на компанията.", FirmUpNeedLevel[lv + 1]);
+        return 1;
+    }
+    new price = FirmUpPrice[lv + 1];
+    if (Company[c][cpCash] < price) return SendError(playerid, "В касата няма достатъчно пари. Внеси от Каса > Внеси пари.");
+    Company[c][cpCash] -= price;
+    Company[c][cpUp][u] = lv + 1;
+    Company_Save(c);
+    new log[64], msg[96];
+    format(log, sizeof (log), "Подобрение: %s ниво %d", FirmUpNames[u], lv + 1);
+    Firm_Log(c, -price, log);
+    format(msg, sizeof (msg), "Базата е подобрена: %s - ниво %d!", FirmUpNames[u], lv + 1);
+    Firm_Broadcast(c, msg);
+    PlayerPlaySound(playerid, 1058, 0.0, 0.0, 0.0);
+    if (u == 0) Economy_RefreshLabels();
+    return 1;
+}
+
+stock Firm_UpgradesDialog(playerid, dialogid, response, listitem)
+{
+    switch (dialogid) {
+        case DIALOG_FIRM_UPGRADES: {
+            new c = FirmPanelCompany[playerid];
+            if (!response) { Business_OpenOwn(playerid); return 1; }
+            if (listitem < 0 || listitem >= FIRM_UPGRADES || !Company_IsValid(c)) return 1;
+            FirmUpPick[playerid] = listitem;
+            new lv = Company[c][cpUp][listitem];
+            if (lv >= 3) { SendError(playerid, "Това подобрение е на максимум."); Firm_ShowUpgrades(playerid, c); return 1; }
+            ShowPlayerDialog(playerid, DIALOG_FIRM_UPGRADE_OK, DIALOG_STYLE_MSGBOX, C_BRAND "Подобрение",
+                C_WHITE "%s: ниво %d -> " C_BRAND "%d\n\n" C_WHITE "Цена: " C_GREEN "$%d" C_WHITE " от касата (в нея има $%d).",
+                "Купи", "Назад", FirmUpNames[listitem], lv, lv + 1, FirmUpPrice[lv + 1], Company[c][cpCash]);
+            return 1;
+        }
+        case DIALOG_FIRM_UPGRADE_OK: {
+            new c = FirmPanelCompany[playerid];
+            if (response && Company_IsValid(c)) Firm_BuyUpgrade(playerid, c, FirmUpPick[playerid]);
+            if (Company_IsValid(c)) Firm_ShowUpgrades(playerid, c);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Ред 6 в панела на собственика
+stock Firm_OpenUpgrades(playerid, c)
+{
+    Firm_ShowUpgrades(playerid, c);
 }
