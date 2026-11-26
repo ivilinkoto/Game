@@ -1,0 +1,50 @@
+name: Godot Android APK
+
+# Изгражда APK на собствената игра (папка godot/) при всяка промяна в нея.
+# Готовият файл е в раздела Artifacts на съответното изпълнение.
+
+on:
+  push:
+    paths:
+      - 'godot/**'
+      - '.github/workflows/godot-android.yml'
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.3
+  EXPORT_NAME: cargostate
+  PROJECT_PATH: godot
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup
+        run: |
+          mkdir -v -p ~/.local/share/godot/export_templates/
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+
+      - name: Import
+        run: |
+          cd $PROJECT_PATH
+          godot --headless --import || true
+
+      - name: Android debug export
+        run: |
+          mkdir -v -p build/android
+          EXPORT_DIR="$(readlink -f build)"
+          cd $PROJECT_PATH
+          godot --headless --verbose --export-debug "Android Debug" "$EXPORT_DIR/android/$EXPORT_NAME-debug.apk" 2>&1 | tee export.log
+          test -f "$EXPORT_DIR/android/$EXPORT_NAME-debug.apk"
+          ls -la "$EXPORT_DIR/android"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cargostate-apk
+          path: build/android
