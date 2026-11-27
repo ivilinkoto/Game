@@ -1,10 +1,11 @@
 extends Node3D
 ## CARGO STATE — прототип.
-## Малка карта с пътища и 5 бази. Взимаш товар от една база и го караш до друга.
+## Малка карта с пътища и 5 бази. Закачаш ремарке с товар на една база и го караш до друга.
 
 const SAVE_PATH := "user://save.cfg"
-const ZONE_RADIUS := 14.0
-const LOAD_TIME := 4.0
+const ZONE_RADIUS := 18.0
+const ATTACH_DIST := 1.4
+const TrailerScript := preload("res://scripts/trailer.gd")
 const ROAD_W := 12.0
 
 const DEPOTS := [
@@ -23,8 +24,6 @@ const CARGO := [
 	{"name": "Строителни материали", "rate": 1.1, "color": Color(0.75, 0.7, 0.6)},
 ]
 
-enum State { FREE, LOADING, DELIVERING, UNLOADING }
-
 var truck: VehicleBody3D
 var cam: Camera3D
 var hud: CanvasLayer
@@ -34,12 +33,11 @@ var beacon: MeshInstance3D
 
 var money := 500
 var deliveries := 0
-var state := State.FREE
-var timer := 0.0
-var job_from := -1
-var job_to := -1
-var job_cargo := 0
-var job_pay := 0
+var trailers: Array[TrailerScript] = []
+var offers := {}                     # база -> ремарке с поръчка (или null)
+var attached: TrailerScript = null
+var joint: Generic6DOFJoint3D = null
+var respawn_timer := 0.0
 
 
 func _ready() -> void:
@@ -71,6 +69,9 @@ func _ready() -> void:
 	touch = preload("res://scripts/touch_controls.gd").new()
 	touch.visible = DisplayServer.is_touchscreen_available()
 	add_child(touch)
+
+	for d in DEPOTS.size():
+		_make_offer(d)
 
 	_load()
 	hud.set_money(money, deliveries)
@@ -206,14 +207,14 @@ func _build_depots() -> void:
 	var roof := _mat(Color(0.35, 0.38, 0.42))
 	for i in DEPOTS.size():
 		var p: Vector3 = DEPOTS[i]["pos"]
-		_static_box(Vector3(40, 0.06, 40), p + Vector3(0, 0.03, 0), concrete, false)
+		_static_box(Vector3(50, 0.06, 50), p + Vector3(0, 0.03, 0), concrete, false)
 		# Жълт кант на зоната
 		for s in [-1, 1]:
-			_static_box(Vector3(30, 0.03, 0.5), p + Vector3(0, 0.07, s * 15), stripe, false)
-			_static_box(Vector3(0.5, 0.03, 30), p + Vector3(s * 15, 0.07, 0), stripe, false)
+			_static_box(Vector3(36, 0.03, 0.5), p + Vector3(0, 0.07, s * 18), stripe, false)
+			_static_box(Vector3(0.5, 0.03, 36), p + Vector3(s * 18, 0.07, 0), stripe, false)
 		# Склад зад зоната (от другата страна на пътя)
 		var out := Vector3(p.x, 0, p.z).normalized()
-		var hall := p + out * 32.0
+		var hall := p + out * 42.0
 		_static_box(Vector3(26, 9, 26), hall + Vector3(0, 4.5, 0), wall)
 		_static_box(Vector3(27, 0.6, 27), hall + Vector3(0, 9.3, 0), roof, false)
 		var sign := Label3D.new()
@@ -305,124 +306,206 @@ func _make_beacon() -> MeshInstance3D:
 	return mi
 
 
-# ---------------------------------------------------------------- поръчки
+# ---------------------------------------------------------------- ремаркета и поръчки
 
-func _depot_here() -> int:
+func _depot_at(pos: Vector3) -> int:
 	for i in DEPOTS.size():
 		var p: Vector3 = DEPOTS[i]["pos"]
-		var d := Vector2(truck.global_position.x - p.x, truck.global_position.z - p.z).length()
-		if d < ZONE_RADIUS:
+		if Vector2(pos.x - p.x, pos.z - p.z).length() < ZONE_RADIUS:
 			return i
 	return -1
 
 
-func _nearest_depot() -> int:
-	var best := 0
-	var best_d := INF
+func _offer_spot(depot: int) -> Vector3:
+	var p: Vector3 = DEPOTS[depot]["pos"]
+	return p + Vector3(p.x, 0, p.z).normalized() * 8.0
+
+
+func _make_offer(depot: int) -> void:
+	var options := []
 	for i in DEPOTS.size():
-		var d: float = truck.global_position.distance_to(DEPOTS[i]["pos"])
-		if d < best_d:
-			best_d = d
-			best = i
-	return best
+		if i != depot:
+			options.append(i)
+	var to: int = options[randi() % options.size()]
+	var c := randi() % CARGO.size()
+	var dist: float = (DEPOTS[depot]["pos"] as Vector3).distance_to(DEPOTS[to]["pos"])
+	var pay := int(round((200.0 + dist * 2.2) * CARGO[c]["rate"] / 10.0)) * 10
+	var tr: TrailerScript = TrailerScript.new()
+	var p: Vector3 = DEPOTS[depot]["pos"]
+	var out := Vector3(p.x, 0, p.z).normalized()
+	# Предницата (+Z) гледа към центъра на картата, за да може влекачът да даде назад до нея
+	tr.transform = Transform3D(Basis.looking_at(out, Vector3.UP), _offer_spot(depot) + Vector3(0, 1.0, 0))
+	add_child(tr)
+	tr.setup(c, CARGO[c]["color"], depot, to, pay,
+		"%s\n→ %s\n$%d" % [CARGO[c]["name"], DEPOTS[to]["name"], pay])
+	trailers.append(tr)
+	offers[depot] = tr
 
 
-func _target() -> int:
-	if state == State.DELIVERING or state == State.UNLOADING:
-		return job_to
-	return _nearest_depot()
+func _attach_candidate() -> TrailerScript:
+	if attached != null or truck.speed_kmh() > 6.0:
+		return null
+	var fw: Vector3 = truck.fifth_wheel_global()
+	for tr: TrailerScript in trailers:
+		if tr.delivered:
+			continue
+		var kp := tr.kingpin_global()
+		if Vector2(fw.x - kp.x, fw.z - kp.z).length() > ATTACH_DIST:
+			continue
+		if truck.global_transform.basis.z.dot(tr.global_transform.basis.z) < 0.75:
+			continue
+		return tr
+	return null
 
 
-func _can_interact() -> bool:
-	var here := _depot_here()
-	if here < 0 or truck.speed_kmh() > 3.0:
-		return false
-	if state == State.FREE:
-		return true
-	return state == State.DELIVERING and here == job_to
+func _attach(tr: TrailerScript) -> void:
+	var fw: Vector3 = truck.fifth_wheel_global()
+	var yaw_basis := Basis(Vector3.UP, tr.global_rotation.y)
+	tr.global_transform = Transform3D(yaw_basis, fw - yaw_basis * TrailerScript.KINGPIN)
+	tr.linear_velocity = truck.linear_velocity
+	tr.angular_velocity = Vector3.ZERO
+
+	joint = Generic6DOFJoint3D.new()
+	add_child(joint)
+	joint.global_transform = Transform3D(Basis(Vector3.UP, truck.global_rotation.y), fw)
+	joint.set_flag_y(Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT, false)    # завиване
+	joint.set_param_x(Generic6DOFJoint3D.PARAM_ANGULAR_LOWER_LIMIT, -0.2)    # малко накланяне
+	joint.set_param_x(Generic6DOFJoint3D.PARAM_ANGULAR_UPPER_LIMIT, 0.2)
+	joint.node_a = joint.get_path_to(truck)
+	joint.node_b = joint.get_path_to(tr)
+
+	attached = tr
+	tr.set_attached(true)
+	truck.has_trailer = true
+	for d in offers.keys():
+		if offers[d] == tr:
+			offers[d] = null
+	hud.toast("Закачено: %s" % CARGO[tr.cargo]["name"], Color(1, 0.85, 0.4))
+
+
+func _detach() -> void:
+	var tr := attached
+	joint.queue_free()
+	joint = null
+	attached = null
+	truck.has_trailer = false
+	tr.brake = 30.0
+	tr.set_attached(false)
+	if not tr.delivered and _depot_at(tr.global_position) == tr.to_depot:
+		tr.delivered = true
+		tr.set_attached(false)
+		money += tr.pay
+		deliveries += 1
+		hud.toast("Доставено!  + $%d" % tr.pay)
+		hud.set_money(money, deliveries)
+		_save()
+	else:
+		hud.toast("Ремаркето е откачено", Color(1, 0.85, 0.4))
 
 
 func _interact() -> void:
-	if not _can_interact():
+	if attached != null:
+		if truck.speed_kmh() < 3.0:
+			_detach()
 		return
-	timer = LOAD_TIME
-	if state == State.FREE:
-		job_from = _depot_here()
-		state = State.LOADING
-	else:
-		state = State.UNLOADING
-	_update_job_text()
+	var tr := _attach_candidate()
+	if tr != null:
+		_attach(tr)
 
 
-func _start_delivery() -> void:
-	var options := []
-	for i in DEPOTS.size():
-		if i != job_from:
-			options.append(i)
-	job_to = options[randi() % options.size()]
-	job_cargo = randi() % CARGO.size()
-	var dist: float = (DEPOTS[job_from]["pos"] as Vector3).distance_to(DEPOTS[job_to]["pos"])
-	job_pay = int(round((150.0 + dist * 1.6) * CARGO[job_cargo]["rate"] / 10.0)) * 10
-	truck.set_cargo(true, CARGO[job_cargo]["color"])
-	state = State.DELIVERING
-	hud.toast("Натоварено: %s" % CARGO[job_cargo]["name"], Color(1, 0.85, 0.4))
+func _nearest_trailer() -> TrailerScript:
+	var best: TrailerScript = null
+	var best_d := INF
+	for tr: TrailerScript in trailers:
+		if tr.delivered:
+			continue
+		var d := truck.global_position.distance_to(tr.global_position)
+		if d < best_d:
+			best_d = d
+			best = tr
+	return best
 
 
-func _finish_delivery() -> void:
-	money += job_pay
-	deliveries += 1
-	truck.set_cargo(false)
-	hud.toast("+ $%d" % job_pay)
-	hud.set_money(money, deliveries)
-	state = State.FREE
-	job_to = -1
-	_save()
+func _maintain_trailers() -> void:
+	# Доставените ремаркета изчезват, когато се отдалечиш
+	for tr: TrailerScript in trailers.duplicate():
+		if tr.delivered and tr != attached and truck.global_position.distance_to(tr.global_position) > 70.0:
+			trailers.erase(tr)
+			tr.queue_free()
+	# Нова поръчка на всяка база без ремарке (когато не гледаш)
+	for d in DEPOTS.size():
+		if offers.get(d) != null:
+			continue
+		var spot := _offer_spot(d)
+		if truck.global_position.distance_to(spot) < 90.0:
+			continue
+		var free := true
+		for tr: TrailerScript in trailers:
+			if tr.global_position.distance_to(spot) < 16.0:
+				free = false
+		if free:
+			_make_offer(d)
 
 
 func _update_job_text() -> void:
-	match state:
-		State.FREE:
-			var n: String = DEPOTS[_nearest_depot()]["name"]
-			hud.set_job("Няма товар", "Спри в жълтата зона на база (най-близо: %s) и натисни ТОВАР" % n)
-		State.LOADING:
-			hud.set_job("Товарене…", "Не мърдай, докато се товари")
-		State.DELIVERING:
-			var dist := truck.global_position.distance_to(DEPOTS[job_to]["pos"])
-			hud.set_job("%s → %s" % [CARGO[job_cargo]["name"], DEPOTS[job_to]["name"]],
-				"Остават %.1f км   ·   заплащане $%d" % [dist / 1000.0, job_pay])
-		State.UNLOADING:
-			hud.set_job("Разтоварване…", "Не мърдай, докато се разтоварва")
+	if attached != null:
+		var dest: Vector3 = DEPOTS[attached.to_depot]["pos"]
+		if _depot_at(attached.global_position) == attached.to_depot:
+			hud.set_job("Пристигна: %s" % DEPOTS[attached.to_depot]["name"], "Спри и натисни ОТКАЧИ, за да предадеш товара ($%d)" % attached.pay)
+		elif attached.delivered:
+			hud.set_job("Празно ремарке", "Откачи го, за да вземеш нова поръчка")
+		else:
+			hud.set_job("%s → %s" % [CARGO[attached.cargo]["name"], DEPOTS[attached.to_depot]["name"]],
+				"Остават %.1f км   ·   заплащане $%d" % [truck.global_position.distance_to(dest) / 1000.0, attached.pay])
+	elif _attach_candidate() != null:
+		hud.set_job("Ремаркето е зад теб", "Натисни ЗАКАЧИ")
+	else:
+		var tr := _nearest_trailer()
+		var where := ""
+		if tr != null and _depot_at(tr.global_position) >= 0:
+			where = " (най-близо: %s)" % DEPOTS[_depot_at(tr.global_position)]["name"]
+		hud.set_job("Няма ремарке", "Иди до ремарке с поръчка%s, обърни и дай назад до него" % where)
 
 
 func _process(delta: float) -> void:
 	hud.set_speed(truck.speed_kmh())
+	if attached != null:
+		attached.brake = truck.brake
+	cam.with_trailer = attached != null
+	cam.docking = false
+	if attached == null:
+		var near := _nearest_trailer()
+		if near != null and truck.fifth_wheel_global().distance_to(near.kingpin_global()) < 22.0:
+			cam.docking = true
 
-	if state == State.LOADING or state == State.UNLOADING:
-		if truck.speed_kmh() > 3.0 or _depot_here() < 0:
-			state = State.FREE if state == State.LOADING else State.DELIVERING
-			hud.toast("Прекъснато — спри в зоната", Color(1, 0.5, 0.4))
-			hud.set_progress(-1)
-		else:
-			timer -= delta
-			hud.set_progress(1.0 - timer / LOAD_TIME)
-			if timer <= 0.0:
-				hud.set_progress(-1)
-				if state == State.LOADING:
-					_start_delivery()
-				else:
-					_finish_delivery()
+	respawn_timer -= delta
+	if respawn_timer <= 0.0:
+		respawn_timer = 1.0
+		_maintain_trailers()
 
-	touch.set_interact_visible(_can_interact() and state != State.LOADING and state != State.UNLOADING)
+	var btn := ""
+	if attached != null and truck.speed_kmh() < 3.0:
+		btn = "ОТКАЧИ"
+	elif _attach_candidate() != null:
+		btn = "ЗАКАЧИ"
+	touch.set_interact(btn)
 	_update_job_text()
 
 	# Стрелка над кабината и светъл стълб над целта
-	var t: Vector3 = DEPOTS[_target()]["pos"]
+	var t := truck.global_position
+	if attached != null:
+		t = DEPOTS[attached.to_depot]["pos"]
+	else:
+		var tr := _nearest_trailer()
+		if tr != null:
+			t = tr.kingpin_global()
 	arrow.global_position = truck.global_position + Vector3(0, 4.6, 0)
 	var flat := Vector3(t.x, arrow.global_position.y, t.z)
-	if flat.distance_to(arrow.global_position) > 1.0:
+	arrow.visible = flat.distance_to(arrow.global_position) > 8.0
+	if arrow.visible:
 		arrow.look_at(flat, Vector3.UP)
-	beacon.global_position = t + Vector3(0, 30, 0)
-	beacon.visible = state == State.DELIVERING or state == State.UNLOADING or _depot_here() < 0
+	beacon.global_position = Vector3(t.x, 30, t.z)
+	beacon.visible = truck.global_position.distance_to(t) > 25.0
 
 
 # ---------------------------------------------------------------- запис

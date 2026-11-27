@@ -3,6 +3,10 @@ extends Camera3D
 
 var target: Node3D
 var mode := 0
+var with_trailer := false
+var docking := false          # близо до ремарке за закачане: поглед отгоре
+var dock_blend := 0.0
+var zoom := 1.0
 const MODES := [Vector2(13.0, 5.0), Vector2(20.0, 8.5), Vector2(7.5, 3.2)]  # разстояние, височина
 
 
@@ -19,6 +23,10 @@ func _physics_process(delta: float) -> void:
 	if target == null:
 		return
 	var cfg: Vector2 = MODES[mode]
+	zoom = lerpf(zoom, 1.75 if with_trailer else 1.0, clampf(delta * 1.5, 0.0, 1.0))
+	cfg = Vector2(cfg.x * zoom, cfg.y * (0.6 + 0.4 * zoom))
+	dock_blend = lerpf(dock_blend, 1.0 if docking else 0.0, clampf(delta * 2.0, 0.0, 1.0))
+	cfg = cfg.lerp(Vector2(9.0, 16.0), dock_blend)
 	var back := target.global_transform.basis.z
 	back.y = 0.0
 	if back.length() < 0.01:

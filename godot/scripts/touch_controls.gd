@@ -67,5 +67,9 @@ func _layout() -> void:
 	buttons["interact"].position = Vector2(s.x / 2 - 56, s.y - 112 - m - 110)
 
 
-func set_interact_visible(on: bool) -> void:
-	buttons["interact"].visible = on
+## Показва бутона с даден надпис ("" = скрит)
+func set_interact(text: String) -> void:
+	var b: TouchScreenButton = buttons["interact"]
+	b.visible = text != ""
+	if text != "":
+		(b.get_child(0) as Label).text = text

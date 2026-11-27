@@ -4,13 +4,16 @@ extends VehicleBody3D
 
 const MAX_SPEED_KMH := 95.0
 const REVERSE_KMH := 20.0
-const ENGINE_POWER := 2600.0     # на всяко задвижващо колело
+const ENGINE_POWER := 2600.0     # на всяко задвижващо колело (без ремарке)
+const ENGINE_POWER_LOADED := 4200.0
+const MAX_SPEED_LOADED_KMH := 85.0
+const FIFTH_WHEEL := Vector3(0, 1.0, -2.2)   # седло (локално)
 const BRAKE_POWER := 90.0
 const STEER_LOW := 0.55          # максимален волан на място
 const STEER_HIGH := 0.14         # максимален волан при висока скорост
 
 var steer_value := 0.0
-var cargo_mesh: MeshInstance3D
+var has_trailer := false
 var brake_light_mat: StandardMaterial3D
 
 
@@ -20,12 +23,9 @@ func _ready() -> void:
 	center_of_mass = Vector3(0, -0.2, 0.2)
 	can_sleep = false
 
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(2.4, 1.5, 7.2)
-	shape.shape = box
-	shape.position = Vector3(0, 1.0, 0)
-	add_child(shape)
+	# Кабина (висока) + ниска рама отзад, за да може седлото да мине под ремаркето
+	_shape(Vector3(2.45, 2.6, 2.4), Vector3(0, 1.85, 2.4))
+	_shape(Vector3(2.2, 0.6, 4.8), Vector3(0, 0.45, -1.2))
 
 	_build_body()
 	_add_wheel(Vector3(-1.1, 0.0, 2.5), true, false)
@@ -34,6 +34,15 @@ func _ready() -> void:
 	_add_wheel(Vector3(1.1, 0.0, -1.6), false, true)
 	_add_wheel(Vector3(-1.1, 0.0, -2.9), false, true)
 	_add_wheel(Vector3(1.1, 0.0, -2.9), false, true)
+
+
+func _shape(size: Vector3, pos: Vector3) -> void:
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	cs.shape = box
+	cs.position = pos
+	add_child(cs)
 
 
 func _mat(color: Color, metallic := 0.0, rough := 0.6) -> StandardMaterial3D:
@@ -77,8 +86,10 @@ func _build_body() -> void:
 	light_mat.emission = Color(1, 0.95, 0.8)
 	_box(Vector3(0.4, 0.2, 0.05), Vector3(-0.85, 0.9, 3.66), light_mat)
 	_box(Vector3(0.4, 0.2, 0.05), Vector3(0.85, 0.9, 3.66), light_mat)
-	# Платформа отзад
-	_box(Vector3(2.4, 0.15, 4.6), Vector3(0, 0.85, -1.3), dark)
+	# Калници и седло
+	_box(Vector3(0.55, 0.08, 2.7), Vector3(-1.1, 0.72, -2.25), dark)
+	_box(Vector3(0.55, 0.08, 2.7), Vector3(1.1, 0.72, -2.25), dark)
+	_box(Vector3(1.4, 0.25, 1.4), Vector3(0, 0.88, -2.2), _mat(Color(0.25, 0.25, 0.27), 0.6, 0.4))
 	# Стопове
 	brake_light_mat = _mat(Color(0.5, 0.05, 0.05))
 	brake_light_mat.emission_enabled = true
@@ -86,9 +97,6 @@ func _build_body() -> void:
 	brake_light_mat.emission_energy_multiplier = 0.0
 	_box(Vector3(0.4, 0.2, 0.05), Vector3(-1.0, 0.75, -3.62), brake_light_mat)
 	_box(Vector3(0.4, 0.2, 0.05), Vector3(1.0, 0.75, -3.62), brake_light_mat)
-	# Товар (вижда се, когато има поръчка)
-	cargo_mesh = _box(Vector3(2.3, 1.8, 4.3), Vector3(0, 1.85, -1.3), _mat(Color(0.6, 0.45, 0.25)))
-	cargo_mesh.visible = false
 
 
 func _add_wheel(pos: Vector3, steering: bool, traction: bool) -> void:
@@ -136,10 +144,8 @@ func speed_kmh() -> float:
 	return absf(forward_speed()) * 3.6
 
 
-func set_cargo(on: bool, color := Color(0.6, 0.45, 0.25)) -> void:
-	cargo_mesh.visible = on
-	if on:
-		(cargo_mesh.material_override as StandardMaterial3D).albedo_color = color
+func fifth_wheel_global() -> Vector3:
+	return global_transform * FIFTH_WHEEL
 
 
 ## Изправя камиона на пътя (ако се е обърнал)
@@ -162,13 +168,13 @@ func _physics_process(delta: float) -> void:
 	if gas > 0.0:
 		if v < -0.5:
 			brake_force = BRAKE_POWER * gas          # движи се назад, натиснат газ -> спира
-		elif kmh < MAX_SPEED_KMH:
-			force = ENGINE_POWER * gas
+		elif kmh < (MAX_SPEED_LOADED_KMH if has_trailer else MAX_SPEED_KMH):
+			force = (ENGINE_POWER_LOADED if has_trailer else ENGINE_POWER) * gas
 	if brk > 0.0:
 		if v > 0.5:
 			brake_force = BRAKE_POWER * brk
 		elif kmh < REVERSE_KMH:
-			force = -ENGINE_POWER * 0.6 * brk         # заден ход
+			force = -(ENGINE_POWER_LOADED if has_trailer else ENGINE_POWER) * 0.6 * brk         # заден ход
 	if gas == 0.0 and brk == 0.0:
 		brake_force = 4.0                             # двигателна спирачка
 	if Input.is_action_pressed("handbrake"):
